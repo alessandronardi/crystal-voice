@@ -6,6 +6,7 @@ Da eseguire quando l'E2E automatico non copre un passo (gesto sulla toolbar, asc
 
 | # | Scenario | Passi | Atteso | Rif. |
 |---|---|---|---|---|
+| M0 | Caricamento | In Chrome 120 e in Chrome stabile: `chrome://extensions` → modalità sviluppatore → «Carica estensione non pacchettizzata» → `dist/extension/`; apri «Service worker»; apri la Side Panel dal menu dei pannelli laterali di Chrome (il click sull'icona non fa ancora nulla fino a I-02) | Nessun errore nel pannello estensioni né nella console del service worker; la Side Panel mostra «VoiceCrystal» | I-01 |
 | M1 | Avvio | Apri un video `/watch`, avvia la riproduzione, clic sull'icona | Pannello aperto; indicatore di cattura di Chrome visibile; audio udibile una sola volta | ADR-0002 |
 | M2 | Stop | Durante l'ascolto premi «Interrompi» | Indicatore spento; audio normale; pannello in `HOME` | §6 |
 | M3 | Pausa lunga | Avvia, metti in pausa 60 s, riprendi | Sessione viva; stato «In pausa»; alla ripresa riprende il conteggio | ADR-0003 |
@@ -25,6 +26,6 @@ Da eseguire quando l'E2E automatico non copre un passo (gesto sulla toolbar, asc
 
 ## Registro esecuzioni
 
-| Data | Commit | Chrome / SO | Esecutore | Esiti (M1…M16) | Note |
+| Data | Commit | Chrome / SO | Esecutore | Esiti (M0…M16) | Note |
 |---|---|---|---|---|---|
 | | | | | | |

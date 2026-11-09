@@ -1,0 +1,13 @@
+{
+  "name": "@voicecrystal/dsp-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline-capable DSP: descriptors, VAD, stopping rule (SPEC §7-§8). Pure.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

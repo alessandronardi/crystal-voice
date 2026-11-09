@@ -1,0 +1,19 @@
+{
+  "name": "@voicecrystal/extension",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "VoiceCrystal Chrome MV3 extension (SPEC §5).",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "node scripts/build.ts"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/chrome": "0.3.7",
+    "@types/node": "24.19.2",
+    "@voicecrystal/contracts": "workspace:*",
+    "tailwindcss": "4.3.3",
+    "vite": "8.3.5"
+  }
+}

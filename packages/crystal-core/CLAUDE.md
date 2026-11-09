@@ -22,6 +22,7 @@ Valgono `AGENTS.md` e `CLAUDE.md` della radice. Riferimenti: SPEC §10; ADR-0005
 - Le normali dei piani non devono essere normalizzate: per una faccia di terminazione usa `n = (cos θ_k, sin θ_k, c)` con `c` = ripidità dal parametro e `d` scalato di conseguenza. I vertici si ottengono risolvendo sistemi 3×3 con sole operazioni `+ − × ÷`, deterministiche in IEEE 754.
 - Quantizza i vertici a interi (unità 2⁻¹⁶) **prima** di triangolare e di calcolare l'hash. Ordine canonico: vertici ordinati per (x, y, z), triangoli per indice minimo poi lessicografico.
 - SHA-256 tramite implementazione inclusa nel pacchetto o `crypto.subtle` con adattatore; l'hash deve coincidere in Node, Chrome e Firefox.
+- Cosa verifica il lint (`tooling/eslint/purity.js`) e cosa no: blocca `let`/`var` di modulo, `Date`, timer, `Math.random`, alias di `Math` e `crypto`, `import()` dinamico; in `geometry/` anche i membri `Math` non ammessi e ogni import con `..`. **Non** rileva lo stato mutabile dentro `const` (oggetti, `Map`, campi statici di classe): resta un punto di revisione.
 
 ## Test obbligatori
 

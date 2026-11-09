@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node", "chrome"],
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": [
+    "tests/**/*.ts",
+    "scripts/**/*.ts",
+    "tooling/**/*.js",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ],
+  "exclude": ["tests/lint-fixtures/**"]
+}

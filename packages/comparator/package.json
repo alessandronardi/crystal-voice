@@ -1,0 +1,13 @@
+{
+  "name": "@voicecrystal/comparator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Acoustic affinity as nearness percentile (ADR-0007). Pure.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

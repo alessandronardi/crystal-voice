@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "VoiceCrystal",
+  "version": "0.3.0",
+  "minimum_chrome_version": "120",
+  "permissions": ["tabCapture", "offscreen", "sidePanel", "activeTab", "storage"],
+  "action": { "default_title": "Avvia VoiceCrystal" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/watch*"],
+      "js": ["youtube-content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  }
+}

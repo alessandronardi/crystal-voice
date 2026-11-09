@@ -1,0 +1,13 @@
+{
+  "name": "@voicecrystal/renderer-three",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Museum showcase renderer with Three.js (ADR-0012).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

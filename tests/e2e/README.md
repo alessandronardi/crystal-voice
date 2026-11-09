@@ -33,7 +33,8 @@ chromium.launchPersistentContext(userDataDir, {
 | Data | Ambiente | Modalità | Esito |
 |---|---|---|---|
 | 2026-11-09 | Windows 11 Home 10.0.26300, Node 24.4.1, `@playwright/test` 1.64.0, Chromium 156.0.8078.4 (revisione Playwright 1248) | con finestra | 2/2 superati: estensione caricata, `PONG` ricevuto, quattro pagine senza errori in console |
-| 2026-11-09 | stesso | headless (`channel: 'chromium'`, VC_E2E_HEADLESS=1) | 2/2 superati |
+| 2026-11-09 | stesso, dopo ADR-0015 | con finestra | 3/3 superati: in più, `fetch` verso un URL esterno rifiutato dalla CSP (`connect-src`) da Side Panel e service worker; richiesta alla propria origine consentita |
+| 2026-11-09 | stesso, dopo ADR-0015 | headless (`channel: 'chromium'`, VC_E2E_HEADLESS=1) | 3/3 superati |
 
 Limite noto: in I-01 `offscreen.html` non contiene ancora script (il modulo vuoto viene eliminato in build), quindi «senza errori» su quella pagina prova solo che il file esiste e si carica.
 

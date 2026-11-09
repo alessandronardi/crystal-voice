@@ -75,3 +75,39 @@ test('every extension page loads without errors', async () => {
     await page.close();
   }
 });
+
+// ADR-0015: connect-src 'self'. The CSP rejects the request before any
+// connection, so this test does not depend on the network being reachable.
+test('the CSP blocks network requests from pages and the service worker', async () => {
+  const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+  const extensionId = new URL(worker.url()).host;
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
+
+  const fromPage = await page.evaluate(async () => {
+    const violation = new Promise<string>((resolve) => {
+      document.addEventListener('securitypolicyviolation', (e) => {
+        resolve(e.effectiveDirective);
+      });
+    });
+    const outcome = await fetch('https://example.com/').then(
+      () => 'allowed',
+      () => 'rejected',
+    );
+    return { outcome, directive: await violation };
+  });
+  expect(fromPage).toEqual({ outcome: 'rejected', directive: 'connect-src' });
+
+  const fromWorker = await worker.evaluate(() =>
+    fetch('https://example.com/').then(
+      () => 'allowed',
+      () => 'rejected',
+    ),
+  );
+  expect(fromWorker).toBe('rejected');
+
+  // Own-origin requests stay allowed.
+  const own = await page.evaluate(() => fetch('/manifest.json').then((r) => r.ok));
+  expect(own).toBe(true);
+  await page.close();
+});

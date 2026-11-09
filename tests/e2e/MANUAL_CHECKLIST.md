@@ -28,4 +28,4 @@ Da eseguire quando l'E2E automatico non copre un passo (gesto sulla toolbar, asc
 
 | Data | Commit | Chrome / SO | Esecutore | Esiti (M0…M16) | Note |
 |---|---|---|---|---|---|
-| | | | | | |
+| 2026-11-09 | `affa212` | Chrome 120 e Chrome stabile; versioni esatte e SO non indicati | Alessandro Nardi (product owner) | M0 superato · M1–M16 non applicabili (funzioni non ancora implementate, da I-02 in poi) | Esito comunicato in chat all'agente, che lo ha trascritto ma non lo ha osservato. Da completare con le versioni esatte di Chrome e il SO. Eseguito prima di ADR-0015 (`connect-src`): la CSP aggiunta è coperta dall'E2E in Chromium, non da questa esecuzione. |

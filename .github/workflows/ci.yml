@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "issue/**"]
   pull_request:
 
 permissions:

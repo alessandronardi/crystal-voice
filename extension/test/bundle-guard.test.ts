@@ -173,8 +173,8 @@ describe('scanSource on real minified output (regression for C1)', () => {
 
 describe('checkCsp', () => {
   it.each([
-    "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';",
-    "script-src 'self'; object-src 'none';",
+    "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self';",
+    "script-src 'self'; object-src 'none'; connect-src 'self'",
   ])('accepts %s', (csp) => {
     expect(checkCsp(csp)).toEqual([]);
   });
@@ -192,9 +192,21 @@ describe('checkCsp', () => {
     expect(rules(checkCsp(csp))).toContain('csp-source');
   });
 
-  it('requires script-src and object-src', () => {
-    expect(rules(checkCsp("script-src 'self'"))).toEqual(['csp-missing']);
+  it('requires script-src, object-src and connect-src (ADR-0015)', () => {
+    expect(rules(checkCsp("script-src 'self'"))).toEqual(['csp-missing', 'csp-missing']);
+    expect(checkCsp("script-src 'self'; object-src 'self'")).toEqual([
+      { file: 'manifest.json', rule: 'csp-missing', detail: 'connect-src' },
+    ]);
   });
+
+  it.each(["connect-src 'none'", 'connect-src blob:', "connect-src 'self' data:"])(
+    'accepts only connect-src self (ADR-0015): rejects %s',
+    (directive) => {
+      expect(rules(checkCsp(`script-src 'self'; object-src 'self'; ${directive}`))).toContain(
+        'csp-source',
+      );
+    },
+  );
 });
 
 describe('checkManifest', () => {

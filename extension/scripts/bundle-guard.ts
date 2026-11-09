@@ -151,6 +151,8 @@ const ALLOWED_KEYS: Readonly<Record<string, readonly string[]>> = {
 const ALLOWED_CSP_SOURCES: Readonly<Record<string, readonly string[]>> = {
   'script-src': ["'self'", "'wasm-unsafe-eval'"],
   'object-src': ["'self'", "'none'"],
+  // ADR-0015: network only to the extension's own origin.
+  'connect-src': ["'self'"],
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {

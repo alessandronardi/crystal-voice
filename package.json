@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@12.18.0",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=26.0.0"
   },
   "scripts": {
     "typecheck": "pnpm -r run typecheck && tsc --noEmit -p tsconfig.json",
@@ -21,7 +21,7 @@
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.64.0",
     "@types/chrome": "0.3.7",
-    "@types/node": "24.19.2",
+    "@types/node": "26.6.6",
     "@voicecrystal/calibration": "workspace:*",
     "@voicecrystal/comparator": "workspace:*",
     "@voicecrystal/contracts": "workspace:*",

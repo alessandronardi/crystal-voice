@@ -29,3 +29,9 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
   Limite dichiarato: lo stato mutabile dentro `const` non viene rilevato.
 - I-01: E2E Playwright «estensione caricata, il service worker risponde al ping»; `tests/e2e/README.md`; voce M0 nella checklist manuale.
 - I-01: workflow CI GitHub Actions (typecheck, lint, test, build, E2E sotto xvfb).
+- ADR-0015: CSP delle pagine con `connect-src 'self'` (decisione D-A); guardia e E2E la verificano.
+
+### Modificato
+- Node fissato alla LTS attiva 26.13.0 (decisione D-D).
+- AGENTS.md §8: l'elenco delle licenze ammesse vale per il bundle distribuito; licenze open source diverse ammesse per dipendenze di sviluppo annotate (decisione D-B).
+- CI eseguita anche al push dei branch `issue/**`.

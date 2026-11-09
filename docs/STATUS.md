@@ -2,9 +2,9 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-09 — I-01 implementata, non chiusa
+**Ultimo aggiornamento:** 2026-11-09 — I-01: decisioni D-A…D-D applicate, M0 registrato, remote configurato
 
-> **I-01 non è chiusa.** Codice e test locali sono verdi. Mancano due voci della DoD che richiedono un umano: il caricamento in Chrome 120 e in Chrome stabile (checklist M0) e una CI verde (nessun remote). Sono aperte anche quattro decisioni del product owner, elencate sotto. Il lavoro è sul branch `issue/I-01-skeleton-ci`, **non committato**.
+> **I-01 non è ancora chiusa: manca una CI verde.** Le decisioni D-A…D-D sono prese e applicate (ADR-0015 per D-A). M0 è registrato come superato su indicazione del product owner. Il branch `issue/I-01-skeleton-ci` è su `origin` (https://github.com/alessandronardi/crystal-voice); l'esito della CI va registrato qui.
 
 ## Sintesi
 
@@ -17,41 +17,41 @@
 
 | Voce | Stato | Evidenza |
 |---|---|---|
-| `pnpm build` produce `dist/extension/` caricabile in Chrome 120 e nella stabile, senza errori nel pannello estensioni | **Parziale** | Caricata senza errori in console nel Chromium 156.0.8078.4 di Playwright 1.64.0, su Windows 11, con e senza finestra (2/2 E2E). **Non eseguito** su Chrome 120 e su Chrome stabile: nessuna delle due build è presente in questo ambiente. Va fatto a mano con la voce M0 di `tests/e2e/MANUAL_CHECKLIST.md`. Gli errori del pannello `chrome://extensions` non sono leggibili da Playwright. |
+| `pnpm build` produce `dist/extension/` caricabile in Chrome 120 e nella stabile, senza errori nel pannello estensioni | Fatto (M0 dichiarato dal product owner) | M0 superato in Chrome 120 e stabile secondo il product owner (2026-11-09, commit `affa212`, registro in `tests/e2e/MANUAL_CHECKLIST.md`): l'agente non l'ha osservato, versioni esatte e SO da completare. Inoltre: Caricata senza errori in console nel Chromium 156.0.8078.4 di Playwright 1.64.0, su Windows 11, con e senza finestra (2/2 E2E). **Non eseguito** su Chrome 120 e su Chrome stabile: nessuna delle due build è presente in questo ambiente. Va fatto a mano con la voce M0 di `tests/e2e/MANUAL_CHECKLIST.md`. Gli errori del pannello `chrome://extensions` non sono leggibili da Playwright. |
 | Regola ESLint di purezza: nei pacchetti puri vietati `chrome`, `window`, `document`, `three`; in `crystal-core/src/geometry/` vietati `Math.random`, `Date`, `Math.sin/cos/tan/atan2/exp/pow/log` | Fatto | `tooling/eslint/purity.js`. Copre in più: rete, globali Node e import di moduli Node (lista da `builtinModules`), `import()` dinamico, R11 su tutto `crystal-core` (casualità, orologi, `let`/`var` di modulo, alias di `Math` e `crypto`), e in `geometry/` solo membri `Math` ammessi e nessun import con `..`. **Limite dichiarato:** lo stato mutabile dentro `const` (oggetti, `Map`, campi statici) non viene rilevato. |
 | Un test dimostra che la regola scatta (`tests/lint-fixtures/`) | Fatto | `tests/lint/purity.test.ts`, 29 test. Ogni riga marcata `// ✗` nei fixture deve essere segnalata e nessun'altra riga può esserlo. |
-| CSP senza sorgenti remote; build fallisce con `eval` o `new Function` | Fatto, con limiti | `extension/scripts/bundle-guard.ts` lavora sul bundle **minificato**: un test minifica davvero con Vite e verifica che `Function(e)` e `globalThis.eval` vengano rilevati. Rileva anche gli URL assoluti (in template e concatenazioni) e valida il manifest con un elenco di chiavi, permessi e match ammessi. **Limite:** è un controllo testuale. Un URL costruito senza nessun frammento letterale di schema non viene rilevato, e la CSP di SPEC §5 non limita la rete (decisione D-A). |
+| CSP senza sorgenti remote; build fallisce con `eval` o `new Function` | Fatto | CSP con `connect-src 'self'` (ADR-0015): l'E2E verifica che `fetch` verso l'esterno sia rifiutato da Side Panel e service worker. Inoltre: `extension/scripts/bundle-guard.ts` lavora sul bundle **minificato**: un test minifica davvero con Vite e verifica che `Function(e)` e `globalThis.eval` vengano rilevati. Rileva anche gli URL assoluti (in template e concatenazioni) e valida il manifest con un elenco di chiavi, permessi e match ammessi. **Limite:** è un controllo testuale, ora seconda linea di difesa dietro la CSP; il content script non è coperto dalla CSP delle pagine (ipotesi da verificare in I-03). |
 | `tests/e2e/README.md` documenta il caricamento in Playwright e se l'headless è supportato | Fatto | Headless **verificato** su Windows con il canale `chromium` di Playwright 1.64.0. Non verificato su Linux. |
-| Test: CI verde | **Non eseguito** | `.github/workflows/ci.yml` è scritto ma non è mai stato eseguito: il repository non ha remote e `gh` non è installato. Da verificare anche che `pnpm/action-setup` supporti pnpm 12.18.0. |
-| Test: E2E «l'estensione si carica e il service worker risponde a un ping» | Fatto | `tests/e2e/extension-loads.spec.ts`: 2/2 con e senza finestra. |
+| Test: CI verde | **Da verificare** | Remote `origin` aggiunto e branch inviato. La CI parte al push di `main`, `issue/**` e sulle PR, con Node 26.13.0 da `.nvmrc`. Esito della prima esecuzione: vedi sotto. |
+| Test: E2E «l'estensione si carica e il service worker risponde a un ping» | Fatto | `tests/e2e/extension-loads.spec.ts`: 3/3 con e senza finestra. |
 
-**Verifiche eseguite il 2026-11-09** (Windows 11, Node 24.4.1, pnpm 12.18.0): `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm test` (4 file, 144 test), `pnpm build` (14 file, 8,7 KB, guardia superata), `pnpm test:e2e` con e senza finestra (2/2).
+**Verifiche eseguite il 2026-11-09** (Windows 11, Node 24.4.1, pnpm 12.18.0): `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm test` (4 file, 147 test), `pnpm build` (14 file, guardia superata), `pnpm test:e2e` con e senza finestra (3/3). **In locale non c'è Node 26:** la prima esecuzione su Node 26.13.0 è quella della CI.
 
 **Revisione avversariale:** due passaggi indipendenti.
 - **Primo passaggio:** NO-GO, con 1 rilievo CRITICAL, 3 HIGH e 5 MEDIUM.
 - **Secondo passaggio:** CONDITIONAL GO. I rilievi che restavano aperti (import aggirabili in `geometry/`, `(0,eval)`, URL composti, rete nei pacchetti puri, alias di `Math` e `crypto`) sono stati corretti dopo il secondo passaggio e coperti da test. Un terzo passaggio non è stato eseguito.
 
-## Decisioni richieste al product owner
+## Decisioni del product owner su I-01 (9 novembre 2026)
 
-| ID | Domanda | Contesto |
+| ID | Decisione | Applicazione |
 |---|---|---|
-| D-A | Aggiungere `connect-src 'self'` (o `default-src 'self'`) alla CSP con un ADR? | La CSP di SPEC §5 [F] blocca `eval` ma non la rete. Senza, R2 a runtime è difeso solo dalla guardia testuale e dal lint. Lo raccomandano entrambe le revisioni. |
-| D-B | L'elenco delle licenze ammesse (AGENTS §8) vale anche per le dipendenze di sviluppo transitive che non entrano nel bundle? | `lightningcss` 1.32/1.33 (MPL-2.0, da Vite e Tailwind, entrambi [F] in SPEC §4) e `minimatch` 10.2.6 (BlueOak-1.0.0, da ESLint). Nessuna delle due finisce in `dist/`. |
-| D-C | Il messaggio diagnostico `PING`/`PONG` resta nel bundle di rilascio? | Non fa parte di `CaptureMessage`, non porta `sessionId`/`seq` né dati. Serve all'E2E. In alternativa: escluderlo dalle build di rilascio (I-16). |
-| D-D | Quale versione di Node fissare? | `.nvmrc` = 24.4.1, la versione installata qui. AGENTS §6 chiede la «LTS attiva»: a novembre 2026 potrebbe essere la 26.x (`needs current-doc verification`). |
+| D-A | CSP con `connect-src 'self'` | ADR-0015 (Accettato); manifest, guardia ed E2E aggiornati. **Da fare:** aggiornare SPEC §5 e §14 come elencato nell'ADR |
+| D-B | Le licenze fuori elenco sono ammesse per dipendenze di sviluppo che non entrano nel bundle | Nota in AGENTS.md §8. Oggi: `lightningcss` (MPL-2.0), `minimatch` (BlueOak-1.0.0) |
+| D-C | `PING`/`PONG` resta nel bundle | Rivalutare l'esclusione dalle build di rilascio in I-16 |
+| D-D | Node LTS attiva: 26 «Lithium» (LTS dal 2026-10-28, fonte `nodejs/Release` schedule.json; la 24 è in manutenzione dal 2026-10-20) | `.nvmrc` 26.13.0, `engines` ≥ 26, `@types/node` 26.6.6. **L'ambiente locale ha ancora Node 24.4.1**: installare Node 26 |
 
 ## Prossimi passi
 
-1. **Umano:** eseguire M0 in Chrome 120 e in Chrome stabile e registrarlo in `tests/e2e/MANUAL_CHECKLIST.md`.
-2. **Umano:** creare il remote, poi commit, push e prima esecuzione della CI. I commit li fa l'agente solo su richiesta.
-3. Rispondere a D-A…D-D. Dopo, se servono, un ADR e gli aggiustamenti, poi la chiusura di I-01.
-4. Dopo I-01: I-02 e I-04 in parallelo; I-10 e I-17 possono partire.
+1. Registrare l'esito della prima CI. Se è verde, I-01 si può chiudere (merge della PR).
+2. **Umano:** installare Node 26.13.0 in locale; completare la riga M0 con le versioni esatte di Chrome e il SO.
+3. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
+4. Dopo I-01: I-04 e I-10 (pure, verificabili per intero in Node), I-02 (richiede Chrome reale), I-17.
 5. In parallelo, azioni umane: avviare G0 (`docs/LEGAL_G0_CHECKLIST.md`) e preparare moduli di consenso e reclutamento per il dataset (I-08).
 
 ## Blocchi
 
 - Fase 4 e 5 bloccate fino a G0.
-- Chiusura di I-01: M0 e CI (azioni umane).
+- Chiusura di I-01: CI verde.
 
 ## Dipendenze nuove (I-01)
 
@@ -67,14 +67,15 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | @playwright/test | 1.64.0 | Apache-2.0 | E2E [F]; usa il Chromium 1248 già in cache |
 | eslint, @eslint/js | 10.14.0, 10.0.1 | MIT | Lint e regole di purezza |
 | typescript-eslint | 8.72.1 | MIT | Lint con tipi. La 8.72.2 era stata pubblicata da meno di 24 ore |
-| @types/chrome, @types/node | 0.3.7, 24.19.2 | MIT | Tipi |
+| @types/chrome, @types/node | 0.3.7, 26.6.6 | MIT | Tipi |
 
 ## Verificato / non verificato
 
 | Voce | Stato |
 |---|---|
 | Comportamento API Chrome (`sidePanel`, `tabCapture`, `offscreen`) | Verificato su documentazione il 9 nov 2026; **non** ancora in Chrome reale |
-| Caricamento dell'estensione | Verificato in Chromium 156 (Playwright); **non** in Chrome 120 né in Chrome stabile |
+| Caricamento dell'estensione | Verificato dall'agente in Chromium 156 (Playwright); in Chrome 120 e stabile dichiarato superato dal product owner (M0) |
+| CSP `connect-src 'self'` a runtime | Verificato in Chromium 156 (E2E) per Side Panel e service worker; content script non coperto (da verificare in I-03) |
 | Headless con estensione | Verificato su Windows (canale `chromium`); non su Linux |
 | `--load-extension` ignorato da Google Chrome «branded» recente | Segnalato; `needs current-doc verification` |
 | Conflitto `openPanelOnActionClick` / `onClicked` | Segnalato dalla community; da verificare in I-02 |
@@ -94,3 +95,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 |---|---|---|---|---|
 | 2026-11-09 | Claude | — | Documentazione di progetto | Spec v0.3, ADR 0001–0014, backlog, gate |
 | 2026-11-09 | Claude | I-01 | Implementata, non chiusa | Test locali verdi; due revisioni avversariali (NO-GO → CONDITIONAL GO, rilievi residui corretti); M0, CI e D-A…D-D aperti; nessun commit |
+| 2026-11-09 | Claude | I-01 | Decisioni applicate | D-A…D-D applicate (ADR-0015, AGENTS §8, Node 26); M0 registrato su dichiarazione del product owner; remote `origin` e push; esito CI da registrare |

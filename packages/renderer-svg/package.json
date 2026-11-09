@@ -1,0 +1,13 @@
+{
+  "name": "@voicecrystal/renderer-svg",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic crystallographic plate in SVG (ADR-0013). Pure.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

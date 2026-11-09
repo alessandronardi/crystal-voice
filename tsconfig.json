@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    // DOM: code passed to page.evaluate() in tests/e2e runs in the browser.
+    "lib": ["ES2022", "DOM"],
+    "types": ["node", "chrome"],
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": [
+    "tests/**/*.ts",
+    "scripts/**/*.ts",
+    "tooling/**/*.js",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ],
+  "exclude": ["tests/lint-fixtures/**"]
+}

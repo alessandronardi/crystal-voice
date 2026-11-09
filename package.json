@@ -1,0 +1,37 @@
+{
+  "name": "voicecrystal",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r run typecheck && tsc --noEmit -p tsconfig.json",
+    "lint": "eslint --max-warnings=0 .",
+    "test": "vitest run",
+    "test:golden": "node scripts/dev/not-implemented.ts test:golden I-10",
+    "test:golden:browsers": "node scripts/dev/not-implemented.ts test:golden:browsers I-10",
+    "fixtures": "node scripts/dev/not-implemented.ts fixtures I-04",
+    "build": "pnpm --filter @voicecrystal/extension run build",
+    "test:e2e": "playwright test",
+    "bench": "node scripts/dev/not-implemented.ts bench I-04"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.0",
+    "@types/chrome": "0.3.7",
+    "@types/node": "26.6.6",
+    "@voicecrystal/calibration": "workspace:*",
+    "@voicecrystal/comparator": "workspace:*",
+    "@voicecrystal/contracts": "workspace:*",
+    "@voicecrystal/crystal-core": "workspace:*",
+    "@voicecrystal/dsp-core": "workspace:*",
+    "@voicecrystal/renderer-svg": "workspace:*",
+    "eslint": "10.14.0",
+    "fast-check": "4.10.2",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.1.0"
+  }
+}

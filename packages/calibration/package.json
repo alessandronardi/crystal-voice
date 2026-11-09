@@ -1,0 +1,13 @@
+{
+  "name": "@voicecrystal/calibration",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Versioned quantile tables and loader (ADR-0006). Pure.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

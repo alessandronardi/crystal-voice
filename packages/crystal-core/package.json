@@ -1,0 +1,13 @@
+{
+  "name": "@voicecrystal/crystal-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic half-space crystal generator (SPEC §10, ADR-0005, ADR-0010). Pure.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

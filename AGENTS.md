@@ -113,7 +113,7 @@ Una issue è chiusa solo se:
 - [ ] `pnpm typecheck`, `pnpm lint`, `pnpm test` verdi.
 - [ ] Nuovo comportamento coperto da test; bug corretti hanno un test di regressione.
 - [ ] Nessuna violazione delle regole R1–R17.
-- [ ] Nessuna nuova dipendenza senza nota di licenza, dimensione e motivazione nella PR (licenze ammesse: MIT, BSD, Apache-2.0, ISC, OFL per i font, Zlib).
+- [ ] Nessuna nuova dipendenza senza nota di licenza, dimensione e motivazione nella PR (licenze ammesse: MIT, BSD, Apache-2.0, ISC, OFL per i font, Zlib). L'elenco vale per ciò che entra nel bundle distribuito (`dist/`). Le dipendenze di sviluppo, anche transitive, che non entrano nel bundle possono avere altre licenze open source (es. MPL-2.0, BlueOak-1.0.0), purché annotate nella PR (decisione D-B, 2026-11-09).
 - [ ] Contratti in `packages/contracts` aggiornati se cambia un messaggio o un record; versione incrementata se cambia la semantica (`extractorVersion`, `mappingVersion`, `geometryVersion`, `comparatorVersion`, `schemaVersion`).
 - [ ] Documentazione aggiornata (STATUS, CHANGELOG, ADR se c'è una decisione).
 - [ ] Stringhe UI in italiano nel modulo centralizzato, mai inline.

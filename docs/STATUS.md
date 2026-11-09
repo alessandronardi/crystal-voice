@@ -2,9 +2,9 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-09 — I-01: decisioni D-A…D-D applicate, M0 registrato, remote configurato
+**Ultimo aggiornamento:** 2026-11-09 — I-01 completata sul branch, CI verde; manca il merge
 
-> **I-01 non è ancora chiusa: manca una CI verde.** Le decisioni D-A…D-D sono prese e applicate (ADR-0015 per D-A). M0 è registrato come superato su indicazione del product owner. Il branch `issue/I-01-skeleton-ci` è su `origin` (https://github.com/alessandronardi/crystal-voice); l'esito della CI va registrato qui.
+> **I-01: tutte le voci della DoD hanno un'evidenza; manca solo il merge.** CI verde sulla [run 42707392231](https://github.com/alessandronardi/crystal-voice/actions/runs/42707392231) (commit `34f972c`). Il passo successivo è la PR da `issue/I-01-skeleton-ci` verso `main`, con revisione umana e merge in squash. M0 è registrato su dichiarazione del product owner.
 
 ## Sintesi
 
@@ -22,7 +22,7 @@
 | Un test dimostra che la regola scatta (`tests/lint-fixtures/`) | Fatto | `tests/lint/purity.test.ts`, 29 test. Ogni riga marcata `// ✗` nei fixture deve essere segnalata e nessun'altra riga può esserlo. |
 | CSP senza sorgenti remote; build fallisce con `eval` o `new Function` | Fatto | CSP con `connect-src 'self'` (ADR-0015): l'E2E verifica che `fetch` verso l'esterno sia rifiutato da Side Panel e service worker. Inoltre: `extension/scripts/bundle-guard.ts` lavora sul bundle **minificato**: un test minifica davvero con Vite e verifica che `Function(e)` e `globalThis.eval` vengano rilevati. Rileva anche gli URL assoluti (in template e concatenazioni) e valida il manifest con un elenco di chiavi, permessi e match ammessi. **Limite:** è un controllo testuale, ora seconda linea di difesa dietro la CSP; il content script non è coperto dalla CSP delle pagine (ipotesi da verificare in I-03). |
 | `tests/e2e/README.md` documenta il caricamento in Playwright e se l'headless è supportato | Fatto | Headless **verificato** su Windows con il canale `chromium` di Playwright 1.64.0. Non verificato su Linux. |
-| Test: CI verde | **Da verificare** | Remote `origin` aggiunto e branch inviato. La CI parte al push di `main`, `issue/**` e sulle PR, con Node 26.13.0 da `.nvmrc`. Esito della prima esecuzione: vedi sotto. |
+| Test: CI verde | Fatto | [Run 42707392231](https://github.com/alessandronardi/crystal-voice/actions/runs/42707392231) del 2026-11-09 sul commit `34f972c`, con Node 26.13.0 da `.nvmrc` su `ubuntu-latest`: `typecheck, lint, test, build` superato; `e2e (Chromium, extension loaded)` superato (sotto `xvfb-run`). Esito letto dall'API pubblica di GitHub (stato dei job); i log dettagliati non sono stati letti dall'agente. |
 | Test: E2E «l'estensione si carica e il service worker risponde a un ping» | Fatto | `tests/e2e/extension-loads.spec.ts`: 3/3 con e senza finestra. |
 
 **Verifiche eseguite il 2026-11-09** (Windows 11, Node 24.4.1, pnpm 12.18.0): `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm test` (4 file, 147 test), `pnpm build` (14 file, guardia superata), `pnpm test:e2e` con e senza finestra (3/3). **In locale non c'è Node 26:** la prima esecuzione su Node 26.13.0 è quella della CI.
@@ -42,7 +42,7 @@
 
 ## Prossimi passi
 
-1. Registrare l'esito della prima CI. Se è verde, I-01 si può chiudere (merge della PR).
+1. **Umano:** aprire la PR da `issue/I-01-skeleton-ci` (https://github.com/alessandronardi/crystal-voice/pull/new/issue/I-01-skeleton-ci), rivederla e fare il merge in squash. L'agente non può aprirla: `gh` non è installato. Poi I-01 è chiusa.
 2. **Umano:** installare Node 26.13.0 in locale; completare la riga M0 con le versioni esatte di Chrome e il SO.
 3. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
 4. Dopo I-01: I-04 e I-10 (pure, verificabili per intero in Node), I-02 (richiede Chrome reale), I-17.
@@ -51,7 +51,7 @@
 ## Blocchi
 
 - Fase 4 e 5 bloccate fino a G0.
-- Chiusura di I-01: CI verde.
+- Chiusura di I-01: PR e merge (azione umana).
 
 ## Dipendenze nuove (I-01)
 
@@ -81,7 +81,8 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | Conflitto `openPanelOnActionClick` / `onClicked` | Segnalato dalla community; da verificare in I-02 |
 | Microfono in offscreen dopo permesso in pagina estensione | Da verificare in I-17 |
 | Automazione del gesto per `tabCapture` in Playwright | Da verificare in I-02 |
-| Corrispondenza fra SHA delle GitHub Actions e tag `v4` | Ottenuti con `git ls-remote` il 9 nov 2026; non verificati in una run |
+| Corrispondenza fra SHA delle GitHub Actions e tag `v4` | Ottenuti con `git ls-remote` il 9 nov 2026; la run 42707392231 li ha usati con successo |
+| `pnpm/action-setup` con pnpm 12.18.0, Node 26 su `ubuntu-latest` | Verificato dalla run 42707392231 |
 | Simulazioni della revisione (affinità, cambio lati) | Eseguite su dati sintetici; da confermare su dati reali in G1 |
 
 ## Proposte fuori perimetro
@@ -95,4 +96,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 |---|---|---|---|---|
 | 2026-11-09 | Claude | — | Documentazione di progetto | Spec v0.3, ADR 0001–0014, backlog, gate |
 | 2026-11-09 | Claude | I-01 | Implementata, non chiusa | Test locali verdi; due revisioni avversariali (NO-GO → CONDITIONAL GO, rilievi residui corretti); M0, CI e D-A…D-D aperti; nessun commit |
-| 2026-11-09 | Claude | I-01 | Decisioni applicate | D-A…D-D applicate (ADR-0015, AGENTS §8, Node 26); M0 registrato su dichiarazione del product owner; remote `origin` e push; esito CI da registrare |
+| 2026-11-09 | Claude | I-01 | Decisioni applicate | D-A…D-D applicate (ADR-0015, AGENTS §8, Node 26); M0 registrato su dichiarazione del product owner; remote `origin` e push; CI verde (run 42707392231) |

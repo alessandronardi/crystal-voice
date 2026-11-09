@@ -25,7 +25,7 @@
 | Test: CI verde | Fatto | [Run 42707392231](https://github.com/alessandronardi/crystal-voice/actions/runs/42707392231) del 2026-11-09 sul commit `34f972c`, con Node 26.13.0 da `.nvmrc` su `ubuntu-latest`: `typecheck, lint, test, build` superato; `e2e (Chromium, extension loaded)` superato (sotto `xvfb-run`). Esito letto dall'API pubblica di GitHub (stato dei job); i log dettagliati non sono stati letti dall'agente. |
 | Test: E2E «l'estensione si carica e il service worker risponde a un ping» | Fatto | `tests/e2e/extension-loads.spec.ts`: 3/3 con e senza finestra. |
 
-**Verifiche eseguite il 2026-11-09** (Windows 11, Node 24.4.1, pnpm 12.18.0): `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm test` (4 file, 147 test), `pnpm build` (14 file, guardia superata), `pnpm test:e2e` con e senza finestra (3/3). **In locale non c'è Node 26:** la prima esecuzione su Node 26.13.0 è quella della CI.
+**Verifiche eseguite il 2026-11-09** (Windows 11, Node 24.4.1, pnpm 12.18.0): `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm test` (4 file, 147 test), `pnpm build` (14 file, guardia superata), `pnpm test:e2e` con e senza finestra (3/3). **Ripetute il 2026-11-09 su Node 26.13.0** (installato dal product owner, versione verificata dall'agente con `node -v`): install, typecheck, lint, 147 test, build ed E2E 3/3 con finestra, tutti verdi (output del terminale del product owner).
 
 **Revisione avversariale:** due passaggi indipendenti.
 - **Primo passaggio:** NO-GO, con 1 rilievo CRITICAL, 3 HIGH e 5 MEDIUM.
@@ -38,12 +38,12 @@
 | D-A | CSP con `connect-src 'self'` | ADR-0015 (Accettato); manifest, guardia ed E2E aggiornati. **Da fare:** aggiornare SPEC §5 e §14 come elencato nell'ADR |
 | D-B | Le licenze fuori elenco sono ammesse per dipendenze di sviluppo che non entrano nel bundle | Nota in AGENTS.md §8. Oggi: `lightningcss` (MPL-2.0), `minimatch` (BlueOak-1.0.0) |
 | D-C | `PING`/`PONG` resta nel bundle | Rivalutare l'esclusione dalle build di rilascio in I-16 |
-| D-D | Node LTS attiva: 26 «Lithium» (LTS dal 2026-10-28, fonte `nodejs/Release` schedule.json; la 24 è in manutenzione dal 2026-10-20) | `.nvmrc` 26.13.0, `engines` ≥ 26, `@types/node` 26.6.6. **L'ambiente locale ha ancora Node 24.4.1**: installare Node 26 |
+| D-D | Node LTS attiva: 26 «Lithium» (LTS dal 2026-10-28, fonte `nodejs/Release` schedule.json; la 24 è in manutenzione dal 2026-10-20) | `.nvmrc` 26.13.0, `engines` ≥ 26, `@types/node` 26.6.6. Ambiente locale aggiornato a 26.13.0 e verificato |
 
 ## Prossimi passi
 
 1. **Umano:** aprire la PR da `issue/I-01-skeleton-ci` (https://github.com/alessandronardi/crystal-voice/pull/new/issue/I-01-skeleton-ci), rivederla e fare il merge in squash. L'agente non può aprirla: `gh` non è installato. Poi I-01 è chiusa.
-2. **Umano:** installare Node 26.13.0 in locale; completare la riga M0 con le versioni esatte di Chrome e il SO.
+2. **Umano:** completare la riga M0 con le versioni esatte di Chrome e il SO.
 3. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
 4. Dopo I-01: I-04 e I-10 (pure, verificabili per intero in Node), I-02 (richiede Chrome reale), I-17.
 5. In parallelo, azioni umane: avviare G0 (`docs/LEGAL_G0_CHECKLIST.md`) e preparare moduli di consenso e reclutamento per il dataset (I-08).
@@ -97,3 +97,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-09 | Claude | — | Documentazione di progetto | Spec v0.3, ADR 0001–0014, backlog, gate |
 | 2026-11-09 | Claude | I-01 | Implementata, non chiusa | Test locali verdi; due revisioni avversariali (NO-GO → CONDITIONAL GO, rilievi residui corretti); M0, CI e D-A…D-D aperti; nessun commit |
 | 2026-11-09 | Claude | I-01 | Decisioni applicate | D-A…D-D applicate (ADR-0015, AGENTS §8, Node 26); M0 registrato su dichiarazione del product owner; remote `origin` e push; CI verde (run 42707392231) |
+| 2026-11-09 | Claude | I-01 | Node 26 in locale | Suite completa verde su Node 26.13.0 in locale |

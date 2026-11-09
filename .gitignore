@@ -1,0 +1,18 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+tests/benchmarks/out/
+*.log
+.DS_Store
+
+# Dati personali: mai nel repository (AGENTS.md R16)
+dataset/
+**/human-recordings/
+*.consent.pdf
+
+# Segreti locali
+.env
+.env.*
+.claude/settings.local.json

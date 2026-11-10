@@ -185,10 +185,10 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 ### I-10 · crystal-core a semispazi
 
 - **Riferimenti:** SPEC §10; ADR-0005, ADR-0010, ADR-0018, ADR-0019; `packages/crystal-core/CLAUDE.md`.
-- **Stato:** implementata sul branch `issue/I-10-crystal-core`, non chiusa: Firefox e CI non ancora eseguiti, revisione estetica G2 da fare. Evidenze in `docs/STATUS.md`.
+- **Stato:** implementata sul branch `issue/I-10-crystal-core`, non chiusa: CI verde sul commit `63a09b3`, PR da aprire, revisione estetica G2 da fare. Evidenze in `docs/STATUS.md`.
 - **Perimetro:** intersezione di semispazi; forme ammesse; cammino continuo di `p1`; terminazioni; secondari da dimensione 0; inclusioni; quantizzazione; PRNG per dominio; SHA-256; `geometryVersion = habit-1`; seed dorati.
 - **DoD:**
-  - [ ] 1.000 seed dorati: hash identici in Node, Chrome, Firefox. Node e Chromium sì; Firefox solo in CI, non ancora eseguita.
+  - [x] 1.000 seed dorati: hash identici in Node, Chrome, Firefox. Node e Chromium in locale; Chromium e Firefox in CI (run 42826775595).
   - [x] Property test: convessità, Eulero, winding, coordinate finite, budget triangoli.
   - [x] Continuità: Δ di 100 unità → 1 − IoU ≤ 0,03 [H] su 10.000 coppie casuali, o valore misurato e soglia in ADR. Massimo misurato 0,0252 sul campione di verifica (0,0248 su quello di taratura).
   - [x] Catalogo visivo di 200 seed (tavole SVG) per la revisione estetica G2: `pnpm catalog`. La revisione è umana e spetta al G2.

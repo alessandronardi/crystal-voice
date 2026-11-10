@@ -4,7 +4,7 @@
 
 **Ultimo aggiornamento:** 2026-11-10 — I-10 implementata, in attesa di CI e revisione; I-05a chiusa
 
-> **I-10 implementata, non chiusa (2026-11-10).** Branch `issue/I-10-crystal-core`, un solo commit di I-10 che include anche la chiusura documentale di I-05a (ex `8712387`), su richiesta del product owner. Verificati in locale: 257 test, seed dorati in Node e Chromium (bundle normale e minificato), continuità massima 0,0252 su 10.000 coppie geometriche, 0 difetti su 40.000 seed. Revisione avversariale: CONDITIONAL GO, rilievi corretti; domande L1 e L5 decise dal product owner (nomi degli abiti, [ADR-0019](ADR/0019-nomi-degli-abiti-di-habit-1-fedeli-alla-geometria.md); varietà al G2). **Non eseguiti al momento del commit:** Firefox (solo CI) e la CI stessa. La revisione estetica G2 del catalogo spetta a una persona. Decisioni: rumore continuo ([ADR-0018](ADR/0018-casualita-continua-via-rumore-su-reticolo-dei-parametri.md)); Firefox solo in CI.
+> **I-10 implementata, non chiusa (2026-11-10).** Branch `issue/I-10-crystal-core`, un solo commit di I-10 che include anche la chiusura documentale di I-05a (ex `8712387`), su richiesta del product owner. Verificati in locale: 257 test, seed dorati in Node e Chromium (bundle normale e minificato), continuità massima 0,0252 su 10.000 coppie geometriche, 0 difetti su 40.000 seed. Revisione avversariale: CONDITIONAL GO, rilievi corretti; domande L1 e L5 decise dal product owner (nomi degli abiti, [ADR-0019](ADR/0019-nomi-degli-abiti-di-habit-1-fedeli-alla-geometria.md); varietà al G2). CI verde sul commit `63a09b3` ([CI run 42826775595](https://github.com/alessandronardi/crystal-voice/actions/runs/42826775595)): typecheck/lint/test/build, seed dorati in Chromium e Firefox, continuità e robustezza, E2E. PR non ancora aperta. La revisione estetica G2 del catalogo spetta a una persona. Decisioni: rumore continuo ([ADR-0018](ADR/0018-casualita-continua-via-rumore-su-reticolo-dei-parametri.md)); Firefox solo in CI.
 >
 > **I-05a chiusa il 2026-11-10** ([PR crystal-voice#4](https://github.com/alessandronardi/crystal-voice/pull/4), merge squash `0c73dba`). M2 0,21% / 0% solo su voci sintetiche. I-05b in attesa delle decisioni sulle dipendenze VAD.
 >
@@ -21,7 +21,7 @@
 
 | Voce | Stato | Evidenza |
 |---|---|---|
-| 1.000 seed dorati: hash identici in Node, Chrome, Firefox | Node e Chromium sì; **Firefox non eseguito** | `tests/fixtures/seeds/golden-habit-1.json`. `pnpm test:golden`: 1.000 hash identici in Node 26.13.0. `pnpm test:golden:browsers --project=chromium`: identici in Chromium 156 (Playwright 1.64.0, pagina `about:blank`), con bundle Vite IIFE sia normale sia minificato. Firefox: job CI `golden-browsers`, non ancora eseguito (nessun push) |
+| 1.000 seed dorati: hash identici in Node, Chrome, Firefox | Fatto | `tests/fixtures/seeds/golden-habit-1.json`. `pnpm test:golden`: 1.000 hash identici in Node 26.13.0. `pnpm test:golden:browsers --project=chromium`: identici in Chromium 156 (Playwright 1.64.0, pagina `about:blank`), con bundle Vite IIFE sia normale sia minificato. Firefox e Chromium in CI: job `golden hashes (Chromium, Firefox)` verde sul commit `63a09b3` ([CI run 42826775595](https://github.com/alessandronardi/crystal-voice/actions/runs/42826775595)), passo `pnpm test:golden:browsers` senza filtro di progetto, quindi entrambi i progetti della configurazione. I log dei singoli test richiedono l'accesso autenticato e non sono stati letti |
 | Property test: convessità, Eulero, winding, coordinate finite, budget | Fatto | `packages/crystal-core/test/generate.test.ts`: 400 seed casuali e 400 sui bordi dei segmenti, con controllo di planarità delle facce e degli estremi degli aghi dentro il primario. `pnpm bench:robustness`: 0 difetti su 40.000 seed (metà sui bordi), massimo 368 triangoli. Convessità entro 0,5 quanti per asse più 68 quanti, la deriva dichiarata di `halfspace.ts` (facce sotto 64 quanti rimosse, spigoli sotto 4 collassati) |
 | Continuità: Δ 100 → 1 − IoU ≤ 0,03 [H] su 10.000 coppie | Fatto | `pnpm bench:continuity`: 10.000 coppie sui soli p1–p4, campione distinto da quello di taratura. Massimo 0,0252 (p1 0,0241; p2 0,0123; p3 0,0252; p4 0,0112); p5 e p6 non muovono la geometria. Controprova del revisore: 0,0251. **Limite:** la silhouette non vede inclusioni e corpi interni; la nascita dei secondari è coperta da un test a parte (≤ 300 quanti alla nascita). Registro in `docs/BENCHMARK_PROTOCOL.md` §7 |
 | Catalogo visivo di 200 seed | Fatto (la revisione è del G2) | `pnpm catalog` → `tests/benchmarks/out/catalog/index.html`, controllato a vista dall'agente con uno screenshot: tavole leggibili, forme plausibili. Il giudizio estetico è umano |
@@ -163,7 +163,7 @@
 
 ## Prossimi passi
 
-1. I-10: leggere l'esito della CI (con Firefox) sul branch pushato, registrarlo qui, poi aprire la PR. Revisione estetica del catalogo pubblicato da parte di una persona, al G2.
+1. I-10: aprire la PR (CI verde sul commit `63a09b3`). Revisione estetica del catalogo pubblicato da parte di una persona, al G2.
 2. I-05b: decidere le dipendenze VAD (libfvad compilato con Emscripten; Silero con onnxruntime-web, circa 10–12 MB di WASM; proposta: Silero solo in Node per il confronto).
 3. **Umano:** archiviare la vecchia sessione I-10 ferma su una domanda; cancellare `.agents/` e `.codex/`; completare la riga M0 con le versioni esatte di Chrome e il SO.
 4. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
@@ -233,3 +233,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-10 | Claude | I-05a | Chiusa | PR crystal-voice#4 unita in squash (`0c73dba`) |
 | 2026-11-10 | Claude | I-10 | Implementata, non chiusa | ADR-0018; crystal-core `habit-1`; 1.000 seed dorati Node + Chromium; continuità 0,0248; 0 difetti su 40.000 seed; catalogo di 200; Firefox e CI non eseguiti |
 | 2026-11-10 | Claude | I-10 | Decisioni L1/L5, commit e push | ADR-0019 (nomi degli abiti, hash invariati); catalogo pubblicato come pagina privata; 257 test, golden Node + Chromium verdi; timeout del property test portato a 30 s dopo un superamento a 5,2 s sotto carico |
+| 2026-11-10 | Claude | I-10 | CI verde | [CI run 42826775595](https://github.com/alessandronardi/crystal-voice/actions/runs/42826775595): tre job verdi, compresi seed dorati in Firefox |

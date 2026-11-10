@@ -316,9 +316,32 @@ function buildCatalog(): FixtureSpec[] {
         const { signal, truth } = synthVoice(VOICE_A, 12, SR, 1001);
         return {
           channels: [signal, scale(signal, -1)],
-          // The expected pipeline outcome depends on the mono-mix rule, which SPEC §7.1
-          // leaves to be documented: kept open (null) until an ADR fixes it.
-          expected: { ...voiceExpected(truth, SR), monoSumIsSilent: true, expectedOutcome: null },
+          // Mono-mix rule: ADR-0016 (accepted 2026-11-10).
+          expected: {
+            ...voiceExpected(truth, SR),
+            monoSumIsSilent: true,
+            expectedOutcome: { voiceFound: true, warning: 'PHASE_CANCELLATION' },
+          },
+        };
+      },
+    },
+    {
+      name: 'voice-a-antiphase-partial',
+      family: 'antiphase',
+      description: 'Voce A stereo con il canale destro invertito e a metà ampiezza (R = −0,5·L): cancellazione parziale, circa 10 dB.',
+      sampleRate: SR,
+      seed: 1001,
+      params: { voice: voiceParamsJson(VOICE_A), seconds: 12, channels: 2, rightGain: -0.5 },
+      render() {
+        const { signal, truth } = synthVoice(VOICE_A, 12, SR, 1001);
+        return {
+          channels: [signal, scale(signal, -0.5)],
+          // 20·log10(√((1 + 0.25)/2) / 0.25) ≈ 10.0 dB, below PHASE_CANCELLATION_DB (ADR-0016).
+          expected: {
+            ...voiceExpected(truth, SR),
+            cancellationDbApprox: 10,
+            expectedOutcome: { voiceFound: true, warning: null },
+          },
         };
       },
     },

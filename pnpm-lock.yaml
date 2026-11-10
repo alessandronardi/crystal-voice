@@ -241,7 +241,11 @@ importers:
 
   packages/crystal-core: {}
 
-  packages/dsp-core: {}
+  packages/dsp-core:
+    dependencies:
+      '@voicecrystal/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/renderer-svg: {}
 

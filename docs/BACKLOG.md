@@ -16,8 +16,9 @@
 | I-17 | 1 | Sorgente microfono e pagina di permesso | I-01 | M | G-PoC |
 | I-18 | 1 | Sorgente file locale | I-01, I-04 | S | G-PoC |
 | I-04 | 2 | Fixture sintetiche + harness offline | I-01 | M | G1 |
-| I-05 | 2 | Pitch YIN + VAD a confronto | I-04 | M | G1 |
-| I-06 | 2 | Sei descrittori, confidenza, euristiche musica e più voci | I-05 | L | G1 |
+| I-05a | 2 | Mix mono, resampling, pitch YIN, interfaccia VAD | I-04 | M | G1 |
+| I-05b | 2 | Motori VAD a confronto (libfvad, Silero) | I-05a | M | G1 |
+| I-06 | 2 | Sei descrittori, confidenza, euristiche musica e più voci | I-05a, I-05b | L | G1 |
 | I-07 | 2 | Arresto split-half | I-06 | S | G1 |
 | I-08 | 2 | Dataset umano + report G1 | I-06, I-17 | L | G1 |
 | I-09 | 2 | Tabelle quantili `mapping-1` e tabella G del comparator | I-08 | S | G1 |
@@ -110,12 +111,30 @@
   - [x] `pnpm bench` gira in CI in meno di 2 minuti [H]. 1 s con il solo `signal-summary-0`.
 - **Test:** hash delle fixture; smoke test dell'harness.
 
-### I-05 · Pitch YIN + VAD a confronto
+### I-05 · Pitch YIN + VAD a confronto (divisa in I-05a e I-05b)
 
-- **Riferimenti:** SPEC §7.1–§7.3; VC-11; ADR-0016 (mix mono e cancellazione di fase, se accettato).
-- **Perimetro:** mono-mix con test in controfase; resampling anti-alias a 16 kHz; YIN con confidenza; integrazione di WebRTC VAD (libfvad, WASM) e Silero VAD (ONNX) dietro la stessa interfaccia.
+Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenze runtime da approvare (AGENTS.md §10): Silero richiede onnxruntime-web, con WASM da circa 10–12 MB; libfvad va compilato in WASM. La parte pura non deve aspettarle.
+
+### I-05a · Mix mono, resampling, pitch YIN, interfaccia VAD
+
+- **Riferimenti:** SPEC §7.1–§7.4; ADR-0016, ADR-0017; `docs/BENCHMARK_PROTOCOL.md` M2, M12.
+- **Perimetro:** mix mono con test in controfase (ADR-0016); resampling anti-alias a 16 kHz; frame; YIN con confidenza e periodicità; interfaccia `VadEngine` e pre-filtro RMS + banda (solo diagnostica); analizzatore di pitch nel bench.
+- **Stato:** DoD completa sul branch `issue/I-05-pitch-vad` (commit `a62b900`), CI verde (run 42808425841); in attesa di PR e merge. Evidenze in `docs/STATUS.md`.
 - **DoD:**
-  - [ ] Errore mediano f0 ≤ 1% e errori d'ottava ≤ 2% sulle fixture con f0 noto, oppure valori misurati riportati e soglia rinegoziata in ADR.
+  - [x] Errore mediano f0 ≤ 1% e errori d'ottava ≤ 2% sulle fixture con f0 noto, oppure valori misurati riportati e soglia rinegoziata in ADR. Misurato 0,21% e 0,00%, solo su voci sintetiche.
+  - [x] Mix mono secondo ADR-0016, con test su controfase completa, parziale e stereo in fase.
+  - [x] Anti-alias verificato, con attenuazione misurata riportata.
+  - [x] Interfaccia `VadEngine` per motori sincroni a 20 ms (adatta a libfvad); pre-filtro marcato non primario. La forma definitiva, che deve ospitare anche Silero (finestre da 512 campioni, inferenza asincrona), si fissa in I-05b.
+  - [x] `pnpm bench` riporta M2 e M12; tempo in CI sotto i 2 minuti. CI 6 s, locale 5,8 s.
+- **Test:** unit e property su `dsp-core`; benchmark registrato.
+
+### I-05b · Motori VAD a confronto
+
+- **Riferimenti:** SPEC §7.2; VC-11; interfaccia `VadEngine` di I-05a.
+- **Perimetro:** integrazione di WebRTC VAD (libfvad, WASM compilato dal progetto) e Silero VAD (ONNX) dietro `VadEngine`; confronto sulle fixture.
+- **Prima di iniziare:** approvazione delle dipendenze (licenza, dimensione, packaging, compatibilità con CSP e offscreen) da parte del product owner.
+- **Eredità da I-05a:** `VadEngine` è sincrona e a 20 ms; per Silero serve un adattatore asincrono con buffering, o un'interfaccia rivista, con una suite di conformità comune. Il resampler è solo a buffer intero: il percorso a blocchi del worker ne richiede uno con stato.
+- **DoD:**
   - [ ] Tabella comparativa dei due VAD: falsi positivi su musica, falsi negativi su voce sintetica, dimensione bundle, licenza, tempo per secondo di audio.
   - [ ] ADR con la scelta del VAD.
 - **Test:** unit su fixture; benchmark registrato.

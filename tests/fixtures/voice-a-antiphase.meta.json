@@ -1299,6 +1299,9 @@
       ]
     },
     "monoSumIsSilent": true,
-    "expectedOutcome": null
+    "expectedOutcome": {
+      "voiceFound": true,
+      "warning": "PHASE_CANCELLATION"
+    }
   }
 }

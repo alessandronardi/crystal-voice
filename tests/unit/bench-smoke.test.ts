@@ -9,7 +9,7 @@ import { buildFixture, buildManifest, selectSpecs, stableJson } from '../../scri
 import { writeFixtures } from '../../scripts/fixtures/generate.ts';
 import { BenchError, describeEnvironment, runBench } from '../benchmarks/harness.ts';
 
-const specs = selectSpecs(['silence', 'tone-200hz', 'voice-a-antiphase']);
+const specs = selectSpecs(['silence', 'tone-200hz', 'voice-a', 'voice-a-antiphase']);
 const built = specs.map(buildFixture);
 const manifestText = stableJson(buildManifest(specs, built));
 const dir = mkdtempSync(join(tmpdir(), 'vc-bench-'));
@@ -24,12 +24,22 @@ describe('bench harness', () => {
     expect(report.environment.node).toBe(process.version);
     expect(report.environment.date).toBe('2026-11-10T00:00:00.000Z');
     expect(report.environment.extractorVersion).toBeNull();
-    expect(report.environment.analyzers).toEqual(['signal-summary-0']);
-    expect(report.totals.fixtures).toBe(3);
+    expect(report.environment.analyzers).toEqual(['signal-summary-0', 'pitch-yin-0']);
+    expect(report.totals.fixtures).toBe(4);
     const byName = Object.fromEntries(report.fixtures.map((f) => [f.name, f]));
     expect(byName['silence']?.channels[0]?.rmsDbfs).toBeNull();
     expect(byName['tone-200hz']?.channels[0]?.rmsDbfs).toBeCloseTo(-12, 1);
     expect(byName['voice-a-antiphase']?.channels).toHaveLength(2);
+    expect(byName['voice-a-antiphase']?.warnings).toEqual(['PHASE_CANCELLATION']);
+    expect(byName['tone-200hz']?.pitch.toneRelError ?? 1).toBeLessThan(0.005);
+    expect(byName['silence']?.pitch.medianF0Hz).toBeNull();
+    // M2 pools only the clean voice families: here voice-a alone.
+    expect(report.m2.fixtures).toEqual(['voice-a']);
+    expect(report.m2.framesCompared).toBeGreaterThan(500);
+    expect(typeof report.m2.meetsTargets).toBe('boolean');
+    expect(byName['voice-a']?.pitch.truth?.framesCompared).toBe(report.m2.framesCompared);
+    expect(byName['voice-a']?.pitch.truth?.medianF0RelError).not.toBeNull();
+    expect(byName['voice-a']?.pitch.truth?.missedMedianTrueF0Hz).not.toBeNull();
     for (const f of report.fixtures) {
       expect(Number.isFinite(f.secondsPerAudioSecond)).toBe(true);
       expect(f.durationSeconds).toBeGreaterThan(0);

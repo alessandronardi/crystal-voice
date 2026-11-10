@@ -6,11 +6,30 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { cpus, platform, release } from 'node:os';
 import { join } from 'node:path';
-import { SIGNAL_SUMMARY_VERSION, signalSummary, type SignalSummary } from '@voicecrystal/dsp-core';
+import { PITCH_TRACK_VERSION, SIGNAL_SUMMARY_VERSION, signalSummary, trackPitch, type SignalSummary } from '@voicecrystal/dsp-core';
+import {
+  centsBetween,
+  frameErrors,
+  OCTAVE_ERROR_LOG2,
+  parsePitchTruth,
+  pitchFixtureMetrics,
+  type PitchFixtureMetrics,
+} from './pitch-metrics.ts';
+import { median } from '@voicecrystal/dsp-core';
 import { sha256Hex, type Manifest, type ManifestEntry } from '../../scripts/fixtures/build.ts';
 import { decodeWav } from '../../scripts/fixtures/wav.ts';
 
-export const BENCH_REPORT_VERSION = 1;
+export const BENCH_REPORT_VERSION = 2;
+
+/** M2 targets [H] (BENCHMARK_PROTOCOL §4). */
+export const M2_MAX_MEDIAN_REL_ERROR = 0.01;
+export const M2_MAX_OCTAVE_ERROR_RATE = 0.02;
+/**
+ * Families that form the M2 set: distinct clean synthetic voices with a known
+ * f0 track. Gain and sample-rate variants are the same signal (they belong to
+ * M3, reported in `invariance`) and would only duplicate frames.
+ */
+export const M2_FAMILIES = ['voice'] as const;
 
 export interface BenchEnvironment {
   commit: string | null;
@@ -31,7 +50,12 @@ export interface FixtureResult {
   name: string;
   sha256: string;
   durationSeconds: number;
+  family: string | null;
   channels: SignalSummary[];
+  pitch: PitchFixtureMetrics;
+  monoRule: string;
+  cancellationDb: number | null;
+  warnings: string[];
   /** Wall time of the analyzers on this fixture (decode excluded). */
   analysisMs: number;
   /** Analysis seconds per second of audio (BENCHMARK_PROTOCOL M12). */
@@ -43,6 +67,19 @@ export interface BenchReport {
   fixturesVersion: string;
   environment: BenchEnvironment;
   totals: { fixtures: number; audioSeconds: number; analysisMs: number; secondsPerAudioSecond: number };
+  /** BENCHMARK_PROTOCOL M2 pooled over the frames of the M2 families. */
+  m2: {
+    fixtures: string[];
+    framesCompared: number;
+    medianRelError: number | null;
+    octaveErrorRate: number | null;
+    octaveErrorDefinition: string;
+    scope: string;
+    targets: { medianRelError: number; octaveErrorRate: number };
+    meetsTargets: boolean | null;
+  };
+  /** Median f0 differences (cents) between variants of voice-a (M3 for pitch only). */
+  invariance: { [pair: string]: number | null };
   fixtures: FixtureResult[];
 }
 
@@ -113,13 +150,16 @@ export function describeEnvironment(now: Date): BenchEnvironment {
     chrome: null,
     extractorVersion: null,
     mappingVersion: null,
-    analyzers: [SIGNAL_SUMMARY_VERSION],
+    analyzers: [SIGNAL_SUMMARY_VERSION, PITCH_TRACK_VERSION],
   };
 }
 
 export function runBench(dir: string, environment: BenchEnvironment): BenchReport {
   const manifest = readManifest(dir);
   const fixtures: FixtureResult[] = [];
+  const pooledErrors: number[] = [];
+  let pooledOctave = 0;
+  const m2Fixtures: string[] = [];
   for (const [name, entry] of Object.entries(manifest.files)) {
     let bytes: Uint8Array;
     try {
@@ -133,18 +173,41 @@ export function runBench(dir: string, environment: BenchEnvironment): BenchRepor
     }
     const audio = decodeWav(bytes);
     const durationSeconds = (audio.channels[0]?.length ?? 0) / audio.sampleRate;
+    let metaText = '';
+    try {
+      metaText = readFileSync(join(dir, `${name}.meta.json`), 'utf8');
+    } catch {
+      // No meta: no ground truth, summaries only.
+    }
+    const truth = parsePitchTruth(metaText);
+    const family = familyOf(metaText);
     const started = performance.now();
     const channels = audio.channels.map((ch) => signalSummary(ch, audio.sampleRate));
+    const track = trackPitch(audio.channels, audio.sampleRate);
     const analysisMs = performance.now() - started;
+    if (truth !== null && family !== null && (M2_FAMILIES as readonly string[]).includes(family)) {
+      const e = frameErrors(track, truth);
+      pooledErrors.push(...e.errors);
+      pooledOctave += e.octave;
+      m2Fixtures.push(name);
+    }
     fixtures.push({
       name,
       sha256,
       durationSeconds,
+      family,
       channels,
+      pitch: pitchFixtureMetrics(track, truth),
+      monoRule: track.mono.rule,
+      cancellationDb: track.mono.cancellationDb,
+      warnings: [...track.mono.warnings],
       analysisMs,
       secondsPerAudioSecond: durationSeconds > 0 ? analysisMs / 1000 / durationSeconds : 0,
     });
   }
+  const medianRelError = median(pooledErrors);
+  const octaveErrorRate = pooledErrors.length > 0 ? pooledOctave / pooledErrors.length : null;
+  const f0Of = (n: string): number | null => fixtures.find((f) => f.name === n)?.pitch.medianF0Hz ?? null;
   const audioSeconds = fixtures.reduce((s, f) => s + f.durationSeconds, 0);
   const analysisMs = fixtures.reduce((s, f) => s + f.analysisMs, 0);
   return {
@@ -157,6 +220,33 @@ export function runBench(dir: string, environment: BenchEnvironment): BenchRepor
       analysisMs,
       secondsPerAudioSecond: audioSeconds > 0 ? analysisMs / 1000 / audioSeconds : 0,
     },
+    m2: {
+      fixtures: m2Fixtures,
+      framesCompared: pooledErrors.length,
+      medianRelError,
+      octaveErrorRate,
+      octaveErrorDefinition: `|log2(estimate/truth)| > ${OCTAVE_ERROR_LOG2}`,
+      scope: 'voci sintetiche sorgente-filtro (impulso di Rosenberg, jitter 0,5%): non vale per il parlato reale (G1, I-08)',
+      targets: { medianRelError: M2_MAX_MEDIAN_REL_ERROR, octaveErrorRate: M2_MAX_OCTAVE_ERROR_RATE },
+      meetsTargets:
+        medianRelError === null || octaveErrorRate === null
+          ? null
+          : medianRelError <= M2_MAX_MEDIAN_REL_ERROR && octaveErrorRate <= M2_MAX_OCTAVE_ERROR_RATE,
+    },
+    invariance: {
+      'voice-a→voice-a-44k': centsBetween(f0Of('voice-a'), f0Of('voice-a-44k')),
+      'voice-a→voice-a-plus6db': centsBetween(f0Of('voice-a'), f0Of('voice-a-plus6db')),
+      'voice-a→voice-a-minus6db': centsBetween(f0Of('voice-a'), f0Of('voice-a-minus6db')),
+    },
     fixtures,
   };
+}
+
+function familyOf(metaText: string): string | null {
+  try {
+    const meta: unknown = JSON.parse(metaText);
+    return isRecord(meta) && typeof meta['family'] === 'string' ? meta['family'] : null;
+  } catch {
+    return null;
+  }
 }

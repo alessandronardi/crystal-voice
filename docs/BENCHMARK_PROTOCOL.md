@@ -63,3 +63,15 @@ Le distribuzioni si riportano con grafici e tabelle; nessuna metrica è sintetiz
 - Cambiare una soglia `[H]` richiede una misura registrata qui o nel report di gate.
 - Un risultato peggiore dell'obiettivo **si riporta**, non si nasconde. Si decide al gate se ridimensionare la promessa.
 - Il dataset di valutazione non si usa per scegliere parametri; se succede, va dichiarato e serve un nuovo set.
+
+## 7. Misure registrate
+
+| Data | Commit base | Ambiente | Misura | Valore | Note |
+|---|---|---|---|---|---|
+| 2026-11-10 | `eaddd6b` + I-05a non committata | Windows 11, Node 26.13.0 | M2 su `voice-a`, `voice-a-long`, `voice-b` (2861 frame sonori in verità e stima) | errore relativo mediano 0,21%; errori d'ottava 0,00% | Solo voci sintetiche sorgente-filtro (Rosenberg, jitter 0,5%): **non** vale per il parlato reale. Per voce: 0,19%, 0,19%, 0,28%. Frame mancati 2,8–6,5%, con f0 vera mediana più bassa della media (voice-b: 184,7 Hz contro 208,6 Hz). Mediana stimata spostata verso l'alto di 0,22–0,82% |
+| 2026-11-10 | idem, con range YIN 60–1100 Hz (ADR-0017) | idem | M2 e falsi sonori dopo l'estensione del range | M2 invariato: 0,21%, 0,00% d'ottava | Falsi sonori: voice-a 4,35% → 6,83%; voice-a-long 5,30% → 7,57%; voice-b 11,71% → 13,81% (code e attacchi delle sillabe) |
+| 2026-11-10 | idem | idem | M3 per f0: Δ mediana f0 di `voice-a` contro 44,1 kHz, +6 dB, −6 dB | 0,02 cent; 0,00 cent; 0,00 cent | |
+| 2026-11-10 | idem | idem | M12 in Node: tempo DSP per secondo di audio (riepilogo segnale + pitch-track) | 0,0145 s/s su 366 s di audio | Non misurato nel DSP worker di Chrome |
+| 2026-11-10 | idem | idem | Resampler 44,1/48 → 16 kHz: risposta a toni | Δ < 0,01 dB fino a 6,5 kHz; −6,02 dB a 7,2 kHz (taglio); ≤ −103 dB da 8 kHz | Kaiser β = 9, 32 attraversamenti per lato |
+| 2026-11-10 | idem | idem | `cancellationDb` (ADR-0016) su voce A | R = −L: 120 (tetto, mono nullo); R = −0,5·L: 10,0 dB | Sonda della revisione: R = −0,8·L → 19,1 dB (non dichiarato), R = −0,95·L → 31,8 dB (dichiarato). `PHASE_CANCELLATION_DB` = 20 resta [H] **non calibrata**: nessun dato dice dove debba stare |
+

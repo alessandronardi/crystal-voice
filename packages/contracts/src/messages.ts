@@ -45,7 +45,9 @@ export type QualityWarning =
   | 'CLIPPING'
   | 'LOW_LEVEL'
   | 'PLAYER_MUTED'
-  | 'EXPERIMENTAL_MAPPING';
+  | 'EXPERIMENTAL_MAPPING'
+  /** Channels cancel out in the mono mix: analysis falls back to one channel (ADR-0016). */
+  | 'PHASE_CANCELLATION';
 
 /** `seq` is strictly increasing per sender. */
 export interface Envelope {

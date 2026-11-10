@@ -35,16 +35,18 @@
 
 ### I-01 · Scheletro monorepo, build MV3, lint di purezza, CI
 
+**Stato:** chiusa il 2026-11-09 ([PR crystal-voice#1](https://github.com/alessandronardi/crystal-voice/pull/1), commit `16cea26`). Evidenze in `docs/STATUS.md`; M0 dichiarato dal product owner.
+
 - **Riferimenti:** SPEC §4, §5; AGENTS.md §6; ADR-0001, ADR-0010.
 - **Obiettivo:** repository che compila un'estensione caricabile e impone le regole di purezza.
 - **Perimetro:** pnpm workspaces con i pacchetti di SPEC §4 (vuoti ma tipizzati); Vite multi-entry (service worker, content script, offscreen, worklet, worker, side panel, collection, permission); manifest v0.3; Tailwind locale; Vitest + fast-check; Playwright; `.nvmrc`; script dei comandi di AGENTS.md §6; CI (typecheck, lint, test, build).
 - **Fuori perimetro:** qualunque logica audio o geometrica.
 - **DoD:**
-  - [ ] `pnpm build` produce `dist/extension/` caricabile in Chrome 120 e nella stabile corrente senza errori nel pannello estensioni.
-  - [ ] Regola ESLint: nei pacchetti puri vietati `chrome`, `window`, `document`, `three`; in `crystal-core/src/geometry/` vietati `Math.random`, `Date`, `Math.sin/cos/tan/atan2/exp/pow/log`.
-  - [ ] Un test dimostra che la regola scatta (file di esempio volutamente non conforme in `tests/lint-fixtures/`).
-  - [ ] CSP del manifest senza sorgenti remote; build fallisce se il bundle contiene `eval` o `new Function`.
-  - [ ] `tests/e2e/README.md` documenta come caricare l'estensione in Playwright e se l'headless è supportato (verificato o «non verificato»).
+  - [x] `pnpm build` produce `dist/extension/` caricabile in Chrome 120 e nella stabile corrente senza errori nel pannello estensioni.
+  - [x] Regola ESLint: nei pacchetti puri vietati `chrome`, `window`, `document`, `three`; in `crystal-core/src/geometry/` vietati `Math.random`, `Date`, `Math.sin/cos/tan/atan2/exp/pow/log`.
+  - [x] Un test dimostra che la regola scatta (file di esempio volutamente non conforme in `tests/lint-fixtures/`).
+  - [x] CSP del manifest senza sorgenti remote; build fallisce se il bundle contiene `eval` o `new Function`.
+  - [x] `tests/e2e/README.md` documenta come caricare l'estensione in Playwright e se l'headless è supportato (verificato o «non verificato»).
 - **Test:** CI verde; E2E minimo «l'estensione si carica e il service worker risponde a un ping».
 
 ### I-02 · PoC cattura scheda + pass-through + avvio

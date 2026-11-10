@@ -35,3 +35,6 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 - Node fissato alla LTS attiva 26.13.0 (decisione D-D).
 - AGENTS.md §8: l'elenco delle licenze ammesse vale per il bundle distribuito; licenze open source diverse ammesse per dipendenze di sviluppo annotate (decisione D-B).
 - CI eseguita anche al push dei branch `issue/**`.
+
+### Chiuso
+- I-01 (PR crystal-voice#1, `16cea26`).

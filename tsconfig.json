@@ -13,7 +13,8 @@
     "tooling/**/*.js",
     "vitest.config.ts",
     "playwright.config.ts",
-    "playwright.golden.config.ts"
+    "playwright.golden.config.ts",
+    "playwright.render.config.ts"
   ],
   "exclude": ["tests/lint-fixtures/**"]
 }

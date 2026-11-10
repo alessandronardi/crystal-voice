@@ -20,7 +20,13 @@ export const PURE_PACKAGES = [
 /** Every source extension, so `.mts`, `.js` and friends cannot dodge the rules. */
 const EXT = '{ts,mts,cts,tsx,js,mjs,cjs,jsx}';
 
-export const PURE_SOURCE_GLOBS = PURE_PACKAGES.map((name) => `packages/${name}/src/**/*.${EXT}`);
+/** The pure core of renderer-three (geometry to arrays, colour, look): same rules, tested in Node. */
+export const PURE_SUBDIRECTORIES = ['renderer-three/src/pure'];
+
+export const PURE_SOURCE_GLOBS = [
+  ...PURE_PACKAGES.map((name) => `packages/${name}/src/**/*.${EXT}`),
+  ...PURE_SUBDIRECTORIES.map((dir) => `packages/${dir}/**/*.${EXT}`),
+];
 export const CRYSTAL_CORE_SOURCE_GLOBS = [`packages/crystal-core/src/**/*.${EXT}`];
 export const GEOMETRY_SOURCE_GLOBS = [`packages/crystal-core/src/geometry/**/*.${EXT}`];
 

@@ -9,5 +9,14 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@voicecrystal/contracts": "workspace:*",
+    "@voicecrystal/crystal-core": "workspace:*",
+    "@voicecrystal/renderer-svg": "workspace:*",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "0.186.0"
   }
 }

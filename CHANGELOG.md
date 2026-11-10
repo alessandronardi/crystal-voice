@@ -41,12 +41,19 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 - ADR-0018 (Accettato): casualità del generatore come rumore continuo su reticolo dei parametri geometrici.
 - I-12: `renderer-svg` con `renderPlateSvg(geometry, view)`: tavola cristallografica del corpo primario, spigoli nascosti tratteggiati, viste clinografica, frontale e dall'alto, scala fissa, coordinate a 0,01 px con aritmetica intera; contratto `PlateView` e `PLATE_RENDERER_VERSION` (`plate-1`) in `packages/contracts`.
 - I-12: 3.000 tavole dorate (`pnpm test:golden`, `pnpm test:golden:browsers`), misura della scala (`pnpm bench:plate-scale`, anche in CI); il catalogo (`pnpm catalog`) usa la tavola canonica.
+- I-11: `renderer-three` con `renderCrystal(geometry, config)` e Three.js `0.186.1` (MIT): vetrina con `MeshPhysicalMaterial` (trasmissione, IOR, spessore, attenuazione, dispersione), `RoomEnvironment` + PMREM, luce chiave, ombra di contatto, tone mapping AgX, piatto girevole lento fermo con `prefers-reduced-motion`; profilo economy con la stessa mesh.
+- I-11: normali di faccia da `planes[faceOfTriangle]`; nucleo puro in `packages/renderer-three/src/pure` sotto le regole di purezza (colore OKLCH, veli, budget, array), testato in Node.
+- I-11: tratti velati smerigliati o sbiaditi, mai tolti; `veilIsVisible` dice quando non c'è un elemento da attenuare (lo segnalerà il cartellino, I-13). `checkBudget` per geometrie non fidate.
+- I-11: ripiego sulla tavola SVG su `webglcontextlost`, WebGL assente o contesto già perso; geometria malformata → `RenderInputError`.
+- I-11: `pnpm test:render` (Chromium, WebGL SwiftShader): immagini di riferimento con tolleranza, veli, 100 cicli monta/smonta con conteggio degli oggetti WebGL per contesto e heap JS, perdita di contesto; job CI `render-three`. `pnpm bench:render` per primo frame, frame time p50/p90/p95, 100 cicli con pause per la memoria GPU e confronto visivo dei veli (`--show`). Voci manuali M17–M19.
 - ADR-0020 (Accettato): la versione del renderer fa parte della promessa di identità byte per byte della tavola SVG.
 - ADR-0019 (Accettato): nomi degli abiti di `habit-1` fedeli alla geometria («trigonale smussato», «esagonale doppio»); prismi ditrigonale e diesagonale veri rinviati a una versione futura (decisione L1).
 - ADR-0017 (Accettato): stimatore f0 esteso a 60–1100 Hz per il canto; il frame intonato dei descrittori resta 60–500 Hz (decisione D-K).
 - I-04: `dsp-core` con quantili tipo 7, mediana, IQR e `signalSummary` (`signal-summary-0`); nessun `extractorVersion` ancora.
 
 ### Modificato
+- I-11: aggirate due perdite di Three 0.186.1 (buffer dell'`InstancedMesh` di `RoomEnvironment`; LUT DFG condivisa che tratteneva ogni renderer smontato: heap da ~29 KB a ~3,5 KB per ciclo).
+- Timeout espliciti di 30 s a due test pesanti di crystal-core (seed dorati, continuità), che sotto carico parallelo superavano i 5 s di default.
 - I-10: Vite 8.3.5 anche fra le dipendenze di sviluppo della radice (già nel lockfile per l'estensione; MIT), per impacchettare `crystal-core` nel test dei browser. CI: job «golden hashes (Chromium, Firefox)».
 - Contratti: `QualityWarning` include `PHASE_CANCELLATION` (ADR-0016; aggiunta retrocompatibile, nessun record persistito).
 - Backlog: I-05 divisa in I-05a (pura) e I-05b (motori VAD, dipendenze da approvare); I-06 dipende da entrambe.

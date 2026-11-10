@@ -1,0 +1,21 @@
+{
+  "name": "tone-200hz",
+  "fixturesVersion": "fixtures-1",
+  "family": "tone",
+  "description": "Tono puro a 200 Hz, −12 dBFS RMS.",
+  "sampleRate": 48000,
+  "channelCount": 1,
+  "lengthSamples": 192000,
+  "durationSeconds": 4,
+  "seed": 0,
+  "params": {
+    "freqHz": 200,
+    "seconds": 4,
+    "levelDbfs": -12
+  },
+  "expected": {
+    "voiceExpected": false,
+    "crystalExpected": false,
+    "f0Hz": 200
+  }
+}

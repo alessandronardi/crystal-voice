@@ -16,3 +16,6 @@ dataset/
 .env
 .env.*
 .claude/settings.local.json
+
+# Fixture sintetiche rigenerate da pnpm fixtures (I-04): versionati solo meta e manifest
+tests/fixtures/*.wav

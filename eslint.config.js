@@ -12,6 +12,8 @@ export default tseslint.config(
       'playwright-report/**',
       'test-results/**',
       'tests/benchmarks/out/**',
+      // Worktrees of parallel agent sessions: each is linted in its own checkout.
+      '.claude/worktrees/**',
       // Intentionally non-conforming files, linted only by tests/lint/purity.test.ts.
       'tests/lint-fixtures/**',
       // Pre-existing review simulation, not part of the TypeScript build.

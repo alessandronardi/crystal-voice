@@ -1,0 +1,41 @@
+{
+  "name": "impulses",
+  "fixturesVersion": "fixtures-1",
+  "family": "impulses",
+  "description": "Impulsi di un campione ogni 250 ms, picco −3 dBFS.",
+  "sampleRate": 48000,
+  "channelCount": 1,
+  "lengthSamples": 240000,
+  "durationSeconds": 5,
+  "seed": 0,
+  "params": {
+    "seconds": 5,
+    "intervalSeconds": 0.25,
+    "peakDbfs": -3
+  },
+  "expected": {
+    "voiceExpected": false,
+    "crystalExpected": false,
+    "impulseSamples": [
+      12000,
+      24000,
+      36000,
+      48000,
+      60000,
+      72000,
+      84000,
+      96000,
+      108000,
+      120000,
+      132000,
+      144000,
+      156000,
+      168000,
+      180000,
+      192000,
+      204000,
+      216000,
+      228000
+    ]
+  }
+}

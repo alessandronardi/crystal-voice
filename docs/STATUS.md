@@ -2,16 +2,54 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-09 — I-01 chiusa
+**Ultimo aggiornamento:** 2026-11-10 — I-04 implementata, in attesa di CI; I-10 in corso in parallelo
 
+> **I-04 implementata, non chiusa (2026-11-10).** Branch `issue/I-04-fixtures-harness`, nessun commit di I-04. Test locali verdi su Windows. **Non eseguito:** la CI su Linux. Mancano quindi due evidenze: il determinismo degli hash fuori da Windows e il tempo di `pnpm bench` in CI. Revisione avversariale: CONDITIONAL GO; rilievi corretti salvo le due domande al product owner (sotto). **I-10** è in lavorazione in una sessione parallela, nel suo worktree (branch `issue/I-10-crystal-core`).
+>
 > **I-01 chiusa il 2026-11-09.** Unita in `main` con la [PR crystal-voice#1](https://github.com/alessandronardi/crystal-voice/pull/1) in squash (commit `16cea26`); CI verde su `main` dopo il merge (run 42710710213). Residui non bloccanti: riga M0 senza versioni esatte di Chrome e SO; SPEC §5 e §14 da allineare ad ADR-0015. Nessuna issue attiva: prossime consigliate I-04 e I-10.
 
 ## Sintesi
 
 - **Fase corrente:** 1 (PoC Chrome) e, in parallelo, 2–3 sul nucleo puro.
 - **Gate:** G0 non avviato · G-PoC, G1, G2 non raggiunti.
-- **Issue attiva:** nessuna. Chiuse: **I-01**. Sbloccate: I-02, I-04, I-10, I-17.
+- **Issue attive:** I-04 (questa sessione), I-10 (sessione parallela). Chiuse: **I-01**. Sbloccate: I-02, I-17; I-18 dopo I-04.
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
+
+## I-04: Definition of Done (implementata, non chiusa)
+
+| Voce | Stato | Evidenza |
+|---|---|---|
+| `pnpm fixtures` deterministico (hash dei WAV stabile) | Fatto su Windows; **Linux non verificato** | `pnpm fixtures` seguito da `pnpm fixtures --check` (fresh process): «31 fixture identiche al manifest». `tests/unit/fixtures/determinism.test.ts` ricostruisce tutto e confronta con `manifest.json` e i meta. Su Linux: **non eseguito**, la CI non è ancora partita su questo branch (nessun push) e Docker non era disponibile al revisore. Mitigazioni: quantizzazione int16 simmetrica, float dei meta arrotondati a 9 decimali, LF forzato con `.gitattributes`. |
+| Ogni fixture ha un `.meta.json` con parametri e valori attesi | Fatto | 31 meta in `tests/fixtures/`: parametri, seed, valori attesi. Per la voce: f0 mediana, traccia f0 vera ogni 10 ms (`null` dove non sonora), IQR, onset, secondi sonori. Più cambio voce, livello della musica, quota di clipping, turni. Definizioni in `tests/fixtures/README.md`. |
+| `pnpm bench` in CI in meno di 2 minuti [H] | **Non eseguito in CI** | Locale (Windows 11, Node 26.13.0): `pnpm bench` 0,6 s per 31 fixture, 354 s di audio, con il solo analizzatore `signal-summary-0`; `pnpm fixtures` 8,5 s. CI: passo con `timeout-minutes: 2` e report caricato come artefatto, ma mai eseguito. La misura non dice nulla del costo di YIN, VAD e descrittori (I-05/I-06). |
+| Test: hash delle fixture; smoke test dell'harness | Fatto | `pnpm test`: 11 file, 193 test verdi. In più: codec WAV, PRNG con valori di riferimento confermati da un'implementazione Python indipendente, generatori (property test), `dsp-core` (`stats`, `signalSummary`), harness (report, WAV manomesso, manifest assente). |
+
+**Verifiche eseguite il 2026-11-10** (Windows 11, Node 26.13.0, pnpm 12.18.0): `pnpm typecheck`, `pnpm lint`, `pnpm test` (193), `pnpm fixtures`, `pnpm fixtures --check`, `pnpm bench`, tutti verdi. `pnpm build` ed E2E non rieseguiti: I-04 non tocca l'estensione.
+
+**Revisione avversariale:** un passaggio, CONDITIONAL GO, 2 HIGH, 6 MEDIUM, 6 LOW.
+- **Corretti:**
+  - H1: traccia f0 vera per frame.
+  - H2: `voice-a-long` con 22 s di nuclei, controllo positivo per I-07.
+  - M1: float dei meta arrotondati.
+  - M2: timeout di 2 min e artefatto.
+  - M3: esito della controfase lasciato `null`.
+  - M4: coppie A/B con rapporto di f0 1,75, 1,25 e 1,1; accordi di lunghezza diversa.
+  - M5: ritmo della voce portato a 4,6–5,6 onset/s, dentro gli ancoraggi di `mapping-0` (2–7).
+  - L1: sweep descritto in forma leggibile da macchina; aggiunto il gradino di frequenza.
+  - L2: meta orfani rilevati.
+  - L3: campo `chrome: null` nel report; campi numerici del manifest validati come interi.
+  - L6: eccezione al posto del ripiego a 0.
+- **Annotati come limiti nel README:** granularità delle quote (5/5, 3/3); onset spuri nei tagli dell'alternanza; nessun test che confronti la verità con la forma d'onda (L4).
+- **Aperti:** nessuno; le due domande sono state decise (D-E, D-F). Un secondo passaggio non è stato eseguito.
+
+**Decisioni del product owner su I-04 (10 novembre 2026)**
+
+| ID | Decisione | Applicazione |
+|---|---|---|
+| D-E | Controfase: mix mono (L+R)/2; se le fasi si cancellano, ripiego sul canale più forte e warning `PHASE_CANCELLATION` | [ADR-0016](ADR/0016-mix-mono-con-rilevamento-della-cancellazione-di-fase.md), stato **Proposto**: da accettare (soglia [H] di 20 dB e dettagli). Implementazione in I-05. Il meta di `voice-a-antiphase` resta `expectedOutcome: null` finché l'ADR non è accettato |
+| D-F | Le fixture e i test dei timeout di arresto vanno in I-07, con sequenze sintetiche di descrittori | Voce aggiunta alla DoD di I-07 in `docs/BACKLOG.md` |
+
+**Fuori perimetro, annotati:** ESLint ignora `.claude/worktrees/**`, perché senza il lint falliva sui file del worktree della sessione I-10. `.gitattributes` è nuovo. Le cartelle non tracciate `.agents/` e `.codex/` sono state create da Codex: da cancellare (la cancellazione da parte dell'agente è stata bloccata dai permessi).
 
 ## I-01: Definition of Done (chiusa)
 
@@ -42,11 +80,14 @@
 
 ## Prossimi passi
 
-1. **Umano:** completare la riga M0 con le versioni esatte di Chrome e il SO.
-2. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
-3. Prossima issue: I-04 o I-10 (pure, verificabili per intero in Node); poi I-02 (richiede Chrome reale) e I-17.
-4. **Umano:** attivare la protezione di `main` descritta in CONTRIBUTING.md (CI obbligatoria, nessun push diretto).
-5. In parallelo, azioni umane: avviare G0 (`docs/LEGAL_G0_CHECKLIST.md`) e preparare moduli di consenso e reclutamento per il dataset (I-08).
+1. I-04: riallineare il branch a `main` (squash di I-01 già unito), commit e push (su richiesta) per far girare la CI su Linux; poi PR.
+2. **Umano:** accettare o modificare ADR-0016. Il numero 0016 va controllato contro eventuali ADR della sessione I-10 prima del merge.
+3. I-10: seguire la sessione parallela (piano da approvare).
+4. **Umano:** completare la riga M0 con le versioni esatte di Chrome e il SO.
+5. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
+6. Dopo I-04: I-05 (pitch e VAD) e I-18; I-02 (richiede Chrome reale) e I-17.
+7. **Umano:** attivare la protezione di `main` descritta in CONTRIBUTING.md (CI obbligatoria, nessun push diretto).
+8. In parallelo, azioni umane: avviare G0 (`docs/LEGAL_G0_CHECKLIST.md`) e preparare moduli di consenso e reclutamento per il dataset (I-08).
 
 ## Blocchi
 
@@ -86,6 +127,8 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 
 ## Proposte fuori perimetro
 
+- Fixture: un test di regressione che confronti la verità di f0 con uno stimatore indipendente sulla forma d'onda (rilievo L4). Va con I-05, quando YIN esiste.
+
 - `VC_SOURCE_TAB` (esito G0 (b)): non introdotto in I-01, perché senza G0 sarebbe codice morto. Va con I-16 o con l'esito G0.
 - Guardia del bundle: quando arriverà Three.js (I-11) sono probabili falsi positivi (`Function`, `eval`, URL nei commenti delle shader). Si gestiscono con `GUARD_EXCEPTIONS`, una voce motivata per ciascuno.
 
@@ -98,3 +141,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-09 | Claude | I-01 | Decisioni applicate | D-A…D-D applicate (ADR-0015, AGENTS §8, Node 26); M0 registrato su dichiarazione del product owner; remote `origin` e push; CI verde (run 42707392231) |
 | 2026-11-09 | Claude | I-01 | Node 26 in locale | Suite completa verde su Node 26.13.0 in locale |
 | 2026-11-09 | Claude | I-01 | Chiusa | PR crystal-voice#1 unita in squash (`16cea26`), CI verde su `main` |
+| 2026-11-10 | Claude | I-04 | Implementata, non chiusa | 31 fixture deterministiche, `pnpm bench`, 193 test verdi; revisione avversariale CONDITIONAL GO, rilievi corretti; CI su Linux non eseguita; nessun commit. I-10 avviata in sessione parallela |

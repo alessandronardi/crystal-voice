@@ -1,0 +1,88 @@
+{
+  "name": "alternating-ab-v2",
+  "fixturesVersion": "fixtures-1",
+  "family": "alternating-ab",
+  "description": "Voci sintetiche A e B alternate a turni di 2 s (variante 2).",
+  "sampleRate": 48000,
+  "channelCount": 1,
+  "lengthSamples": 768000,
+  "durationSeconds": 16,
+  "seed": 4002,
+  "params": {
+    "voiceA": {
+      "f0Hz": 120,
+      "intonationDepthSemitones": 2,
+      "intonationRateHz": 0.25,
+      "syllableRateHz": 3,
+      "syllablesPerPhrase": 6,
+      "phrasePauseSeconds": 0.4,
+      "formantScale": 1,
+      "jitter": 0.005,
+      "breathiness": 0.02,
+      "levelDbfs": -24
+    },
+    "voiceB": {
+      "f0Hz": 150,
+      "intonationDepthSemitones": 2.5,
+      "intonationRateHz": 0.35,
+      "syllableRateHz": 3.6,
+      "syllablesPerPhrase": 7,
+      "phrasePauseSeconds": 0.35,
+      "formantScale": 1.08,
+      "jitter": 0.006,
+      "breathiness": 0.03,
+      "levelDbfs": -24
+    },
+    "seedB": 4102,
+    "seconds": 16,
+    "turnSeconds": 2
+  },
+  "expected": {
+    "voiceExpected": true,
+    "speakers": 2,
+    "f0RatioBToA": 1.25,
+    "turns": [
+      {
+        "speaker": "A",
+        "startSample": 0,
+        "endSample": 96000
+      },
+      {
+        "speaker": "B",
+        "startSample": 96000,
+        "endSample": 192000
+      },
+      {
+        "speaker": "A",
+        "startSample": 192000,
+        "endSample": 288000
+      },
+      {
+        "speaker": "B",
+        "startSample": 288000,
+        "endSample": 384000
+      },
+      {
+        "speaker": "A",
+        "startSample": 384000,
+        "endSample": 480000
+      },
+      {
+        "speaker": "B",
+        "startSample": 480000,
+        "endSample": 576000
+      },
+      {
+        "speaker": "A",
+        "startSample": 576000,
+        "endSample": 672000
+      },
+      {
+        "speaker": "B",
+        "startSample": 672000,
+        "endSample": 768000
+      }
+    ],
+    "expectedWarning": "MULTI_SPEAKER_SUSPECTED"
+  }
+}

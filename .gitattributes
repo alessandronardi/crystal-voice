@@ -1,0 +1,4 @@
+# Fixture meta and manifest are compared byte for byte with a fresh build
+# (I-04): keep LF on every checkout, whatever core.autocrlf says.
+tests/fixtures/*.json text eol=lf
+*.wav binary

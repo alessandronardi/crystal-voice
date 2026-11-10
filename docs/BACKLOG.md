@@ -99,18 +99,20 @@
 
 ### I-04 · Fixture sintetiche + harness offline
 
+**Stato:** implementata sul branch `issue/I-04-fixtures-harness`, non chiusa: manca la CI su Linux (determinismo degli hash e tempo del bench). Evidenze in `docs/STATUS.md`.
+
 - **Riferimenti:** SPEC §15; `docs/BENCHMARK_PROTOCOL.md`; R16.
 - **Obiettivo:** banco di prova riproducibile senza audio reale.
 - **Perimetro:** `scripts/fixtures/` genera WAV (silenzio, toni, sweep, rumori, impulsi, clipping, controfase, voce sintetica con f0 noto, A+B, alternanza A/B, voce + musica sintetica a −6/−12/−18 dB, voce compressa 4:1) con seed fissi; harness `pnpm bench` che esegue `dsp-core` su ogni fixture e scrive JSON.
 - **DoD:**
-  - [ ] `pnpm fixtures` è deterministico (hash dei WAV stabile).
-  - [ ] Ogni fixture ha un file `.meta.json` con parametri di generazione e valori attesi (es. f0 vero).
+  - [x] `pnpm fixtures` è deterministico (hash dei WAV stabile). Verificato su Windows; su Linux in attesa della CI.
+  - [x] Ogni fixture ha un file `.meta.json` con parametri di generazione e valori attesi (es. f0 vero).
   - [ ] `pnpm bench` gira in CI in meno di 2 minuti [H].
 - **Test:** hash delle fixture; smoke test dell'harness.
 
 ### I-05 · Pitch YIN + VAD a confronto
 
-- **Riferimenti:** SPEC §7.1–§7.3; VC-11.
+- **Riferimenti:** SPEC §7.1–§7.3; VC-11; ADR-0016 (mix mono e cancellazione di fase, se accettato).
 - **Perimetro:** mono-mix con test in controfase; resampling anti-alias a 16 kHz; YIN con confidenza; integrazione di WebRTC VAD (libfvad, WASM) e Silero VAD (ONNX) dietro la stessa interfaccia.
 - **DoD:**
   - [ ] Errore mediano f0 ≤ 1% e errori d'ottava ≤ 2% sulle fixture con f0 noto, oppure valori misurati riportati e soglia rinegoziata in ADR.
@@ -137,6 +139,7 @@
   - [ ] Mai `CONVERGED` prima di 8 s o senza copertura.
   - [ ] Fixture A+B: nessun `CONVERGED` a cavallo del cambio di voce.
   - [ ] Tutti i motivi d'uscita prodotti dalle fixture appropriate.
+  - [ ] Timeout (45 s attivi, 120 s assoluti): semantica definita qui e verificata con sequenze sintetiche di descrittori e tempi; WAV dedicati solo se una sequenza non basta. Controllo positivo per `CONVERGED` e `MAX_VALID_SPEECH`: fixture `voice-a-long` (decisione del product owner, 2026-11-10).
 - **Test:** unit su fixture e su sequenze sintetiche di descrittori.
 
 ### I-08 · Dataset umano + report G1

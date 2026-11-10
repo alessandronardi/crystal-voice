@@ -1,0 +1,222 @@
+{
+  "fixturesVersion": "fixtures-1",
+  "files": {
+    "silence": {
+      "sha256": "27cb785df0cedf3e8136cf6893ae9a93a7220efc0420bd3e03dfc1c367f29638",
+      "bytes": 480044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 240000
+    },
+    "tone-100hz": {
+      "sha256": "a025b6630035e8924de4e28727b5b914c42d2aff55463de0f01fd2f6901f5228",
+      "bytes": 384044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 192000
+    },
+    "tone-200hz": {
+      "sha256": "50aff1fbf5a9873defe7c2a542414ec5e6473c788a6791d5eedd4ac472346304",
+      "bytes": 384044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 192000
+    },
+    "tone-400hz": {
+      "sha256": "55c39b99cca0fc0dfa7f5b8a8641e245347c9c672f42ced04dd79e24867f2804",
+      "bytes": 384044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 192000
+    },
+    "sweep-80-4000hz": {
+      "sha256": "430334066a7b7a046ae4ce5f0288558042edf13887c15e3bd46ab54a5b654168",
+      "bytes": 576044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 288000
+    },
+    "tone-step-150-300hz": {
+      "sha256": "1c103d2471bb6b33e72489d0c88f9dc3f486d60893ad8a64d24df9a4c14dcdad",
+      "bytes": 384044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 192000
+    },
+    "noise-white": {
+      "sha256": "dce2955c98a115bce028f2ad04027978fd891d1114f2b350aae42cbd7c7e2aac",
+      "bytes": 480044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 240000
+    },
+    "noise-pink": {
+      "sha256": "3442babef820754e352856faaee61b7540426a7dd82050b5d287b73fd8572c80",
+      "bytes": 480044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 240000
+    },
+    "impulses": {
+      "sha256": "d7ccb1573bdd1ab75c9f716c421ccc7410e5404f68904db12db2538a55c63bd5",
+      "bytes": 480044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 240000
+    },
+    "voice-a": {
+      "sha256": "e93796302985285426e0cf3bd000e9756661ac708ec602051980b45793b82769",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-a-44k": {
+      "sha256": "be7150107738ae03e59dc8a95dbb5aab044c6e90ee41023365d6c990d26eafed",
+      "bytes": 1058444,
+      "sampleRate": 44100,
+      "channelCount": 1,
+      "lengthSamples": 529200
+    },
+    "voice-a-plus6db": {
+      "sha256": "4883405123124dc79412a71025e631b757e3f4b672187491e6ccf80e57bbd4b4",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-a-minus6db": {
+      "sha256": "e935e795ba72326bb811cd77cdf88cc56eecdf0222c8a9b7017002d94bb01d09",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-a-long": {
+      "sha256": "65e93c10f6f96220c767de9425deb0713e86ebd58aedb6434fbb07f2ecff2c5c",
+      "bytes": 4032044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 2016000
+    },
+    "voice-b": {
+      "sha256": "adcef9035b43664db3c5894c62f8a3d16b5cfd4067608aaff1f1d4e81b9341dd",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-a-clipped": {
+      "sha256": "79b697919f95d2eb6be41c6a4c5f6c03b11e5792e0a5965d85d38ebdf191e1d8",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-a-antiphase": {
+      "sha256": "06873cb49dd3162e44a80192d1ca3d60ab112cc7cae6860ed42d42dfb0df73d9",
+      "bytes": 2304044,
+      "sampleRate": 48000,
+      "channelCount": 2,
+      "lengthSamples": 576000
+    },
+    "voice-a-compressed-4to1": {
+      "sha256": "4a09bca9eea64f53f472b527b7fa46a7965f32d1134f2d393431965ecbef0915",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-music-6db-v1": {
+      "sha256": "c0129f69773e5db2495128d8564171e4d837fe05eeeb200c2f0602f67dd6a3ef",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-music-6db-v2": {
+      "sha256": "bb3ae28e9699c9de9a8f74e6bdcac357fd8e7ed0c8871e92bfe3ee13ddfd0c27",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-music-12db-v1": {
+      "sha256": "c48a19cf4cebf83b8cb1568f783a0e8b9788dd0669ae35586f7e64827f7815b3",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-music-12db-v2": {
+      "sha256": "7c97cecd3f7627512cf7affa6852eb1d92337e93aa7624f347d15531530ab33e",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-music-12db-v3": {
+      "sha256": "837985c6cf2378605af5aeecbdd95c4130a576a1a9a0eb90cc4947dea701007a",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-music-12db-v4": {
+      "sha256": "08bc6ad9e359bf6ae72f4dfd9291956e97766f3da8ac8d9cfc05a8f059d79cde",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-music-12db-v5": {
+      "sha256": "bd306731f9d732c531e3cec5c410bc848e51e1bcc7f47f3e3b74191c6a4e0d38",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-music-18db-v1": {
+      "sha256": "8cca2056cf7b33d99ffc586e471a1257957d638b91b79030680522b98287c017",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "voice-music-18db-v2": {
+      "sha256": "c13184de4b1952922bd548f753ff8cfe33dafa9c1b900a5b854855619b0c2a80",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "alternating-ab-v1": {
+      "sha256": "d8d995a039544f3a4e493bb42ac0c3a260e4b408aec5e17cdbd33d533fb1ca28",
+      "bytes": 1536044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 768000
+    },
+    "alternating-ab-v2": {
+      "sha256": "a62e4cac59a195f87edea067a043f52a7c17ea555067348b41b17f049f7f6265",
+      "bytes": 1536044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 768000
+    },
+    "alternating-ab-v3": {
+      "sha256": "4f4d212a5e2811afde0c4bd3babfbe5eaf31c2d6568510bdbb966982f0e307e5",
+      "bytes": 1536044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 768000
+    },
+    "a-then-b": {
+      "sha256": "0c17a06b89617686f0b1412d7e15228b0dcad8a902eb59b451a9169718802cfc",
+      "bytes": 1728044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 864000
+    }
+  }
+}

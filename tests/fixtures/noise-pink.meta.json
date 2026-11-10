@@ -1,0 +1,19 @@
+{
+  "name": "noise-pink",
+  "fixturesVersion": "fixtures-1",
+  "family": "noise",
+  "description": "Rumore rosa (filtro di Kellet), −20 dBFS RMS.",
+  "sampleRate": 48000,
+  "channelCount": 1,
+  "lengthSamples": 240000,
+  "durationSeconds": 5,
+  "seed": 102,
+  "params": {
+    "seconds": 5,
+    "levelDbfs": -20
+  },
+  "expected": {
+    "voiceExpected": false,
+    "crystalExpected": false
+  }
+}

@@ -12,10 +12,10 @@
     "test": "vitest run",
     "test:golden": "node scripts/dev/not-implemented.ts test:golden I-10",
     "test:golden:browsers": "node scripts/dev/not-implemented.ts test:golden:browsers I-10",
-    "fixtures": "node scripts/dev/not-implemented.ts fixtures I-04",
+    "fixtures": "node scripts/fixtures/generate.ts",
     "build": "pnpm --filter @voicecrystal/extension run build",
     "test:e2e": "playwright test",
-    "bench": "node scripts/dev/not-implemented.ts bench I-04"
+    "bench": "node tests/benchmarks/run.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

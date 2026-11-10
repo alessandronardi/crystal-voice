@@ -1,0 +1,28 @@
+{
+  "name": "tone-step-150-300hz",
+  "fixturesVersion": "fixtures-1",
+  "family": "tone",
+  "description": "Cambio di frequenza: 2 s a 150 Hz poi 2 s a 300 Hz, −12 dBFS RMS.",
+  "sampleRate": 48000,
+  "channelCount": 1,
+  "lengthSamples": 192000,
+  "durationSeconds": 4,
+  "seed": 0,
+  "params": {
+    "freqsHz": [
+      150,
+      300
+    ],
+    "secondsEach": 2,
+    "levelDbfs": -12
+  },
+  "expected": {
+    "voiceExpected": false,
+    "crystalExpected": false,
+    "f0Hz": [
+      150,
+      300
+    ],
+    "changeAtSample": 96000
+  }
+}

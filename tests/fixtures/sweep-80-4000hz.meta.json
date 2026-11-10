@@ -1,0 +1,25 @@
+{
+  "name": "sweep-80-4000hz",
+  "fixturesVersion": "fixtures-1",
+  "family": "sweep",
+  "description": "Sweep logaritmico 80→4000 Hz in 6 s, −15 dBFS RMS.",
+  "sampleRate": 48000,
+  "channelCount": 1,
+  "lengthSamples": 288000,
+  "durationSeconds": 6,
+  "seed": 0,
+  "params": {
+    "f0Hz": 80,
+    "f1Hz": 4000,
+    "seconds": 6,
+    "levelDbfs": -15
+  },
+  "expected": {
+    "voiceExpected": false,
+    "crystalExpected": false,
+    "law": "exponential",
+    "startHz": 80,
+    "endHz": 4000,
+    "seconds": 6
+  }
+}

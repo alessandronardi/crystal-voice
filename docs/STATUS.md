@@ -26,6 +26,8 @@
 
 **Verifiche eseguite il 2026-11-10** (Windows 11, Node 26.13.0, pnpm 12.18.0): `pnpm typecheck`, `pnpm lint`, `pnpm test` (193), `pnpm fixtures`, `pnpm fixtures --check`, `pnpm bench`, tutti verdi. `pnpm build` ed E2E non rieseguiti: I-04 non tocca l'estensione.
 
+**Prima CI del branch (commit `611cfdb`): rossa.** Su `ubuntu-latest` il property test dei quantili ha trovato il controesempio `[-0, 0]` (seed fast-check 2069321282). Con quell'input P0 restituiva `+0` invece di `-0`, perché l'interpolazione `a + 0·(b − a)` cambia il segno dello zero. Correzione: quando non c'è nulla da interpolare si restituisce l'ordinale esatto. Aggiunto un test di regressione; il property test con quel seed passa per 1000 esecuzioni in locale. I passi «fixtures» e «bench» non erano stati raggiunti.
+
 **Revisione avversariale:** un passaggio, CONDITIONAL GO, 2 HIGH, 6 MEDIUM, 6 LOW.
 - **Corretti:**
   - H1: traccia f0 vera per frame.

@@ -19,8 +19,12 @@ function quantileOfSorted(sorted: Float64Array, p: number): number | null {
   const h = (n - 1) * p;
   const lo = Math.floor(h);
   const a = sorted[lo] ?? 0;
+  const frac = h - lo;
+  // Exact order statistic when there is nothing to interpolate: `a + 0·(b − a)`
+  // would turn −0 into +0, so P0 would differ from the minimum.
+  if (frac === 0) return a;
   const b = sorted[Math.min(lo + 1, n - 1)] ?? a;
-  return a + (h - lo) * (b - a);
+  return a + frac * (b - a);
 }
 
 /** Type-7 quantile, `p` in [0, 1]. */

@@ -40,6 +40,13 @@ describe('type-7 quantiles', () => {
     );
   });
 
+  // Regression: counterexample found by fast-check in CI (seed 2069321282), 2026-11-10.
+  it('returns the exact order statistic at P0/P100, keeping the sign of zero', () => {
+    expect(quantile([-0, 0], 0)).toBe(-0);
+    expect(quantile([-0, 0], 1)).toBe(0);
+    expect(quantile([0, -0], 0)).toBe(-0);
+  });
+
   it('does not mutate its input', () => {
     const x = [3, 1, 2];
     median(x);

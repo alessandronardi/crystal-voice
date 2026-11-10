@@ -185,7 +185,7 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 ### I-10 · crystal-core a semispazi
 
 - **Riferimenti:** SPEC §10; ADR-0005, ADR-0010, ADR-0018, ADR-0019; `packages/crystal-core/CLAUDE.md`.
-- **Stato:** implementata sul branch `issue/I-10-crystal-core`, non chiusa: CI verde sul commit `63a09b3`, PR da aprire, revisione estetica G2 da fare. Evidenze in `docs/STATUS.md`.
+- **Stato:** mergiata ([PR crystal-voice#5](https://github.com/alessandronardi/crystal-voice/pull/5), `e2a131f`), non chiusa: revisione estetica G2 da fare. Evidenze in `docs/STATUS.md`.
 - **Perimetro:** intersezione di semispazi; forme ammesse; cammino continuo di `p1`; terminazioni; secondari da dimensione 0; inclusioni; quantizzazione; PRNG per dominio; SHA-256; `geometryVersion = habit-1`; seed dorati.
 - **DoD:**
   - [x] 1.000 seed dorati: hash identici in Node, Chrome, Firefox. Node e Chromium in locale; Chromium e Firefox in CI (run 42826775595).
@@ -207,11 +207,12 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 
 ### I-12 · renderer-svg «tavola cristallografica»
 
-- **Riferimenti:** SPEC §10; ADR-0013.
+- **Riferimenti:** SPEC §10; ADR-0013, ADR-0020.
+- **Stato:** implementata sul branch `issue/I-12-renderer-svg`, non chiusa: Firefox e CI non eseguiti. Evidenze in `docs/STATUS.md`.
 - **DoD:**
-  - [ ] Spigoli visibili e nascosti corretti sui seed dorati (verifica visiva + test sul conteggio).
-  - [ ] SVG byte-identico fra esecuzioni e fra Node e browser.
-  - [ ] SVG valido, con `<title>` e `<desc>` per l'accessibilità.
+  - [x] Spigoli visibili e nascosti corretti sui seed dorati (verifica visiva + test sul conteggio). Test sul conteggio; verifica visiva del product owner sul catalogo il 2026-11-10.
+  - [ ] SVG byte-identico fra esecuzioni e fra Node e browser. Node e Chromium sì; Firefox solo in CI, non ancora eseguita.
+  - [x] SVG valido, con `<title>` e `<desc>` per l'accessibilità.
 
 ## Fase 4 — Prodotto (bloccata fino a G0)
 

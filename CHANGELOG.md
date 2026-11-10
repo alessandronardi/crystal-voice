@@ -39,6 +39,9 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 - I-10: `crystal-core` `habit-1`: corpi come intersezione di semispazi (prisma trigonale → trigonale smussato → esagonale → esagonale smussato → esagonale doppio; pinacoide, romboedri, bipiramide; secondari concresciuti; aghi e fantasma), SHA-256 e `xoshiro128**` propri, rumore continuo su reticolo (ADR-0018), `geometryHash` canonico, contratto `CrystalGeometry` in `packages/contracts`.
 - I-10: 1.000 seed dorati (`pnpm test:golden`, `pnpm test:golden:browsers`, anche su bundle minificato), misura di continuità (`pnpm bench:continuity`), robustezza (`pnpm bench:robustness`), catalogo di 200 tavole (`pnpm catalog`).
 - ADR-0018 (Accettato): casualità del generatore come rumore continuo su reticolo dei parametri geometrici.
+- I-12: `renderer-svg` con `renderPlateSvg(geometry, view)`: tavola cristallografica del corpo primario, spigoli nascosti tratteggiati, viste clinografica, frontale e dall'alto, scala fissa, coordinate a 0,01 px con aritmetica intera; contratto `PlateView` e `PLATE_RENDERER_VERSION` (`plate-1`) in `packages/contracts`.
+- I-12: 3.000 tavole dorate (`pnpm test:golden`, `pnpm test:golden:browsers`), misura della scala (`pnpm bench:plate-scale`, anche in CI); il catalogo (`pnpm catalog`) usa la tavola canonica.
+- ADR-0020 (Accettato): la versione del renderer fa parte della promessa di identità byte per byte della tavola SVG.
 - ADR-0019 (Accettato): nomi degli abiti di `habit-1` fedeli alla geometria («trigonale smussato», «esagonale doppio»); prismi ditrigonale e diesagonale veri rinviati a una versione futura (decisione L1).
 - ADR-0017 (Accettato): stimatore f0 esteso a 60–1100 Hz per il canto; il frame intonato dei descrittori resta 60–500 Hz (decisione D-K).
 - I-04: `dsp-core` con quantili tipo 7, mediana, IQR e `signalSummary` (`signal-summary-0`); nessun `extractorVersion` ancora.

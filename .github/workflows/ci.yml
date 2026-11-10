@@ -84,4 +84,6 @@ jobs:
         timeout-minutes: 5
       - run: pnpm bench:robustness
         timeout-minutes: 5
+      - run: pnpm bench:plate-scale
+        timeout-minutes: 5
 

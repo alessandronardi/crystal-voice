@@ -254,7 +254,15 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
-  packages/renderer-svg: {}
+  packages/renderer-svg:
+    dependencies:
+      '@voicecrystal/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@voicecrystal/crystal-core':
+        specifier: workspace:*
+        version: link:../crystal-core
 
   packages/renderer-three: {}
 

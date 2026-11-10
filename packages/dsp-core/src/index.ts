@@ -6,3 +6,24 @@ export { CLIP_THRESHOLD } from './config.ts';
 export { DspInputError, type DspInputErrorCode } from './errors.ts';
 export { iqr, median, quantile, quantiles } from './stats.ts';
 export { SIGNAL_SUMMARY_VERSION, signalSummary, type SignalSummary } from './signal-summary.ts';
+export {
+  ACTIVE_FRAME_DBFS,
+  ANALYSIS_SAMPLE_RATE,
+  CANCELLATION_CAP_DB,
+  F0_MAX_HZ,
+  F0_MIN_HZ,
+  INTONATED_MAX_HZ,
+  INTONATED_MIN_CONFIDENCE,
+  INTONATED_MIN_HZ,
+  PHASE_CANCELLATION_DB,
+  PITCH_FRAME_SAMPLES,
+  PITCH_HOP_SAMPLES,
+  VAD_FRAME_SAMPLES,
+  YIN_THRESHOLD,
+} from './config.ts';
+export { mixToMono, type MonoMix, type MonoRule } from './mono.ts';
+export { createResampler, resample, type Resampler } from './resample.ts';
+export { frameAt, frameCount } from './frames.ts';
+export { yinFrame, type YinResult } from './yin.ts';
+export { createBandEnergyPrefilter, PREFILTER_ID, type VadEngine, type VadFrameResult } from './vad.ts';
+export { PITCH_TRACK_VERSION, trackPitch, type PitchFrame, type PitchTrack } from './pitch-track.ts';

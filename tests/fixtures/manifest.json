@@ -120,6 +120,13 @@
       "channelCount": 2,
       "lengthSamples": 576000
     },
+    "voice-a-antiphase-partial": {
+      "sha256": "bf62bd29d2fb82935d677b23f453c50e26d8b446e8aa1766eb14533bcdd2835d",
+      "bytes": 2304044,
+      "sampleRate": 48000,
+      "channelCount": 2,
+      "lengthSamples": 576000
+    },
     "voice-a-compressed-4to1": {
       "sha256": "4a09bca9eea64f53f472b527b7fa46a7965f32d1134f2d393431965ecbef0915",
       "bytes": 1152044,

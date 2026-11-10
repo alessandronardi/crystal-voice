@@ -172,8 +172,9 @@ describe('catalog fixtures', () => {
     expect(ratios).toEqual([1.75, 1.25, 1.1]);
   });
 
-  it('antiphase leaves the expected outcome open until an ADR fixes the mono-mix rule', () => {
-    expect(spec('voice-a-antiphase').render().expected['expectedOutcome']).toBeNull();
+  it('antiphase expected outcomes follow ADR-0016', () => {
+    expect(spec('voice-a-antiphase').render().expected['expectedOutcome']).toEqual({ voiceFound: true, warning: 'PHASE_CANCELLATION' });
+    expect(spec('voice-a-antiphase-partial').render().expected['expectedOutcome']).toEqual({ voiceFound: true, warning: null });
   });
 
   it('a-then-b places the change at 8 s', () => {

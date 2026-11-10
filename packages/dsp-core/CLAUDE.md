@@ -14,7 +14,7 @@ Valgono `AGENTS.md` e `CLAUDE.md` della radice. Riferimenti: SPEC §7, §8, §15
 - Statistiche robuste: mediana, percentili, IQR. Definisci il metodo dei percentili una volta (interpolazione lineare, tipo 7) in `stats.ts` e usalo ovunque.
 - Le formule dei sei descrittori sono quelle di SPEC §7.4. Ogni modifica a formula, finestra, soglia o VAD incrementa `extractorVersion`.
 - Le soglie `[H]` stanno in un unico file di configurazione versionato, non sparse nel codice.
-- Pitch: YIN con soglia di aperiodicità 0,15 e range 60–500 Hz; testa esplicitamente gli errori d'ottava.
+- Pitch: YIN con soglia di aperiodicità 0,15 e range dello stimatore 60–1100 Hz (ADR-0017); il «frame intonato» dei descrittori resta 60–500 Hz (SPEC §7.4). Testa esplicitamente gli errori d'ottava.
 - Resampling a 16 kHz per il VAD con filtro anti-alias deterministico.
 
 ## Test obbligatori

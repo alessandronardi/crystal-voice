@@ -32,10 +32,16 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 - ADR-0015: CSP delle pagine con `connect-src 'self'` (decisione D-A); guardia e E2E la verificano.
 - I-04: `pnpm fixtures` genera 31 fixture WAV sintetiche deterministiche (`fixtures-1`) con `.meta.json` (valori attesi, traccia f0 vera ogni 10 ms) e `manifest.json` (SHA-256); `--check` verifica senza scrivere. WAV non versionati.
 - I-04: `pnpm bench` (`tests/benchmarks/`) esegue `dsp-core` su ogni fixture e scrive un report JSON con ambiente e tempi.
-- ADR-0016 (Proposto): mix mono (L+R)/2 con ripiego su un canale e warning `PHASE_CANCELLATION` quando le fasi si cancellano (decisione D-E).
+- ADR-0016 (Accettato il 2026-11-10, con rilevamento sui frame attivi per energia): mix mono (L+R)/2 con ripiego su un canale e warning `PHASE_CANCELLATION` quando le fasi si cancellano (decisione D-E).
+- I-05a: `dsp-core` con mix mono (ADR-0016), resampler razionale anti-alias a 16 kHz, frame, YIN (60–500 Hz, null fuori range), interfaccia `VadEngine` e pre-filtro a banda (solo diagnostica), `trackPitch` (`pitch-yin-0`).
+- I-05a: `pnpm bench` misura M2 (errore f0 per frame e d'ottava rispetto alla traccia vera), bias della mediana, M3 per f0 e M12; fixture `voice-a-antiphase-partial`.
+- `docs/BENCHMARK_PROTOCOL.md` §7: registro delle misure.
+- ADR-0017 (Accettato): stimatore f0 esteso a 60–1100 Hz per il canto; il frame intonato dei descrittori resta 60–500 Hz (decisione D-K).
 - I-04: `dsp-core` con quantili tipo 7, mediana, IQR e `signalSummary` (`signal-summary-0`); nessun `extractorVersion` ancora.
 
 ### Modificato
+- Contratti: `QualityWarning` include `PHASE_CANCELLATION` (ADR-0016; aggiunta retrocompatibile, nessun record persistito).
+- Backlog: I-05 divisa in I-05a (pura) e I-05b (motori VAD, dipendenze da approvare); I-06 dipende da entrambe.
 - I-04: la CI esegue `pnpm fixtures --check`, `pnpm fixtures` e `pnpm bench` (timeout 2 min, report come artefatto); ESLint ignora `.claude/worktrees/`; `.gitattributes` forza LF sui JSON delle fixture.
 - Node fissato alla LTS attiva 26.13.0 (decisione D-D).
 - AGENTS.md §8: l'elenco delle licenze ammesse vale per il bundle distribuito; licenze open source diverse ammesse per dipendenze di sviluppo annotate (decisione D-B).

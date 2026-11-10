@@ -1,8 +1,10 @@
 # ADR-0016: Mix mono come media dei canali, con ripiego su un canale e warning se le fasi si cancellano
 
-- **Stato:** Proposto
+- **Stato:** Accettato (2026-11-10)
 - **Data:** 2026-11-10
-- **Decisori:** product owner (indirizzo approvato in chat il 2026-11-10: «ripiego su un canale + warning»; soglia e dettagli da accettare con questo ADR)
+- **Decisori:** product owner (indirizzo approvato in chat il 2026-11-10; ADR accettato in chat il 2026-11-10, con la modifica al punto 2 registrata sotto)
+
+**Modifica all'accettazione (2026-11-10):** la prima stesura rilevava la cancellazione «sui frame utili» (SPEC §7.4). I frame utili dipendono dal VAD, che lavora sul segnale già mixato: la definizione era circolare. Il punto 2 usa ora i frame attivi per energia.
 
 ## Contesto
 
@@ -21,7 +23,7 @@ SPEC §7.1 [F] chiede di convertire lo stereo in mono «con regole documentate e
 ## Decisione
 
 1. **Regola di base:** mono = (L + R) / 2 campione per campione. Con un solo canale, mono = quel canale.
-2. **Rilevamento:** sui frame utili (SPEC §7.4), calcolare `cancellationDb = 20·log10(rmsMedioCanali / rmsMono)`, dove `rmsMedioCanali` è la media quadratica degli RMS dei canali. Se `cancellationDb` supera `PHASE_CANCELLATION_DB` [H] (valore iniziale 20 dB) sulla maggioranza dei frame utili, la cancellazione è dichiarata.
+2. **Rilevamento:** sui frame attivi per energia (frame da 20 ms in cui l'RMS del canale più forte supera −60 dBFS [H]), calcolare `cancellationDb = 20·log10(rmsMedioCanali / rmsMono)`, dove `rmsMedioCanali` è la media quadratica degli RMS dei canali. Se la mediana di `cancellationDb` sui frame attivi supera `PHASE_CANCELLATION_DB` [H] (valore iniziale 20 dB), la cancellazione è dichiarata. Un frame con RMS mono nullo conta come cancellazione oltre ogni soglia.
 3. **Ripiego:** quando la cancellazione è dichiarata, il segnale di analisi diventa il canale con l'RMS più alto, per tutta la sessione. La scelta del canale avviene una volta, in modo deterministico: a parità vince il canale 0.
 4. **Warning:** si aggiunge `PHASE_CANCELLATION` a `QualityWarning`. Il cristallo resta valido e porta il warning; il cartellino lo dichiara con un testo del modulo centralizzato delle stringhe.
 5. **Fixture:** con questo ADR accettato, il meta di `voice-a-antiphase` dichiara `expectedOutcome` = voce trovata con `PHASE_CANCELLATION`. Si aggiunge una fixture di controfase parziale (canale invertito a −6 dB), per misurare la soglia.
@@ -49,7 +51,7 @@ SPEC §7.1 [F] chiede di convertire lo stereo in mono «con regole documentate e
 ## Verifica
 
 - I-05: unit test su `voice-a-antiphase` (voce trovata, `PHASE_CANCELLATION`, canale scelto deterministico), su `voice-a` duplicato in stereo in fase (nessun warning, mono identico al canale) e sulla fixture di controfase parziale (valore di `cancellationDb` misurato e riportato).
-- Property test: per segnali uguali sui due canali il mono coincide con il canale; il risultato non dipende dall'ordine dei blocchi.
+- Property test: per segnali uguali sui due canali il mono coincide con il canale. Il risultato non deve dipendere dall'ordine dei blocchi: la proprietà si verifica quando esisterà un percorso a blocchi (worker, I-03/I-06). Oggi `mixToMono` lavora solo sul buffer intero, e una regola di decisione fra blocchi va definita allora.
 - Il valore di `PHASE_CANCELLATION_DB` si conferma o si cambia con una misura registrata in `docs/BENCHMARK_PROTOCOL.md`.
 
 ## Riferimenti

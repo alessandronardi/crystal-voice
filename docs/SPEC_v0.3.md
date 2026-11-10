@@ -295,7 +295,7 @@ COLLECTION ─ select A,B ─▶ COMPARING ─▶ COLLECTION
 
 - L'audio deve restare in RAM; non usare `MediaRecorder` e non scrivere WAV in IndexedDB.
 - `AudioWorkletProcessor` raccoglie blocchi PCM, non esegue FFT costose o attività asincrone nel thread audio. Dimensione dei blocchi: **non assumere hardcode 128**; leggere la lunghezza del buffer ricevuto.
-- Convertire stereo in mono con regole documentate e testate; verificare casi con canali fuori fase. Conservare `sourceSampleRate`, `analysisSampleRate`, `channelCount` e indicazioni clipping.
+- Convertire stereo in mono con regole documentate e testate; verificare casi con canali fuori fase (regola: ADR-0016). Conservare `sourceSampleRate`, `analysisSampleRate`, `channelCount` e indicazioni clipping.
 - Resampling deterministico con filtro anti-alias prima del VAD (target 16 kHz); il DSP per centroide/pitch può utilizzare una frequenza diversa se motivata e testata.
 - `dsp-worker` processa in batch brevi; usare coda limitata e segnalare `PROCESSING_OVERRUN` quando la CPU non tiene il passo. Niente drop di frame non contabilizzati.
 - L'ordine dei frame e i rispettivi campioni audio, non l'ordine di arrivo dei messaggi, determina le statistiche.
@@ -429,7 +429,8 @@ type CaptureExitReason =
 type QualityWarning =
   | 'MIXED_AUDIO_UNCERTAIN' | 'MULTI_SPEAKER_SUSPECTED'
   | 'LOW_CONFIDENCE_PARAMETER' | 'CLIPPING' | 'LOW_LEVEL'
-  | 'PLAYER_MUTED' | 'EXPERIMENTAL_MAPPING';
+  | 'PLAYER_MUTED' | 'EXPERIMENTAL_MAPPING'
+  | 'PHASE_CANCELLATION';                        // ADR-0016
 
 interface Envelope { v: 1; sessionId: SessionId; seq: number } // seq crescente per mittente
 

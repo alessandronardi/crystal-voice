@@ -84,6 +84,11 @@ describe('pure packages (R10)', () => {
     await expectMarkedLinesReported('pure-uses-globals.ts', `packages/dsp-core/src/x.${ext}`);
   });
 
+  it('apply to the pure core of renderer-three', async () => {
+    await expectMarkedLinesReported('pure-uses-globals.ts', 'packages/renderer-three/src/pure/x.ts');
+    await expectMarkedLinesReported('pure-imports.ts', 'packages/renderer-three/src/pure/a/b.ts');
+  });
+
   it('do not apply to the extension or to impure packages', async () => {
     await expectClean('pure-uses-globals.ts', 'extension/src/x.ts');
     await expectClean('pure-imports.ts', 'packages/renderer-three/src/x.ts');

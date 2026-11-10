@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:golden": "node scripts/golden/seeds.ts && node scripts/golden/plates.ts",
     "test:golden:browsers": "playwright test -c playwright.golden.config.ts",
+    "test:render": "playwright test -c playwright.render.config.ts",
     "fixtures": "node scripts/fixtures/generate.ts",
     "build": "pnpm --filter @voicecrystal/extension run build",
     "test:e2e": "playwright test",
@@ -19,7 +20,8 @@
     "bench:continuity": "node scripts/golden/continuity.ts",
     "catalog": "node scripts/golden/catalog.ts",
     "bench:robustness": "node scripts/golden/robustness.ts",
-    "bench:plate-scale": "node scripts/golden/plate-scale.ts"
+    "bench:plate-scale": "node scripts/golden/plate-scale.ts",
+    "bench:render": "node tests/benchmarks/render.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -32,6 +34,7 @@
     "@voicecrystal/crystal-core": "workspace:*",
     "@voicecrystal/dsp-core": "workspace:*",
     "@voicecrystal/renderer-svg": "workspace:*",
+    "@voicecrystal/renderer-three": "workspace:*",
     "eslint": "10.14.0",
     "fast-check": "4.10.2",
     "typescript": "6.0.3",

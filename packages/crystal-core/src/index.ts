@@ -4,4 +4,15 @@ export { buildAppearance, colorFromBrightness, VEIL_BELOW, zoningBandsFromRhythm
 export { generateCrystalGeometry, GeometryInputError, MAX_TRIANGLES } from './generate.ts';
 export { canonicalGeometryBytes, geometryHash } from './hash.ts';
 export { habitName, PRISM_NAMES, TERMINATION_NAMES } from './habit-names.ts';
-export { HABIT_1, MAX_NEEDLES, MAX_SECONDARIES, NOISE_CELL, sha256, toHex } from './geometry/index.ts';
+export {
+  HABIT_1,
+  intersectHalfSpaces,
+  MAX_NEEDLES,
+  MAX_SECONDARIES,
+  NOISE_CELL,
+  PolytopeError,
+  sha256,
+  toHex,
+  type Plane,
+  type Polytope,
+} from './geometry/index.ts';

@@ -3,3 +3,4 @@
 tests/fixtures/*.json text eol=lf
 *.wav binary
 tests/fixtures/seeds/*.json text eol=lf
+tests/fixtures/plates/*.json text eol=lf

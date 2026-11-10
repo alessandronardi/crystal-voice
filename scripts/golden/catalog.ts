@@ -1,7 +1,8 @@
-// Visual catalogue of 200 habit-1 seeds for the G2 aesthetic review (I-10).
-// Simple plates: axonometric view with back-face culling and painter's order
-// per body, plus front and top orthographic outlines. NOT the canonical plate
-// of I-12 (no hidden edges, no byte-identical guarantee). Output:
+// Visual catalogue of 200 habit-1 seeds for the G2 aesthetic review (I-10,
+// I-12). Each card: the canonical plate of renderer-svg (clinographic, front,
+// top; primary only, hidden edges dashed), plus a simple colour axonometric
+// view of all bodies with back-face culling and painter's order (not
+// canonical, no byte-identical guarantee). Output:
 // tests/benchmarks/out/catalog/index.html (not versioned).
 //   pnpm catalog [--out DIR]
 
@@ -9,6 +10,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { CrystalBody, CrystalGeometry, CrystalSeed } from '@voicecrystal/contracts';
 import { generateCrystalGeometry } from '@voicecrystal/crystal-core';
+import { renderPlateSvg } from '@voicecrystal/renderer-svg';
 import { goldenSeeds } from './seeds.ts';
 
 type V3 = [number, number, number];
@@ -83,20 +85,6 @@ function axonometricSvg(g: CrystalGeometry): string {
   return `<svg class="ax" viewBox="-110 -150 220 300" width="180" height="245" role="img" aria-label="${g.habitName}">${paths.join('')}</svg>`;
 }
 
-function outlineSvg(g: CrystalGeometry, view: 'front' | 'top'): string {
-  const paths: string[] = [];
-  for (const b of g.bodies) {
-    for (const f of faces(b)) {
-      const pts = f.ring.map((i) => {
-        const v = vertex(b, i);
-        return view === 'front' ? [v[0], -v[2]] : [v[0], -v[1]];
-      });
-      paths.push(`M${pts.map((p) => `${((p[0] ?? 0) * 25).toFixed(1)},${((p[1] ?? 0) * 25).toFixed(1)}`).join('L')}Z`);
-    }
-  }
-  return `<svg class="ol" viewBox="-80 -${view === 'front' ? 100 : 80} 160 ${view === 'front' ? 200 : 160}" width="80" height="${view === 'front' ? 100 : 80}" aria-hidden="true"><path d="${paths.join('')}"/></svg>`;
-}
-
 // Page styles: design tokens with light and dark values; SVG strokes come from
 // the tokens, crystal fills from appearance.colorOklch (p5).
 const STYLE = `<style>
@@ -120,8 +108,10 @@ main{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:
 figure{margin:0;background:var(--card);border:1px solid var(--rule);border-radius:4px;padding:10px;display:grid;gap:6px;justify-items:center;min-width:0}
 svg{max-width:100%;height:auto}
 .ax path{stroke:var(--edge);stroke-width:.6;stroke-linejoin:round}
-.ol path{fill:none;stroke:var(--line);stroke-width:.5}
-.views{display:flex;justify-content:center;gap:6px}
+.plates{display:grid;grid-template-columns:2fr 1fr;gap:4px;align-items:center;width:100%;color:var(--fg)}
+.plates>svg:first-child{grid-row:span 2}
+.plates svg{width:100%;height:auto}
+.ax{width:150px}
 figcaption{display:grid;gap:2px;text-align:center;width:100%}
 .name{font-size:15px;font-weight:600;line-height:1.25}
 .data{font:11px/1.45 var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
@@ -142,7 +132,7 @@ export function buildCatalog(count: number): string {
     const triangles = g.bodies.reduce((n, b) => n + b.faceOfTriangle.length, 0);
     habits.set(g.habitName, (habits.get(g.habitName) ?? 0) + 1);
     cards.push(
-      `<figure>${axonometricSvg(g)}<div class="views">${outlineSvg(g, 'front')}${outlineSvg(g, 'top')}</div>` +
+      `<figure><div class="plates">${renderPlateSvg(g, { preset: 'clinographic', sizePx: 256 })}${renderPlateSvg(g, { preset: 'front', sizePx: 128 })}${renderPlateSvg(g, { preset: 'top', sizePx: 128 })}</div>${axonometricSvg(g)}` +
         `<figcaption><span class="name">${g.habitName}</span><span class="data">seed ${seed.join(' · ')}</span>` +
         `<span class="data">${g.bodies.length} corpi · ${triangles} triangoli · ${g.inclusions.length} inclusioni</span>` +
         `<span class="data"><code>${g.geometryHash.slice(0, 12)}</code></span></figcaption></figure>`,
@@ -155,10 +145,11 @@ export function buildCatalog(count: number): string {
 ${STYLE}
 <header>
 <h1>Catalogo habit-1: ${count} esemplari per la revisione G2</h1>
-<p>Ogni scheda mostra un'assonometria dall'alto e, sotto, le proiezioni frontale e superiore a linee. Sono tavole semplici, non la tavola canonica di I-12: colore da p5, nessun materiale, aghi e fantasma non disegnati. Il seed è p1 · p2 · p3 · p4 · p5 · p6, in [0, 10000].</p>
+<p>Ogni scheda mostra in alto la tavola cristallografica canonica di I-12 (<code>renderPlateSvg</code>): vista clinografica grande, frontale e dall'alto piccole, solo il corpo primario, spigoli nascosti tratteggiati, scala fissa uguale per tutti. Sotto, un'assonometria a colori semplice che mostra anche i secondari: colore da p5, nessun materiale, aghi e fantasma non disegnati. Il seed è p1 · p2 · p3 · p4 · p5 · p6, in [0, 10000].</p>
 <h2>Cosa guardare</h2>
 <ul>
 <li>Credibilità mineralogica delle forme e delle terminazioni.</li>
+<li>Tavola: spigoli nascosti al posto giusto e leggibilità dello stile da atlante.</li>
 <li>Varietà fra esemplari: i secondari stanno su posizioni base fisse e il rumore ne varia soglia di nascita, altezza e inclinazione (ADR-0018).</li>
 <li>Nomi sul cartellino: «trigonale smussato» ed «esagonale doppio» seguono ADR-0019.</li>
 </ul>

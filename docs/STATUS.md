@@ -4,7 +4,7 @@
 
 **Ultimo aggiornamento:** 2026-11-10 — I-12 implementata, non committata; I-10 mergiata (PR crystal-voice#5), aperta per il G2
 
-> **I-12 implementata, non chiusa (2026-11-10).** Branch `issue/I-12-renderer-svg`, nessun commit. `renderPlateSvg` in `packages/renderer-svg`: solo il corpo primario, scala fissa (decisioni del product owner), tre viste, `plate-1` ([ADR-0020](ADR/0020-versione-del-renderer-nella-promessa-della-tavola-svg.md)). Verificati in locale: 296 test, 3.000 tavole dorate identiche in Node e Chromium (bundle normale e minificato). Revisione avversariale: NO-GO per B1 (test intermittente) e H1 (conteggi sui seed dorati), entrambi corretti; un secondo passaggio non è stato eseguito. Verifica visiva delle tavole fatta dal product owner sul catalogo pubblicato: «ben rappresentate». **Non eseguiti al momento del commit:** Firefox (solo CI) e la CI stessa.
+> **I-12 implementata, non chiusa (2026-11-10).** Branch `issue/I-12-renderer-svg`, commit `335a346`. `renderPlateSvg` in `packages/renderer-svg`: solo il corpo primario, scala fissa (decisioni del product owner), tre viste, `plate-1` ([ADR-0020](ADR/0020-versione-del-renderer-nella-promessa-della-tavola-svg.md)). Verificati in locale: 296 test, 3.000 tavole dorate identiche in Node e Chromium (bundle normale e minificato). Revisione avversariale: NO-GO per B1 (test intermittente) e H1 (conteggi sui seed dorati), entrambi corretti; un secondo passaggio non è stato eseguito. Verifica visiva delle tavole fatta dal product owner sul catalogo pubblicato: «ben rappresentate». CI verde sul commit `335a346` ([CI run 42850801115](https://github.com/alessandronardi/crystal-voice/actions/runs/42850801115)): tre job, comprese le tavole dorate in Chromium e Firefox e la misura della scala. PR non ancora aperta.
 >
 > **I-10 mergiata, non chiusa (2026-11-10).** Branch `issue/I-10-crystal-core`, un solo commit di I-10 che include anche la chiusura documentale di I-05a (ex `8712387`), su richiesta del product owner. Verificati in locale: 257 test, seed dorati in Node e Chromium (bundle normale e minificato), continuità massima 0,0252 su 10.000 coppie geometriche, 0 difetti su 40.000 seed. Revisione avversariale: CONDITIONAL GO, rilievi corretti; domande L1 e L5 decise dal product owner (nomi degli abiti, [ADR-0019](ADR/0019-nomi-degli-abiti-di-habit-1-fedeli-alla-geometria.md); varietà al G2). CI verde sul commit `63a09b3` ([CI run 42826775595](https://github.com/alessandronardi/crystal-voice/actions/runs/42826775595)): typecheck/lint/test/build, seed dorati in Chromium e Firefox, continuità e robustezza, E2E. [PR crystal-voice#5](https://github.com/alessandronardi/crystal-voice/pull/5) unita in squash (`e2a131f`); resta aperta solo la revisione estetica G2. La revisione estetica G2 del catalogo spetta a una persona. Decisioni: rumore continuo ([ADR-0018](ADR/0018-casualita-continua-via-rumore-su-reticolo-dei-parametri.md)); Firefox solo in CI.
 >
@@ -19,12 +19,12 @@
 - **Issue attive:** I-12; I-10 in attesa della revisione estetica G2. Chiuse: **I-01**, **I-04**, **I-05a**. Sbloccate: I-02, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
 
-## I-12: Definition of Done (implementata, non chiusa)
+## I-12: Definition of Done (completa, in attesa di PR)
 
 | Voce | Stato | Evidenza |
 |---|---|---|
 | Spigoli visibili e nascosti corretti sui seed dorati (verifica visiva + test sul conteggio) | Fatto | `packages/renderer-svg/test/plate.test.ts`: conteggi ricavati a mano su tre seed dorati per i tre preset (prisma trigonale 6/3, 4/5, 3/6; prisma esagonale 13/5, 7/11, 6/12), su prismi sintetici e sulla soglia delle facce di taglio; oracolo indipendente a raggio su 400 seed casuali (seed di fast-check fisso), con fascia ambigua [1e-4, 2e-3] misurata (0,24% degli spigoli visibili). Screenshot del catalogo controllato dall'agente. Verifica visiva del product owner il 2026-11-10 sul catalogo pubblicato (https://claude.ai/artifact/ARYmpx4DTx7P2FAbpoanzs): tavole «ben rappresentate» |
-| SVG byte-identico fra esecuzioni e fra Node e browser | Node e Chromium sì; **Firefox non eseguito** | `tests/fixtures/plates/golden-plates-habit-1.json` (1.000 seed × 3 viste, SHA-256). `pnpm test:golden`: 3.000 SVG identici in Node 26.13.0. `pnpm test:golden:browsers --project=chromium`: identici in Chromium 156, bundle normale e minificato. Firefox: job CI `golden hashes (Chromium, Firefox)`, non ancora eseguito |
+| SVG byte-identico fra esecuzioni e fra Node e browser | Fatto | `tests/fixtures/plates/golden-plates-habit-1.json` (1.000 seed × 3 viste, SHA-256). `pnpm test:golden`: 3.000 SVG identici in Node 26.13.0. `pnpm test:golden:browsers --project=chromium`: identici in Chromium 156, bundle normale e minificato. Chromium e Firefox in CI: job `golden hashes (Chromium, Firefox)` verde sul commit `335a346` ([CI run 42850801115](https://github.com/alessandronardi/crystal-voice/actions/runs/42850801115)); il passo `pnpm test:golden:browsers` gira senza filtro di progetto. I log dei singoli test non sono stati letti (richiedono l'accesso autenticato) |
 | SVG valido, con `<title>` e `<desc>` | Fatto | Nel browser, `DOMParser` `image/svg+xml` su 50 tavole: nessun `parsererror`, radice SVG, un `<title>` (nome dell'abito) e un `<desc>` (vista, numero di spigoli visibili e nascosti, versioni). Escape XML con rimozione dei caratteri non ammessi da XML 1.0 |
 
 **Scelte di I-12:**
@@ -196,7 +196,7 @@
 
 ## Prossimi passi
 
-1. I-12: leggere l'esito della CI (con Firefox) sul branch pushato, registrarlo qui, poi aprire la PR.
+1. I-12: aprire la PR (CI verde sul commit `335a346`).
 2. I-10: revisione estetica del catalogo da parte di una persona, al G2.
 3. I-11 (renderer-three): richiede l'approvazione di Three.js come dipendenza runtime. Decisione del product owner (2026-11-10): nessuna rotazione manuale, basta il piatto girevole di SPEC §10; l'export di un modello 3D non è stato chiesto.
 4. I-05b: decidere le dipendenze VAD (libfvad compilato con Emscripten; Silero con onnxruntime-web, circa 10–12 MB di WASM; proposta: Silero solo in Node per il confronto).
@@ -276,3 +276,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-10 | Claude | I-10 | Mergiata | PR crystal-voice#5 unita in squash (`e2a131f`); resta la revisione estetica G2 |
 | 2026-11-10 | Claude | I-12 | Implementata, non chiusa | `renderPlateSvg` (`plate-1`, ADR-0020); 296 test; 3.000 tavole dorate identiche in Node e Chromium; scala 92 px/unità; revisione NO-GO, rilievi B1, H1, M1–M4 e LOW corretti; catalogo ripubblicato; Firefox, CI e verifica visiva umana non eseguiti; nessun commit |
 | 2026-11-10 | Claude | I-12 | Verifica visiva, commit e push | Tavole «ben rappresentate» secondo il product owner; nessuna rotazione manuale in I-11 |
+| 2026-11-10 | Claude | I-12 | CI verde | [CI run 42850801115](https://github.com/alessandronardi/crystal-voice/actions/runs/42850801115): tre job verdi, comprese le tavole dorate in Firefox |

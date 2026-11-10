@@ -208,10 +208,10 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 ### I-12 · renderer-svg «tavola cristallografica»
 
 - **Riferimenti:** SPEC §10; ADR-0013, ADR-0020.
-- **Stato:** implementata sul branch `issue/I-12-renderer-svg`, non chiusa: Firefox e CI non eseguiti. Evidenze in `docs/STATUS.md`.
+- **Stato:** DoD completa sul branch `issue/I-12-renderer-svg` (CI verde sul commit `335a346`), in attesa di PR. Evidenze in `docs/STATUS.md`.
 - **DoD:**
   - [x] Spigoli visibili e nascosti corretti sui seed dorati (verifica visiva + test sul conteggio). Test sul conteggio; verifica visiva del product owner sul catalogo il 2026-11-10.
-  - [ ] SVG byte-identico fra esecuzioni e fra Node e browser. Node e Chromium sì; Firefox solo in CI, non ancora eseguita.
+  - [x] SVG byte-identico fra esecuzioni e fra Node e browser. Node e Chromium in locale; Chromium e Firefox in CI (run 42850801115).
   - [x] SVG valido, con `<title>` e `<desc>` per l'accessibilità.
 
 ## Fase 4 — Prodotto (bloccata fino a G0)

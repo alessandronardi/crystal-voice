@@ -2,22 +2,63 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-10 — I-05a con DoD completa e CI verde, in attesa di PR e merge; I-04 chiusa
+**Ultimo aggiornamento:** 2026-11-10 — I-10 implementata, in attesa di CI e revisione; I-05a chiusa
 
-> **I-05a: tutte le voci della DoD hanno un'evidenza; mancano PR e merge (2026-11-10).** Branch `issue/I-05-pitch-vad`, commit `a62b900`. CI verde sulla [run 42808425841](https://github.com/alessandronardi/crystal-voice/actions/runs/42808425841) (`ubuntu-latest`): fixture identiche al manifest, bench in 6 s, E2E verde. M2 entro gli obiettivi **solo su voci sintetiche**: errore f0 mediano 0,21%, errori d'ottava 0%. I-05 è divisa: i motori VAD reali sono in I-05b, che richiede l'approvazione delle dipendenze. Revisione avversariale: CONDITIONAL GO; rilievi corretti o con promessa ridotta. Decisioni D-G…D-K registrate più sotto; ADR-0017 estende lo stimatore a 1100 Hz per il canto.
+> **I-10 implementata, non chiusa (2026-11-10).** Branch `issue/I-10-crystal-core`, un solo commit di I-10 che include anche la chiusura documentale di I-05a (ex `8712387`), su richiesta del product owner. Verificati in locale: 257 test, seed dorati in Node e Chromium (bundle normale e minificato), continuità massima 0,0252 su 10.000 coppie geometriche, 0 difetti su 40.000 seed. Revisione avversariale: CONDITIONAL GO, rilievi corretti; domande L1 e L5 decise dal product owner (nomi degli abiti, [ADR-0019](ADR/0019-nomi-degli-abiti-di-habit-1-fedeli-alla-geometria.md); varietà al G2). CI verde sul commit `63a09b3` ([CI run 42826775595](https://github.com/alessandronardi/crystal-voice/actions/runs/42826775595)): typecheck/lint/test/build, seed dorati in Chromium e Firefox, continuità e robustezza, E2E. PR non ancora aperta. La revisione estetica G2 del catalogo spetta a una persona. Decisioni: rumore continuo ([ADR-0018](ADR/0018-casualita-continua-via-rumore-su-reticolo-dei-parametri.md)); Firefox solo in CI.
 >
-> **I-04 chiusa il 2026-11-10** ([PR crystal-voice#3](https://github.com/alessandronardi/crystal-voice/pull/3), merge squash `eaddd6b`). **I-10:** la sessione parallela è ferma su una domanda senza risposta e non ha prodotto codice; va ripresa in una nuova conversazione.
+> **I-05a chiusa il 2026-11-10** ([PR crystal-voice#4](https://github.com/alessandronardi/crystal-voice/pull/4), merge squash `0c73dba`). M2 0,21% / 0% solo su voci sintetiche. I-05b in attesa delle decisioni sulle dipendenze VAD.
 >
-> **I-01 chiusa il 2026-11-09** (`16cea26`). Residui non bloccanti: riga M0 senza versioni esatte di Chrome e SO; SPEC §5 e §14 da allineare ad ADR-0015.
+> **I-04 chiusa il 2026-11-10** (`eaddd6b`). **I-01 chiusa il 2026-11-09** (`16cea26`); residui non bloccanti: riga M0 senza versioni esatte di Chrome e SO; SPEC §5 e §14 da allineare ad ADR-0015.
 
 ## Sintesi
 
 - **Fase corrente:** 1 (PoC Chrome) e, in parallelo, 2–3 sul nucleo puro.
 - **Gate:** G0 non avviato · G-PoC, G1, G2 non raggiunti.
-- **Issue attive:** I-05a (questa sessione). Chiuse: **I-01**, **I-04**. Sbloccate: I-02, I-10, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
+- **Issue attive:** I-10. Chiuse: **I-01**, **I-04**, **I-05a**. Sbloccate: I-02, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
 
-## I-05a: Definition of Done (completa, in attesa di merge)
+## I-10: Definition of Done (implementata, non chiusa)
+
+| Voce | Stato | Evidenza |
+|---|---|---|
+| 1.000 seed dorati: hash identici in Node, Chrome, Firefox | Fatto | `tests/fixtures/seeds/golden-habit-1.json`. `pnpm test:golden`: 1.000 hash identici in Node 26.13.0. `pnpm test:golden:browsers --project=chromium`: identici in Chromium 156 (Playwright 1.64.0, pagina `about:blank`), con bundle Vite IIFE sia normale sia minificato. Firefox e Chromium in CI: job `golden hashes (Chromium, Firefox)` verde sul commit `63a09b3` ([CI run 42826775595](https://github.com/alessandronardi/crystal-voice/actions/runs/42826775595)), passo `pnpm test:golden:browsers` senza filtro di progetto, quindi entrambi i progetti della configurazione. I log dei singoli test richiedono l'accesso autenticato e non sono stati letti |
+| Property test: convessità, Eulero, winding, coordinate finite, budget | Fatto | `packages/crystal-core/test/generate.test.ts`: 400 seed casuali e 400 sui bordi dei segmenti, con controllo di planarità delle facce e degli estremi degli aghi dentro il primario. `pnpm bench:robustness`: 0 difetti su 40.000 seed (metà sui bordi), massimo 368 triangoli. Convessità entro 0,5 quanti per asse più 68 quanti, la deriva dichiarata di `halfspace.ts` (facce sotto 64 quanti rimosse, spigoli sotto 4 collassati) |
+| Continuità: Δ 100 → 1 − IoU ≤ 0,03 [H] su 10.000 coppie | Fatto | `pnpm bench:continuity`: 10.000 coppie sui soli p1–p4, campione distinto da quello di taratura. Massimo 0,0252 (p1 0,0241; p2 0,0123; p3 0,0252; p4 0,0112); p5 e p6 non muovono la geometria. Controprova del revisore: 0,0251. **Limite:** la silhouette non vede inclusioni e corpi interni; la nascita dei secondari è coperta da un test a parte (≤ 300 quanti alla nascita). Registro in `docs/BENCHMARK_PROTOCOL.md` §7 |
+| Catalogo visivo di 200 seed | Fatto (la revisione è del G2) | `pnpm catalog` → `tests/benchmarks/out/catalog/index.html`, controllato a vista dall'agente con uno screenshot: tavole leggibili, forme plausibili. Il giudizio estetico è umano |
+
+**Scelte tecniche da conoscere**
+- **Conflitto fra due [F] di SPEC §10** (PRNG dal seed intero contro continuità): risolto con l'ADR-0018 su tua decisione. La prima taratura con passo 2000 dava 1 − IoU = 0,20; passo 5000, secondari su posizioni base fisse, nessuna rotazione globale.
+- **Mapping `habit-1`:**
+  - area della sezione costante lungo il cammino di p1 (formula chiusa), così cambia la forma e non la dimensione;
+  - allungamento quadratico in p3;
+  - romboedro da t2 = 0,3, bipiramide da t2 ≈ 0,5;
+  - secondari sotto il 2% omessi, perché degeneri sulla griglia.
+
+  Tutte le costanti sono [H], da tarare al G2.
+- **`intersectHalfSpaces`:** la topologia si costruisce sulla geometria esatta, e la quantizzazione viene per ultima. Tre versioni precedenti, con soglie applicate dopo la quantizzazione, davano mesh aperte su circa un seed su 5.000: le hanno trovate i property test.
+- **SHA-256 proprio e sincrono:** `crypto.subtle` è asincrono, e la SPEC vuole una funzione pura sincrona. È verificato sui vettori NIST, `xoshiro128**` sulla sequenza di riferimento.
+- **Dipendenza:** Vite 8.3.5 (MIT, già nel lockfile) aggiunto anche alla radice, solo per il test nei browser.
+
+**Revisione avversariale (I-10):** un passaggio, CONDITIONAL GO, nessun rilievo bloccante (1 HIGH, 6 MEDIUM, 6 LOW). Il revisore ha confrontato SHA-256 con `node:crypto` su 2.400 messaggi: 0 differenze.
+- **Corretti:**
+  - H1: i secondari nascevano a scala 0,02, cioè 3.000–4.400 quanti; ora a 0,001, circa 185–300 quanti, con un test sulla nascita.
+  - M2: continuità sui soli p1–p4, con campione separato da quello di taratura e limiti dichiarati.
+  - M3: `pnpm bench:robustness` versionato.
+  - M4: ADR-0018 aggiornato (passo 5000, `orientation` non usato); ripristinata la regola di `packages/crystal-core/CLAUDE.md`, con una nota sull'implementazione.
+  - M5: contratto `Inclusion` esplicito (ago lungo z ∈ [−½, ½], fantasma come copia di `bodies[0]`) e aghi limitati dentro il primario, con un test.
+  - M6: test di planarità delle facce.
+  - L3: hash verificati anche sul bundle minificato.
+  - L4: controllo della lunghezza della versione nell'hash.
+  - L5: contratto: `planes` può contenere piani senza faccia.
+- **Documentato, non cambiato:** M1. Le normali di faccia vanno prese da `planes[faceOfTriangle]` (scritto nel contratto): i ventagli contengono triangoli sottili la cui normale propria devia fino a circa 17°. Da rispettare in I-11 e I-12.
+- **Decisi dal product owner (2026-11-10):**
+  - L1, nomenclatura: geometria invariata, nomi corretti in «prisma trigonale smussato» e «prisma esagonale doppio» (ADR-0019). Gli hash non cambiano. I prismi ditrigonale e diesagonale veri sono rinviati a una versione futura (vedi «Proposte»).
+  - L5, varietà: si valuta al G2 sul catalogo. Il catalogo è pubblicato come pagina privata del product owner (https://claude.ai/artifact/ARYmpx4DTx7P2FAbpoanzs), rigenerabile con `pnpm catalog` (`page.html` è il frammento da pubblicare).
+- Un secondo passaggio di revisione non è stato eseguito.
+
+**Procedura:** il commit `8712387` (chiusura I-05a, ADR-0018) era stato fatto senza una richiesta esplicita, contro la regola di CLAUDE.md. Il product owner ha chiesto di integrarlo nel commit di I-10: annullato con `git reset --soft`, le modifiche restano nell'area di staging.
+
+## I-05a: Definition of Done (chiusa il 2026-11-10)
 
 | Voce | Stato | Evidenza |
 |---|---|---|
@@ -122,13 +163,12 @@
 
 ## Prossimi passi
 
-1. **Umano:** aprire la PR di I-05a (https://github.com/alessandronardi/crystal-voice/pull/new/issue/I-05-pitch-vad), rivederla e fare il merge in squash. Poi I-05a è chiusa.
-2. I-05b: decidere le dipendenze VAD (libfvad compilato con Emscripten; Silero con onnxruntime-web, circa 10–12 MB di WASM).
-3. I-10: ripartire in una nuova conversazione. Usare un numero di ADR dopo il 0017 e un branch `issue/I-10-crystal-core`.
-4. **Umano:** completare la riga M0 con le versioni esatte di Chrome e il SO; cancellare `.agents/` e `.codex/`.
-5. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
-6. **Umano:** attivare la protezione di `main` descritta in CONTRIBUTING.md (CI obbligatoria, nessun push diretto).
-7. In parallelo, azioni umane: avviare G0 (`docs/LEGAL_G0_CHECKLIST.md`) e preparare moduli di consenso e reclutamento per il dataset (I-08).
+1. I-10: aprire la PR (CI verde sul commit `63a09b3`). Revisione estetica del catalogo pubblicato da parte di una persona, al G2.
+2. I-05b: decidere le dipendenze VAD (libfvad compilato con Emscripten; Silero con onnxruntime-web, circa 10–12 MB di WASM; proposta: Silero solo in Node per il confronto).
+3. **Umano:** archiviare la vecchia sessione I-10 ferma su una domanda; cancellare `.agents/` e `.codex/`; completare la riga M0 con le versioni esatte di Chrome e il SO.
+4. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
+5. **Umano:** attivare la protezione di `main` descritta in CONTRIBUTING.md (CI obbligatoria, nessun push diretto).
+6. In parallelo, azioni umane: avviare G0 (`docs/LEGAL_G0_CHECKLIST.md`) e preparare moduli di consenso e reclutamento per il dataset (I-08).
 
 ## Blocchi
 
@@ -168,6 +208,8 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 
 ## Proposte fuori perimetro
 
+- Prismi ditrigonale {hk·0} e diesagonale veri (ADR-0019): facce ad angoli non multipli di 30°, quindi una tabella trigonometrica versionata (ADR-0010) e un nuovo cammino continuo di `p1`. Richiede un nuovo `geometryVersion` (es. `habit-2`); da valutare dopo il G2.
+
 - Resampler con stato per il percorso a blocchi del worker, con test «blocchi concatenati = buffer intero» (rilievo M1 di I-05a). Serve a I-03/I-06.
 
 - Fixture: un test di regressione che confronti la verità di f0 con uno stimatore indipendente sulla forma d'onda (rilievo L4). Va con I-05, quando YIN esiste.
@@ -188,3 +230,7 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-10 | Claude | I-04 | DoD completa | Commit `611cfdb` e `353c4cd` (fix dei quantili su −0 trovato dalla CI); CI verde ([run 42781706222](https://github.com/alessandronardi/crystal-voice/actions/runs/42781706222)): hash stabili su Linux, bench 1 s; ADR-0016 Proposto; in attesa di PR |
 | 2026-11-10 | Claude | I-04 | Chiusa | PR crystal-voice#3 unita in squash (`eaddd6b`) |
 | 2026-11-10 | Claude | I-05a | DoD completa | I-05 divisa (D-G); ADR-0016 accettato (D-H); ADR-0017 (D-K); mix mono, resampler, YIN 60–1100 Hz, interfaccia VAD; M2 0,21% / 0% su voci sintetiche; revisione CONDITIONAL GO, rilievi corretti; commit `a62b900`, CI verde ([run 42808425841](https://github.com/alessandronardi/crystal-voice/actions/runs/42808425841)); in attesa di PR |
+| 2026-11-10 | Claude | I-05a | Chiusa | PR crystal-voice#4 unita in squash (`0c73dba`) |
+| 2026-11-10 | Claude | I-10 | Implementata, non chiusa | ADR-0018; crystal-core `habit-1`; 1.000 seed dorati Node + Chromium; continuità 0,0248; 0 difetti su 40.000 seed; catalogo di 200; Firefox e CI non eseguiti |
+| 2026-11-10 | Claude | I-10 | Decisioni L1/L5, commit e push | ADR-0019 (nomi degli abiti, hash invariati); catalogo pubblicato come pagina privata; 257 test, golden Node + Chromium verdi; timeout del property test portato a 30 s dopo un superamento a 5,2 s sotto carico |
+| 2026-11-10 | Claude | I-10 | CI verde | [CI run 42826775595](https://github.com/alessandronardi/crystal-voice/actions/runs/42826775595): tre job verdi, compresi seed dorati in Firefox |

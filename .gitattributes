@@ -2,3 +2,4 @@
 # (I-04): keep LF on every checkout, whatever core.autocrlf says.
 tests/fixtures/*.json text eol=lf
 *.wav binary
+tests/fixtures/seeds/*.json text eol=lf

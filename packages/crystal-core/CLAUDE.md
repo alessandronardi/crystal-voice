@@ -16,11 +16,12 @@ Valgono `AGENTS.md` e `CLAUDE.md` della radice. Riferimenti: SPEC §10; ADR-0005
 
 ## Determinismo (ADR-0010)
 
-- PRNG `xoshiro128**`, stato dai primi 128 bit di SHA-256 della serializzazione canonica `(seed, geometryVersion, domainLabel)`; un PRNG per dominio.
+- PRNG `xoshiro128**`, stato dai primi 128 bit di SHA-256 della serializzazione canonica `(nodo, geometryVersion, domainLabel)`: il nodo è un punto del reticolo dei parametri p1…p4, e i valori si interpolano con continuità (ADR-0018). Mai l'intero seed: romperebbe la continuità.
 - Nel percorso dei vertici: niente `Math.random`, `Date`, `Math.sin/cos/tan/atan2/exp/pow/log/sqrt` non garantite. Le direzioni delle normali dei piani vengono da tabelle esatte (seni e coseni di multipli di 30° sono costanti algebriche note: 0, ±1/2, ±√3/2, ±1) o da `trig-table.ts` versionata.
 - `Math.sqrt` è corretta all'ultimo bit per specifica IEEE 754 ed è ammessa; documentalo nel codice dove la usi.
 - Le normali dei piani non devono essere normalizzate: per una faccia di terminazione usa `n = (cos θ_k, sin θ_k, c)` con `c` = ripidità dal parametro e `d` scalato di conseguenza. I vertici si ottengono risolvendo sistemi 3×3 con sole operazioni `+ − × ÷`, deterministiche in IEEE 754.
 - Quantizza i vertici a interi (unità 2⁻¹⁶) **prima** di triangolare e di calcolare l'hash. Ordine canonico: vertici ordinati per (x, y, z), triangoli per indice minimo poi lessicografico.
+- Implementazione (`halfspace.ts`, I-10): l'incidenza vertice–piano e l'ordine angolare dei vertici di ogni faccia si decidono sulla geometria esatta (solo `+ − × ÷`). Facce sotto 64 quanti vengono rimosse, spigoli sotto 4 quanti collassati, poi si quantizza, e il ventaglio si costruisce sugli indici quantizzati. La regola sopra resta valida; il dettaglio è spiegato in testa a `halfspace.ts`.
 - SHA-256 tramite implementazione inclusa nel pacchetto o `crypto.subtle` con adattatore; l'hash deve coincidere in Node, Chrome e Firefox.
 - Cosa verifica il lint (`tooling/eslint/purity.js`) e cosa no: blocca `let`/`var` di modulo, `Date`, timer, `Math.random`, alias di `Math` e `crypto`, `import()` dinamico; in `geometry/` anche i membri `Math` non ammessi e ogni import con `..`. **Non** rileva lo stato mutabile dentro `const` (oggetti, `Map`, campi statici di classe): resta un punto di revisione.
 

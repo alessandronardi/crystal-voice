@@ -10,12 +10,15 @@
     "typecheck": "pnpm -r run typecheck && tsc --noEmit -p tsconfig.json",
     "lint": "eslint --max-warnings=0 .",
     "test": "vitest run",
-    "test:golden": "node scripts/dev/not-implemented.ts test:golden I-10",
-    "test:golden:browsers": "node scripts/dev/not-implemented.ts test:golden:browsers I-10",
+    "test:golden": "node scripts/golden/seeds.ts",
+    "test:golden:browsers": "playwright test -c playwright.golden.config.ts",
     "fixtures": "node scripts/fixtures/generate.ts",
     "build": "pnpm --filter @voicecrystal/extension run build",
     "test:e2e": "playwright test",
-    "bench": "node tests/benchmarks/run.ts"
+    "bench": "node tests/benchmarks/run.ts",
+    "bench:continuity": "node scripts/golden/continuity.ts",
+    "catalog": "node scripts/golden/catalog.ts",
+    "bench:robustness": "node scripts/golden/robustness.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -32,6 +35,7 @@
     "fast-check": "4.10.2",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.1",
+    "vite": "8.3.5",
     "vitest": "5.1.0"
   }
 }

@@ -36,10 +36,15 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 - I-05a: `dsp-core` con mix mono (ADR-0016), resampler razionale anti-alias a 16 kHz, frame, YIN (60–500 Hz, null fuori range), interfaccia `VadEngine` e pre-filtro a banda (solo diagnostica), `trackPitch` (`pitch-yin-0`).
 - I-05a: `pnpm bench` misura M2 (errore f0 per frame e d'ottava rispetto alla traccia vera), bias della mediana, M3 per f0 e M12; fixture `voice-a-antiphase-partial`.
 - `docs/BENCHMARK_PROTOCOL.md` §7: registro delle misure.
+- I-10: `crystal-core` `habit-1`: corpi come intersezione di semispazi (prisma trigonale → trigonale smussato → esagonale → esagonale smussato → esagonale doppio; pinacoide, romboedri, bipiramide; secondari concresciuti; aghi e fantasma), SHA-256 e `xoshiro128**` propri, rumore continuo su reticolo (ADR-0018), `geometryHash` canonico, contratto `CrystalGeometry` in `packages/contracts`.
+- I-10: 1.000 seed dorati (`pnpm test:golden`, `pnpm test:golden:browsers`, anche su bundle minificato), misura di continuità (`pnpm bench:continuity`), robustezza (`pnpm bench:robustness`), catalogo di 200 tavole (`pnpm catalog`).
+- ADR-0018 (Accettato): casualità del generatore come rumore continuo su reticolo dei parametri geometrici.
+- ADR-0019 (Accettato): nomi degli abiti di `habit-1` fedeli alla geometria («trigonale smussato», «esagonale doppio»); prismi ditrigonale e diesagonale veri rinviati a una versione futura (decisione L1).
 - ADR-0017 (Accettato): stimatore f0 esteso a 60–1100 Hz per il canto; il frame intonato dei descrittori resta 60–500 Hz (decisione D-K).
 - I-04: `dsp-core` con quantili tipo 7, mediana, IQR e `signalSummary` (`signal-summary-0`); nessun `extractorVersion` ancora.
 
 ### Modificato
+- I-10: Vite 8.3.5 anche fra le dipendenze di sviluppo della radice (già nel lockfile per l'estensione; MIT), per impacchettare `crystal-core` nel test dei browser. CI: job «golden hashes (Chromium, Firefox)».
 - Contratti: `QualityWarning` include `PHASE_CANCELLATION` (ADR-0016; aggiunta retrocompatibile, nessun record persistito).
 - Backlog: I-05 divisa in I-05a (pura) e I-05b (motori VAD, dipendenze da approvare); I-06 dipende da entrambe.
 - I-04: la CI esegue `pnpm fixtures --check`, `pnpm fixtures` e `pnpm bench` (timeout 2 min, report come artefatto); ESLint ignora `.claude/worktrees/`; `.gitattributes` forza LF sui JSON delle fixture.

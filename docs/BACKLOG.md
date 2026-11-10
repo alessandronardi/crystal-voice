@@ -100,7 +100,7 @@
 
 ### I-04 · Fixture sintetiche + harness offline
 
-**Stato:** DoD completa sul branch `issue/I-04-fixtures-harness`, CI verde (run 42781706222); in attesa di PR e merge. Evidenze in `docs/STATUS.md`.
+**Stato:** chiusa il 2026-11-10 ([PR crystal-voice#3](https://github.com/alessandronardi/crystal-voice/pull/3), merge squash `eaddd6b`). Evidenze in `docs/STATUS.md`.
 
 - **Riferimenti:** SPEC §15; `docs/BENCHMARK_PROTOCOL.md`; R16.
 - **Obiettivo:** banco di prova riproducibile senza audio reale.
@@ -119,7 +119,7 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 
 - **Riferimenti:** SPEC §7.1–§7.4; ADR-0016, ADR-0017; `docs/BENCHMARK_PROTOCOL.md` M2, M12.
 - **Perimetro:** mix mono con test in controfase (ADR-0016); resampling anti-alias a 16 kHz; frame; YIN con confidenza e periodicità; interfaccia `VadEngine` e pre-filtro RMS + banda (solo diagnostica); analizzatore di pitch nel bench.
-- **Stato:** DoD completa sul branch `issue/I-05-pitch-vad` (commit `a62b900`), CI verde (run 42808425841); in attesa di PR e merge. Evidenze in `docs/STATUS.md`.
+- **Stato:** chiusa il 2026-11-10 ([PR crystal-voice#4](https://github.com/alessandronardi/crystal-voice/pull/4), merge squash `0c73dba`). Evidenze in `docs/STATUS.md`.
 - **DoD:**
   - [x] Errore mediano f0 ≤ 1% e errori d'ottava ≤ 2% sulle fixture con f0 noto, oppure valori misurati riportati e soglia rinegoziata in ADR. Misurato 0,21% e 0,00%, solo su voci sintetiche.
   - [x] Mix mono secondo ADR-0016, con test su controfase completa, parziale e stereo in fase.
@@ -184,13 +184,14 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 
 ### I-10 · crystal-core a semispazi
 
-- **Riferimenti:** SPEC §10; ADR-0005, ADR-0010; `packages/crystal-core/CLAUDE.md`.
+- **Riferimenti:** SPEC §10; ADR-0005, ADR-0010, ADR-0018, ADR-0019; `packages/crystal-core/CLAUDE.md`.
+- **Stato:** implementata sul branch `issue/I-10-crystal-core`, non chiusa: Firefox e CI non ancora eseguiti, revisione estetica G2 da fare. Evidenze in `docs/STATUS.md`.
 - **Perimetro:** intersezione di semispazi; forme ammesse; cammino continuo di `p1`; terminazioni; secondari da dimensione 0; inclusioni; quantizzazione; PRNG per dominio; SHA-256; `geometryVersion = habit-1`; seed dorati.
 - **DoD:**
-  - [ ] 1.000 seed dorati: hash identici in Node, Chrome, Firefox.
-  - [ ] Property test: convessità, Eulero, winding, coordinate finite, budget triangoli.
-  - [ ] Continuità: Δ di 100 unità → 1 − IoU ≤ 0,03 [H] su 10.000 coppie casuali, o valore misurato e soglia in ADR.
-  - [ ] Catalogo visivo di 200 seed (tavole SVG) per la revisione estetica G2.
+  - [ ] 1.000 seed dorati: hash identici in Node, Chrome, Firefox. Node e Chromium sì; Firefox solo in CI, non ancora eseguita.
+  - [x] Property test: convessità, Eulero, winding, coordinate finite, budget triangoli.
+  - [x] Continuità: Δ di 100 unità → 1 − IoU ≤ 0,03 [H] su 10.000 coppie casuali, o valore misurato e soglia in ADR. Massimo misurato 0,0252 sul campione di verifica (0,0248 su quello di taratura).
+  - [x] Catalogo visivo di 200 seed (tavole SVG) per la revisione estetica G2: `pnpm catalog`. La revisione è umana e spetta al G2.
 - **Test:** unit, property, golden.
 
 ### I-11 · renderer-three «vetrina»

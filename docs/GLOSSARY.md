@@ -24,7 +24,7 @@ Termini usati in specifica, codice e interfaccia. Gli identificatori nel codice 
 | Frame utile | Frame con voce secondo il VAD, non clippato, sopra −60 dBFS |
 | Frame intonato | Frame utile con f0 in 60–500 Hz e confidenza ≥ 0,8 |
 | Split-half | Confronto delle stime sui blocchi pari e dispari di 1 s per decidere l'arresto |
-| Abito | Forma complessiva del cristallo (habit), es. «prisma diesagonale» |
+| Abito | Forma complessiva del cristallo (habit), es. «prisma esagonale doppio con romboedro» |
 | Semispazio | Regione `n·x ≤ d`; il cristallo è l'intersezione dei semispazi delle sue facce |
 | Germe | Cristallo provvisorio mostrato durante l'ascolto |
 | Esemplare | Cristallo salvato in collezione, con numero progressivo |

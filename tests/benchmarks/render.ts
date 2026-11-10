@@ -3,29 +3,134 @@
 //
 //   pnpm bench:render                 headed, real GPU: the reference measure
 //   pnpm bench:render --swiftshader   headless SwiftShader (no GPU): NOT a reference
-//   pnpm bench:render --pause 15      seconds to wait before and after the 100 cycles,
-//                                     to read "GPU memory" in Chrome's Task Manager
 //   pnpm bench:render --show 60       at the end, 60 s of the same crystal plain (left) and
 //                                     with p1 and p4 veiled (right), turning: M19
+//   pnpm bench:render --memory [--setup 60] [--phase 30]
+//                                     M18 only, no frame measures: an empty page for --setup s
+//                                     (open Chrome's Task Manager), then timed phases to read
+//                                     "GPU memory": before any crystal, during one turning
+//                                     crystal, then twice 100 mount/unmount cycles each followed
+//                                     by a reading, and a last reading at a distance. The
+//                                     page and the terminal show the phase and a countdown.
 //
-// Output: tests/benchmarks/out/render-<timestamp>.json and render-latest.json
-// (not versioned). The GPU string comes from WEBGL_debug_renderer_info.
+// Output: tests/benchmarks/out/render-<timestamp>.json and render-latest.json, or
+// render-memory-latest.json for --memory (not versioned). GPU string from
+// WEBGL_debug_renderer_info. GPU memory itself is not readable from a page: the
+// person reads it in the Task Manager.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium } from '@playwright/test';
+import { chromium, type Page } from '@playwright/test';
 import { bundleRenderer, ROOT, SWIFTSHADER_ARGS } from '../render-browsers/harness.ts';
 
 const argv = process.argv.slice(2);
 const swiftshader = argv.includes('--swiftshader');
-const pauseIndex = argv.indexOf('--pause');
-const pauseS = pauseIndex >= 0 ? Number(argv[pauseIndex + 1] ?? '0') : 0;
-const showIndex = argv.indexOf('--show');
-const showS = showIndex >= 0 ? Number(argv[showIndex + 1] ?? '0') : 0;
+const numberArg = (flag: string, fallback: number): number => {
+  const i = argv.indexOf(flag);
+  const v = i >= 0 ? Number(argv[i + 1]) : fallback;
+  return Number.isFinite(v) && v >= 0 ? v : fallback;
+};
+const showS = numberArg('--show', 0);
+const memoryMode = argv.includes('--memory');
+const setupS = numberArg('--setup', 60);
+const phaseS = numberArg('--phase', 30);
 const SIZE = 512;
 const FRAMES = 300;
 const FIRST_FRAME_RUNS = 10;
 const SEED = [3000, 6000, 9000, 9000, 2000, 8000];
+
+/** Node timer: unlike page.waitForTimeout it survives the browser window being closed. */
+const sleep = (ms: number): Promise<void> =>
+  new Promise((done) => {
+    setTimeout(done, ms);
+  });
+
+type Lib = {
+  generateCrystalGeometry: (...a: unknown[]) => unknown;
+  renderCrystal: (...a: unknown[]) => { renderAt(a: number): void; dispose(): void };
+};
+
+/** Shows the phase and a countdown in the page (textContent only) and in the terminal. */
+async function countdown(page: Page, title: string, instruction: string, seconds: number): Promise<void> {
+  console.log(`\n[${title}] ${instruction} (${seconds} s)`);
+  for (let left = seconds; left > 0; left--) {
+    if (!page.isClosed()) {
+      await page
+        .evaluate(
+          ([t, i, l]) => {
+            const bar = document.getElementById('status');
+            if (bar) bar.textContent = `${t} — ${i} — ${l} s`;
+          },
+          [title, instruction, left] as const,
+        )
+        .catch(() => undefined);
+    }
+    if (left % 10 === 0 && left !== seconds) console.log(`  … ${left} s`);
+    await sleep(1000);
+  }
+}
+
+/** M18: timed phases for reading GPU memory in Chrome's Task Manager. No frame measures. */
+async function runMemory(page: Page, environment: Record<string, unknown>, reference: boolean): Promise<void> {
+  const phases: { phase: string; startedAt: string; seconds: number }[] = [];
+  const phase = async (name: string, instruction: string, seconds: number) => {
+    phases.push({ phase: name, startedAt: new Date().toISOString(), seconds });
+    await countdown(page, name, instruction, seconds);
+  };
+  await phase('PREPARAZIONE', 'Apri il Task Manager in QUESTA finestra (Maiusc+Esc), colonna «Memoria GPU», riga «Processo GPU». Nessun cristallo', setupS);
+  await phase('PRIMA', 'Nessun cristallo: annota la memoria GPU', phaseS);
+  await page.evaluate(
+    ([size, seed]) => {
+      const lib = (globalThis as unknown as { VoiceCrystalRender: Lib }).VoiceCrystalRender;
+      const h = lib.renderCrystal(lib.generateCrystalGeometry(seed, [1, 1, 1, 1, 1, 1], 'habit-1'), { container: document.getElementById('stage'), profile: 'vetrina', reducedMotion: false, sizePx: size });
+      (globalThis as unknown as { __memHandle: unknown }).__memHandle = h;
+    },
+    [SIZE, SEED] as const,
+  );
+  await phase('DURANTE', 'Un cristallo vetrina in rotazione: annota la memoria GPU', phaseS);
+  await page.evaluate(() => {
+    (globalThis as unknown as { __memHandle: { dispose(): void } }).__memHandle.dispose();
+  });
+  const cyclesMs: number[] = [];
+  const save = () => {
+    const report = { kind: 'render-gpu-memory', date: new Date().toISOString(), reference, sizePx: SIZE, seed: SEED, environment, phases, cycles100Ms: cyclesMs, note: 'GPU memory values are read by a person in the Task Manager and recorded in MANUAL_CHECKLIST (M18).' };
+    const outDir = join(ROOT, 'tests/benchmarks/out');
+    mkdirSync(outDir, { recursive: true });
+    writeFileSync(join(outDir, 'render-memory-latest.json'), `${JSON.stringify(report, null, 2)}\n`);
+  };
+  // Two batches: a value that stays put after batch 2 is a one-off cost (caches
+  // filled on first use); a value that grows again by the same amount is a leak.
+  for (let batch = 1; batch <= 2; batch++) {
+    const name = `CICLI ${batch}`;
+    phases.push({ phase: name, startedAt: new Date().toISOString(), seconds: 0 });
+    console.log(`\n[${name}] 100 monta/smonta in corso: non serve leggere…`);
+    await page.evaluate((n) => {
+      const bar = document.getElementById('status');
+      if (bar) bar.textContent = `${n} — 100 monta/smonta in corso: non serve leggere`;
+    }, name);
+    const ms = await page.evaluate(
+      ([size, seed]) => {
+        const lib = (globalThis as unknown as { VoiceCrystalRender: Lib }).VoiceCrystalRender;
+        const stage = document.getElementById('stage');
+        const t0 = performance.now();
+        for (let i = 0; i < 100; i++) {
+          const h = lib.renderCrystal(lib.generateCrystalGeometry(seed, [1, 1, 1, 1, 1, 1], 'habit-1'), { container: stage, profile: i % 2 === 0 ? 'vetrina' : 'economy', reducedMotion: true, sizePx: size });
+          h.renderAt(i * 0.1);
+          h.dispose();
+        }
+        return performance.now() - t0;
+      },
+      [SIZE, SEED] as const,
+    );
+    cyclesMs.push(ms);
+    console.log(`  100 cicli in ${(ms / 1000).toFixed(1)} s`);
+    save();
+    await phase(`DOPO ${batch}`, `Nessun cristallo, ${batch * 100} cicli fatti: annota la memoria GPU`, phaseS);
+  }
+  await phase('DOPO, A DISTANZA', 'Ancora nessun cristallo: annota di nuovo la memoria GPU', phaseS);
+  save();
+  console.log('\nFine. Report delle fasi in tests/benchmarks/out/render-memory-latest.json');
+}
 
 const isSoftware = (gpu: string): boolean => /swiftshader|llvmpipe|software|basic render/i.test(gpu);
 
@@ -40,7 +145,9 @@ async function main(): Promise<void> {
   const browser = await chromium.launch({ channel: 'chromium', headless: swiftshader, args: swiftshader ? SWIFTSHADER_ARGS : [] });
   const page = await browser.newPage({ viewport: { width: 800, height: 800 } });
   await page.goto('about:blank');
-  await page.setContent('<!doctype html><body style="margin:0;background:#000"><div id="stage"></div></body>');
+  await page.setContent(
+    '<!doctype html><body style="margin:0;background:#000;color:#eee;font:20px/1.4 system-ui,sans-serif"><div id="status" style="padding:12px 16px;min-height:3em"></div><div id="stage"></div></body>',
+  );
   await page.addScriptTag({ content: bundle });
 
   const environment = await page.evaluate(() => {
@@ -58,6 +165,17 @@ async function main(): Promise<void> {
   // Reference only on a real GPU: headed Chrome on a machine without one also falls back to SwiftShader.
   const reference = !swiftshader && !isSoftware(environment.gpuRenderer);
   console.log(`GPU: ${environment.gpuRenderer} (${reference ? 'GPU reale, di riferimento' : 'rasterizzatore software, NON di riferimento'})`);
+
+  if (memoryMode) {
+    try {
+      await runMemory(page, environment, reference);
+    } catch (error) {
+      if (!page.isClosed()) throw error;
+      console.log('\nFinestra chiusa: sequenza interrotta. Il report contiene le fasi completate.');
+    }
+    await browser.close().catch(() => undefined);
+    return;
+  }
 
   const results: Record<string, unknown> = {};
   for (const profile of ['vetrina', 'economy'] as const) {
@@ -130,11 +248,7 @@ async function main(): Promise<void> {
     );
   }
 
-  // 100 cycles, for GPU memory in Chrome's Task Manager (Shift+Esc → column "GPU memory").
-  if (pauseS > 0) {
-    console.log(`Leggi ora la memoria GPU (prima dei cicli). Attesa ${pauseS} s…`);
-    await page.waitForTimeout(pauseS * 1000);
-  }
+  // 100 cycles, timed (GPU memory has its own mode: --memory).
   const cyclesMs = await page.evaluate(
     ([size, seed]) => {
       const lib = (globalThis as unknown as { VoiceCrystalRender: { generateCrystalGeometry: (...a: unknown[]) => unknown; renderCrystal: (...a: unknown[]) => { renderAt(a: number): void; dispose(): void } } }).VoiceCrystalRender;
@@ -150,11 +264,20 @@ async function main(): Promise<void> {
     [SIZE, SEED] as const,
   );
   console.log(`100 cicli monta/smonta: ${(cyclesMs / 1000).toFixed(1)} s`);
-  if (pauseS > 0) {
-    console.log(`Leggi ora la memoria GPU (dopo i cicli). Attesa ${pauseS} s…`);
-    await page.waitForTimeout(pauseS * 1000);
-  }
-  if (showS > 0) {
+
+  // Saved now: a window closed during the remaining waits cannot lose the measures.
+  const now = new Date();
+  const report = { kind: 'render-bench', date: now.toISOString(), reference, sizePx: SIZE, frames: FRAMES, seed: SEED, environment, results, cycles100Ms: cyclesMs };
+  const outDir = join(ROOT, 'tests/benchmarks/out');
+  mkdirSync(outDir, { recursive: true });
+  const text = `${JSON.stringify(report, null, 2)}\n`;
+  writeFileSync(join(outDir, `render-${now.toISOString().replace(/[:.]/g, '-')}.json`), text);
+  writeFileSync(join(outDir, 'render-latest.json'), text);
+  console.log('Report salvato in tests/benchmarks/out/render-latest.json');
+
+  if (showS > 0 && page.isClosed()) {
+    console.log('Finestra chiusa: confronto dei veli (--show) saltato.');
+  } else if (showS > 0) {
     await page.setViewportSize({ width: 2 * SIZE + 48, height: SIZE + 32 });
     await page.evaluate(
       ([size, seed]) => {
@@ -171,17 +294,10 @@ async function main(): Promise<void> {
       [SIZE, SEED] as const,
     );
     console.log(`Vetrina: sinistra senza veli, destra p1 e p4 velati. Attesa ${showS} s…`);
-    await page.waitForTimeout(showS * 1000);
+    await sleep(showS * 1000);
   }
-  await browser.close();
-
-  const now = new Date();
-  const report = { kind: 'render-bench', date: now.toISOString(), reference, sizePx: SIZE, frames: FRAMES, seed: SEED, environment, results, cycles100Ms: cyclesMs };
-  const outDir = join(ROOT, 'tests/benchmarks/out');
-  mkdirSync(outDir, { recursive: true });
-  const text = `${JSON.stringify(report, null, 2)}\n`;
-  writeFileSync(join(outDir, `render-${now.toISOString().replace(/[:.]/g, '-')}.json`), text);
-  writeFileSync(join(outDir, 'render-latest.json'), text);
+  // The user may have closed the window already: nothing left to lose.
+  await browser.close().catch(() => undefined);
 }
 
 await main();

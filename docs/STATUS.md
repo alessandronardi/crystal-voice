@@ -2,9 +2,11 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-10 — I-12 implementata, non committata; I-10 mergiata (PR crystal-voice#5), aperta per il G2
+**Ultimo aggiornamento:** 2026-11-10 — I-11 implementata, **non committata** (branch `issue/I-11-renderer-three`), in attesa delle misure su hardware reale; I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
 
-> **I-12 implementata, non chiusa (2026-11-10).** Branch `issue/I-12-renderer-svg`, commit `335a346`. `renderPlateSvg` in `packages/renderer-svg`: solo il corpo primario, scala fissa (decisioni del product owner), tre viste, `plate-1` ([ADR-0020](ADR/0020-versione-del-renderer-nella-promessa-della-tavola-svg.md)). Verificati in locale: 296 test, 3.000 tavole dorate identiche in Node e Chromium (bundle normale e minificato). Revisione avversariale: NO-GO per B1 (test intermittente) e H1 (conteggi sui seed dorati), entrambi corretti; un secondo passaggio non è stato eseguito. Verifica visiva delle tavole fatta dal product owner sul catalogo pubblicato: «ben rappresentate». CI verde sul commit `335a346` ([CI run 42850801115](https://github.com/alessandronardi/crystal-voice/actions/runs/42850801115)): tre job, comprese le tavole dorate in Chromium e Firefox e la misura della scala. PR non ancora aperta.
+> **I-11 implementata, non chiusa (2026-11-10).** Branch `issue/I-11-renderer-three` da `06c5836`, **niente committato**. `renderCrystal` in `packages/renderer-three` con Three.js `0.186.1` (approvato dal product owner): vetrina e economy, tratti velati, ripiego sulla tavola SVG. Verificati in locale: typecheck, lint, 316 test Node; `pnpm test:render` in Chromium con WebGL **software** (SwiftShader): 11 test su 11 verdi sul codice finale (9,8 min): 4 immagini di riferimento identiche (0,000%), ogni velo cambia l'immagine, 100 cicli senza oggetti WebGL vivi e heap JS da 4,24 a 4,59 MB, perdita di contesto e WebGL assente → tavola SVG. Revisione avversariale: CONDITIONAL GO (0 BLOCKING, 3 HIGH, 5 MEDIUM, 6 LOW); rilievi corretti salvo quelli che richiedono hardware reale o la CI; un secondo passaggio non è stato eseguito. **Non eseguiti:** frame time e primo frame su GPU reale (M17), memoria GPU nei 100 cicli (M18), giudizio umano sulla resa e sui veli (M19), job CI `render-three` su Linux.
+>
+> **I-12 chiusa il 2026-11-10** ([PR crystal-voice#6](https://github.com/alessandronardi/crystal-voice/pull/6), merge squash `06c5836`). Commit di lavoro `335a346`. `renderPlateSvg` in `packages/renderer-svg`: solo il corpo primario, scala fissa (decisioni del product owner), tre viste, `plate-1` ([ADR-0020](ADR/0020-versione-del-renderer-nella-promessa-della-tavola-svg.md)). Verificati in locale: 296 test, 3.000 tavole dorate identiche in Node e Chromium (bundle normale e minificato). Revisione avversariale: NO-GO per B1 (test intermittente) e H1 (conteggi sui seed dorati), entrambi corretti; un secondo passaggio non è stato eseguito. Verifica visiva delle tavole fatta dal product owner sul catalogo pubblicato: «ben rappresentate». CI verde sul commit `335a346` ([CI run 42850801115](https://github.com/alessandronardi/crystal-voice/actions/runs/42850801115)): tre job, comprese le tavole dorate in Chromium e Firefox e la misura della scala.
 >
 > **I-10 mergiata, non chiusa (2026-11-10).** Branch `issue/I-10-crystal-core`, un solo commit di I-10 che include anche la chiusura documentale di I-05a (ex `8712387`), su richiesta del product owner. Verificati in locale: 257 test, seed dorati in Node e Chromium (bundle normale e minificato), continuità massima 0,0252 su 10.000 coppie geometriche, 0 difetti su 40.000 seed. Revisione avversariale: CONDITIONAL GO, rilievi corretti; domande L1 e L5 decise dal product owner (nomi degli abiti, [ADR-0019](ADR/0019-nomi-degli-abiti-di-habit-1-fedeli-alla-geometria.md); varietà al G2). CI verde sul commit `63a09b3` ([CI run 42826775595](https://github.com/alessandronardi/crystal-voice/actions/runs/42826775595)): typecheck/lint/test/build, seed dorati in Chromium e Firefox, continuità e robustezza, E2E. [PR crystal-voice#5](https://github.com/alessandronardi/crystal-voice/pull/5) unita in squash (`e2a131f`); resta aperta solo la revisione estetica G2. La revisione estetica G2 del catalogo spetta a una persona. Decisioni: rumore continuo ([ADR-0018](ADR/0018-casualita-continua-via-rumore-su-reticolo-dei-parametri.md)); Firefox solo in CI.
 >
@@ -16,10 +18,52 @@
 
 - **Fase corrente:** 1 (PoC Chrome) e, in parallelo, 2–3 sul nucleo puro.
 - **Gate:** G0 non avviato · G-PoC, G1, G2 non raggiunti.
-- **Issue attive:** I-12; I-10 in attesa della revisione estetica G2. Chiuse: **I-01**, **I-04**, **I-05a**. Sbloccate: I-02, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
+- **Issue attive:** I-11 (in attesa di M17–M19 e della CI); I-10 in attesa della revisione estetica G2. Chiuse: **I-01**, **I-04**, **I-05a**, **I-12**. Sbloccate: I-02, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
 
-## I-12: Definition of Done (completa, in attesa di PR)
+## I-11: Definition of Done (implementata, non committata)
+
+| Voce | Stato | Evidenza |
+|---|---|---|
+| Materiale, ambiente procedurale, luce, ombra, piatto girevole, economy; Three.js fissato e funzioni verificate su quella release | Fatto (resa da giudicare al G2) | `three@0.186.1` esatto, MIT, pubblicato il 2026-09-24 (la 0.187.0 aveva 11 giorni). Verificati sul sorgente del tarball: `transmission`, `ior`, `thickness`, `attenuationColor/Distance`, `dispersion` (usata dallo shader di trasmissione WebGL), `transmissionMap`, `AgXToneMapping`, `NeutralToneMapping`, `RoomEnvironment`, `PMREMGenerator.fromScene`, `forceContextLoss`. `PCFSoftShadowMap` è **rimosso** in 0.186.1: si usa `PCFShadowMap` con `shadow.radius`. Tone mapping AgX. Piatto girevole 1 giro / 40 s [H], fermo con `prefers-reduced-motion`. Economy: `MeshStandardMaterial` trasparente, niente ombra, stessa mesh per costruzione (un solo percorso `bodyGeometry`) |
+| Normali di faccia da `planes[faceOfTriangle]` | Fatto | `packages/renderer-three/src/pure/mesh-arrays.ts`; test su 400 seed (deviazione < 1e-6) e winding verso l'esterno su tutti i corpi di 200 seed |
+| Tratti velati resi in modo riconoscibile | Parziale: l'effetto c'è e si misura, la riconoscibilità no | Un velo smeriglia o sbiadisce, non toglie: p1 facce di prisma, p2 terminazioni, p3 secondari (smerigliati e lattiginosi), p4 aghi e fantasma (più larghi e a basso contrasto), p5 desaturazione, p6 bande a basso contrasto. Dove l'elemento non esiste (nessun secondario, nessuna inclusione, una banda) lo dice solo il cartellino (decisione del product owner): `veilIsVisible`, proprietà su 600 seed. Nel browser ogni velo cambia l'immagine (misure in `docs/BENCHMARK_PROTOCOL.md` §7). Riconoscibilità: giudizio umano, M19 |
+| `webglcontextlost` → tavola SVG senza crash | Fatto (simulato) | `WEBGL_lose_context.loseContext()` in Chromium: stato `fallback-svg`, SVG con `<title>`, nessun canvas, nessuna eccezione, dispose idempotente. Anche WebGL assente e contesto già perso alla creazione. Geometria malformata → `RenderInputError` tipizzato, nessun contesto vivo. Una perdita reale del driver non è stata provata |
+| 100 cicli monta/smonta senza crescita di memoria GPU | Parziale | **Contati gli oggetti WebGL, non la memoria GPU.** Dopo ogni ciclo: nessun oggetto vivo in contesti attivi; residuo costante per contesto distrutto (interni di Three che `dispose()` non cancella e la distruzione del contesto libera). Heap JS +0,35 MB su 100 cicli. Memoria GPU: **non misurata**, M18 su hardware reale |
+| Primo frame e frame time p50/p90/p95 su hardware di riferimento documentato | **Non eseguito** | `pnpm bench:render` pronto. Eseguito solo in SwiftShader (non di riferimento): vetrina 170/183/187 ms, economy 28/31/32 ms, primo frame ~3,6–3,8 s. Su GPU reale: M17 |
+
+**Scelte di I-11:**
+- API nel pacchetto, non in `contracts`: `RenderConfig` e `RenderHandle` contengono tipi DOM. `renderAt(angle)` e `angle` servono a test, bench e immagini ferme.
+- Il nucleo puro (`src/pure`: array, colore OKLCH, look, budget) segue le regole di purezza (lint e test dedicati) e si testa in Node.
+- Inquadratura fissa `FRAMING_RADIUS` = 3,1 [H] (massimo misurato 2,9026), come la scala fissa della tavola.
+- Bande di zonatura come texture 1-D su `map` e `transmissionMap`. Aghi opachi istanziati e fantasma come contorno: in 0.186.1 il passaggio di trasmissione vede solo gli oggetti opachi.
+- Due perdite di Three 0.186.1 aggirate: `RoomEnvironment.dispose()` non libera il buffer della sua `InstancedMesh`; la LUT DFG, un singleton condiviso, trattiene ogni renderer tramite un listener `dispose` (letta dalle uniform dei nostri materiali via `renderer.properties`, un interno di Three).
+- `checkBudget`: triangoli, corpi e inclusioni entro i limiti del generatore anche per geometrie importate (decisione del product owner).
+- Fuori perimetro: timeout espliciti di 30 s a `tests/unit/crystal-core/golden.test.ts` e `continuity.test.ts` (~3 s da soli, fallivano sotto carico parallelo anche senza i test nuovi).
+
+**Revisione avversariale (I-11):** un passaggio, CONDITIONAL GO.
+- **Corretti:**
+  - H1: veli invisibili senza elemento. Promessa ridotta, `veilIsVisible`, proprietà su seed casuali.
+  - H2: riferimenti con al più due tratti velati, soglie in BENCHMARK_PROTOCOL, riconoscibilità dichiarata come giudizio umano.
+  - H3: timeout del test dei cicli (25 min) e del job (45 min).
+  - M1: ripiego solo per il contesto; errori di geometria tipizzati.
+  - M2: test della rotazione reale; tolto il test debole sulla silhouette.
+  - M3: errori e avvisi di console fanno fallire i test.
+  - M4: `reference` dal nome della GPU; primo frame come mediana.
+  - M5: documenti, misura del bundle riproducibile (557,2 KiB).
+  - L1: chiave dei materiali con il raggio del corpo.
+  - L3: test più forti.
+  - L4: contesto già perso.
+  - L5: annotato qui.
+- **Aperti:** H3, la CI Linux non è stata eseguita; L2, dipendenza da `renderer.properties` (protetta dal test sull'heap); L6, vedi «Proposte».
+
+**Decisioni del product owner (2026-11-10):**
+- Velo senza elemento visibile: solo il cartellino (DoD di I-13).
+- `exportCrystalPng` e camera ortografica: I-14.
+- Profilo: `chooseProfile` automatico più l'opzione utente «Resa semplificata» (I-13).
+- Controllo di budget nel renderer: in I-11.
+
+## I-12: Definition of Done (chiusa il 2026-11-10, PR crystal-voice#6)
 
 | Voce | Stato | Evidenza |
 |---|---|---|
@@ -196,13 +240,12 @@
 
 ## Prossimi passi
 
-1. I-12: aprire la PR (CI verde sul commit `335a346`).
-2. I-10: revisione estetica del catalogo da parte di una persona, al G2.
-3. I-11 (renderer-three): richiede l'approvazione di Three.js come dipendenza runtime. Decisione del product owner (2026-11-10): nessuna rotazione manuale, basta il piatto girevole di SPEC §10; l'export di un modello 3D non è stato chiesto.
-4. I-05b: decidere le dipendenze VAD (libfvad compilato con Emscripten; Silero con onnxruntime-web, circa 10–12 MB di WASM; proposta: Silero solo in Node per il confronto).
-5. **Umano:** archiviare la vecchia sessione I-10 ferma su una domanda; cancellare `.agents/` e `.codex/`; completare la riga M0 con le versioni esatte di Chrome e il SO.
-6. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
-7. **Umano:** attivare la protezione di `main` descritta in CONTRIBUTING.md (CI obbligatoria, nessun push diretto).
+1. I-10: revisione estetica del catalogo da parte di una persona, al G2.
+2. I-11: **umano** esegue M17, M18, M19 di `tests/e2e/MANUAL_CHECKLIST.md` su hardware reale (`pnpm bench:render --pause 20 --show 60`); poi commit, push, PR e lettura della CI (job `render-three` mai eseguito su Linux). Se le immagini di riferimento divergono su Linux oltre la tolleranza, decidere fra riferimenti per piattaforma e soglia diversa.
+3. I-05b: decidere le dipendenze VAD (libfvad compilato con Emscripten; Silero con onnxruntime-web, circa 10–12 MB di WASM; proposta: Silero solo in Node per il confronto).
+4. **Umano:** archiviare la vecchia sessione I-10 ferma su una domanda; cancellare `.agents/` e `.codex/`; completare la riga M0 con le versioni esatte di Chrome e il SO.
+5. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
+6. **Umano:** attivare la protezione di `main` descritta in CONTRIBUTING.md (CI obbligatoria, nessun push diretto).
 8. In parallelo, azioni umane: avviare G0 (`docs/LEGAL_G0_CHECKLIST.md`) e preparare moduli di consenso e reclutamento per il dataset (I-08).
 
 ## Blocchi
@@ -225,6 +268,13 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | typescript-eslint | 8.72.1 | MIT | Lint con tipi. La 8.72.2 era stata pubblicata da meno di 24 ore |
 | @types/chrome, @types/node | 0.3.7, 26.6.6 | MIT | Tipi |
 
+## Dipendenze nuove (I-11)
+
+| Pacchetto | Versione | Licenza | Bundle | Motivo |
+|---|---|---|---|---|
+| three | 0.186.1 | MIT | Sì: con crystal-core e renderer-svg, 557,2 KiB minificati, 145 KB gzip | Resa vetrina (ADR-0012); approvato dal product owner il 2026-11-10 |
+| @types/three | 0.186.0 | MIT | No | Tipi. Dipendenze transitive di sviluppo: @dimforge/rapier3d-compat (Apache-2.0), @tweenjs/tween.js, @types/stats.js, @types/webxr, fflate, meshoptimizer (MIT) |
+
 ## Verificato / non verificato
 
 | Voce | Stato |
@@ -240,8 +290,15 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | Corrispondenza fra SHA delle GitHub Actions e tag `v4` | Ottenuti con `git ls-remote` il 9 nov 2026; la run 42707392231 li ha usati con successo |
 | `pnpm/action-setup` con pnpm 12.18.0, Node 26 su `ubuntu-latest` | Verificato dalla run 42707392231 |
 | Simulazioni della revisione (affinità, cambio lati) | Eseguite su dati sintetici; da confermare su dati reali in G1 |
+| WebGL della vetrina | Solo SwiftShader (Windows, Chromium di Playwright); **nessuna GPU reale**. Frame time e memoria GPU non misurati (M17, M18) |
+| `loseContext()` libera davvero la memoria GPU in Chrome | `needs current-doc verification`; coperto da M18 |
+| Immagini di riferimento di `renderer-three` su Linux | Non verificato (CI non eseguita) |
 
 ## Proposte fuori perimetro
+
+- Guardia del bundle dell'estensione: il bundle di three contiene l'URL `https://jcgt.org/published/0007/04/01/` in un commento di shader (rilievo L6 di I-11). Quando I-13 importerà `renderer-three` servirà una voce motivata in `GUARD_EXCEPTIONS`.
+
+- Comparator: pesare i descrittori con la confidenza (oggi la distanza la ignora). Cambia un [F] di SPEC §11: richiede ADR e una nuova `comparatorVersion`.
 
 - Tavola SVG con i secondari (decisione del product owner su I-12: da valutare per migliorare la resa visiva). Serve la rimozione delle linee nascoste fra solidi diversi, quindi un ADR che modifica il [F] «corpo primario» di SPEC §10.
 
@@ -277,3 +334,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-10 | Claude | I-12 | Implementata, non chiusa | `renderPlateSvg` (`plate-1`, ADR-0020); 296 test; 3.000 tavole dorate identiche in Node e Chromium; scala 92 px/unità; revisione NO-GO, rilievi B1, H1, M1–M4 e LOW corretti; catalogo ripubblicato; Firefox, CI e verifica visiva umana non eseguiti; nessun commit |
 | 2026-11-10 | Claude | I-12 | Verifica visiva, commit e push | Tavole «ben rappresentate» secondo il product owner; nessuna rotazione manuale in I-11 |
 | 2026-11-10 | Claude | I-12 | CI verde | [CI run 42850801115](https://github.com/alessandronardi/crystal-voice/actions/runs/42850801115): tre job verdi, comprese le tavole dorate in Firefox |
+| 2026-11-10 | Claude | I-11 | Implementata, non committata | Three.js 0.186.1; vetrina, economy, veli, ripiego SVG; revisione CONDITIONAL GO, rilievi corretti; decisioni del product owner su veli, export PNG (I-14), profilo (I-13), budget; M17–M19 e CI non eseguiti |

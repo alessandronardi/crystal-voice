@@ -23,9 +23,12 @@ Da eseguire quando l'E2E automatico non copre un passo (gesto sulla toolbar, asc
 | M14 | Microfono, stop | Chiudi il pannello durante l'ascolto | Indicatore di registrazione spento | §14 |
 | M15 | File | Pannello → «Scegli un file» con una fixture | Risultato identico all'harness Node | I-18 |
 | M16 | Volume a zero | Avvia con il player muto | Avviso `PLAYER_MUTED` | VC-19 |
+| M17 | Vetrina: frame time | Su hardware reale con GPU (non in una sessione remota senza GPU): `pnpm bench:render`. Annota modello di CPU e GPU, driver, SO, risoluzione e scala dello schermo | `tests/benchmarks/out/render-latest.json` riporta `reference: true` (il bench lo mette a `false` da solo se la GPU è un rasterizzatore software come SwiftShader) e la GPU reale. Mediana del primo frame e costo frame p50/p90/p95 di vetrina ed economy trascritti nel registro qui sotto. Nessuna soglia finché non esiste una prima misura | I-11 |
+| M18 | Vetrina: memoria GPU | `pnpm bench:render --pause 20`. Durante le due attese apri il Task Manager di Chrome (Maiusc+Esc), attiva la colonna «Memoria GPU» dal menu contestuale e annota il valore del processo GPU prima e dopo i 100 cicli | Dopo i cicli la memoria GPU torna al valore di partenza entro il rumore. Annota entrambi i numeri | I-11 |
+| M19 | Vetrina: aspetto e veli | `pnpm bench:render --show 60`: alla fine mostra per 60 s, su GPU reale, lo stesso cristallo senza veli (sinistra) e con p1 e p4 velati (destra), che ruotano | Cristallo leggibile; i tratti velati si riconoscono come smerigliati o sbiaditi. Un velo si vede solo se l'elemento esiste (secondari per p3, inclusioni per p4, più di una banda per p6): altrimenti lo dice solo il cartellino (I-13). Giudizio estetico per il G2 | I-11, G2 |
 
 ## Registro esecuzioni
 
-| Data | Commit | Chrome / SO | Esecutore | Esiti (M0…M16) | Note |
+| Data | Commit | Chrome / SO | Esecutore | Esiti (M0…M19) | Note |
 |---|---|---|---|---|---|
 | 2026-11-09 | `affa212` | Chrome 120 e Chrome stabile; versioni esatte e SO non indicati | Alessandro Nardi (product owner) | M0 superato · M1–M16 non applicabili (funzioni non ancora implementate, da I-02 in poi) | Esito comunicato in chat all'agente, che lo ha trascritto ma non lo ha osservato. Da completare con le versioni esatte di Chrome e il SO. Eseguito prima di ADR-0015 (`connect-src`): la CSP aggiunta è coperta dall'E2E in Chromium, non da questa esecuzione. |

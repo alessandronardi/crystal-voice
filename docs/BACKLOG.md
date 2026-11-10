@@ -197,6 +197,7 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 ### I-11 · renderer-three «vetrina»
 
 - **Riferimenti:** SPEC §10; ADR-0012, ADR-0014.
+- **Stato:** implementata sul branch `issue/I-11-renderer-three`, non committata. Restano le misure su hardware reale (M17, M18), il giudizio sulla resa e sui veli (M19) e la prima esecuzione del job CI `render-three`. Evidenze in `docs/STATUS.md`.
 - **DoD:**
   - [ ] Materiale, ambiente procedurale, luce, ombra, piatto girevole, economy; versione di Three.js fissata e funzioni usate verificate su quella release.
   - [ ] Tratti velati resi in modo riconoscibile.
@@ -208,7 +209,7 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 ### I-12 · renderer-svg «tavola cristallografica»
 
 - **Riferimenti:** SPEC §10; ADR-0013, ADR-0020.
-- **Stato:** DoD completa sul branch `issue/I-12-renderer-svg` (CI verde sul commit `335a346`), in attesa di PR. Evidenze in `docs/STATUS.md`.
+- **Stato:** chiusa il 2026-11-10 ([PR crystal-voice#6](https://github.com/alessandronardi/crystal-voice/pull/6), merge squash `06c5836`). Evidenze in `docs/STATUS.md`.
 - **DoD:**
   - [x] Spigoli visibili e nascosti corretti sui seed dorati (verifica visiva + test sul conteggio). Test sul conteggio; verifica visiva del product owner sul catalogo il 2026-11-10.
   - [x] SVG byte-identico fra esecuzioni e fra Node e browser. Node e Chromium in locale; Chromium e Firefox in CI (run 42850801115).
@@ -225,6 +226,8 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
   - [ ] Cartellino e legenda viva con misure grezze e percentili.
   - [ ] Navigazione completa da tastiera; stati annunciati via `aria-live`; `prefers-reduced-motion` rispettato; contrasto AA.
   - [ ] Stringhe in `ui/strings.it.ts`.
+  - [ ] Tratti velati nel cartellino. Quando il velo non ha un elemento da attenuare (`veilIsVisible` di `renderer-three` è falso: nessun secondario per p3, nessuna inclusione per p4, una sola banda per p6), lo segnala solo il cartellino, per esempio «ruvidità: incerta (nessuna inclusione da mostrare)». Il rendering non inventa elementi (decisione del product owner, 2026-11-10).
+  - [ ] Profilo della vetrina scelto da `chooseProfile` (funzione pura in `renderer-three/src/pure`): economy con GPU software (SwiftShader, llvmpipe), se il contesto con `failIfMajorPerformanceCaveat` non si crea, o se il costo dei primi frame supera una soglia [H] fissata dalla misura M17. Opzione utente «Resa semplificata» che forza economy, ricordata fra le sessioni. Il nome della GPU si legge solo in memoria, mai salvato né trasmesso (decisione del product owner, 2026-11-10).
 - **Test:** Playwright sulle schermate; axe-core senza violazioni serie.
 
 ### I-14 · Vault, miniature, export/import
@@ -236,6 +239,8 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
   - [ ] `QuotaExceededError` simulato: nessun record esistente perso.
   - [ ] 1.000 record sotto 50 MB [H]; `geometryHash` verificato all'apertura.
   - [ ] Avviso dati personali all'export se presenti `speakerLabel`.
+  - [ ] `exportCrystalPng(handle, 1024)` in `renderer-three` (SPEC §10, ADR-0012): PNG 1024×1024 con camera ortografica e preset fissi, `dispose` verificato anche sul render target dell'export. Nessuna promessa di PNG identici fra GPU: l'export canonico resta la tavola SVG (ADR-0013). Assegnato a I-14 dal product owner il 2026-11-10.
+  - [ ] Geometrie da record importati passano dal controllo di budget di `renderer-three` (`checkBudget`, errore `BUDGET_EXCEEDED`).
 - **Test:** unit con `fake-indexeddb`; E2E export/import.
 
 ### I-15 · Comparator a percentile, Collezione, Confronto

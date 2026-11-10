@@ -99,15 +99,15 @@
 
 ### I-04 · Fixture sintetiche + harness offline
 
-**Stato:** implementata sul branch `issue/I-04-fixtures-harness`, non chiusa: manca la CI su Linux (determinismo degli hash e tempo del bench). Evidenze in `docs/STATUS.md`.
+**Stato:** DoD completa sul branch `issue/I-04-fixtures-harness`, CI verde (run 42781706222); in attesa di PR e merge. Evidenze in `docs/STATUS.md`.
 
 - **Riferimenti:** SPEC §15; `docs/BENCHMARK_PROTOCOL.md`; R16.
 - **Obiettivo:** banco di prova riproducibile senza audio reale.
 - **Perimetro:** `scripts/fixtures/` genera WAV (silenzio, toni, sweep, rumori, impulsi, clipping, controfase, voce sintetica con f0 noto, A+B, alternanza A/B, voce + musica sintetica a −6/−12/−18 dB, voce compressa 4:1) con seed fissi; harness `pnpm bench` che esegue `dsp-core` su ogni fixture e scrive JSON.
 - **DoD:**
-  - [x] `pnpm fixtures` è deterministico (hash dei WAV stabile). Verificato su Windows; su Linux in attesa della CI.
+  - [x] `pnpm fixtures` è deterministico (hash dei WAV stabile). Verificato su Windows e su Linux (CI).
   - [x] Ogni fixture ha un file `.meta.json` con parametri di generazione e valori attesi (es. f0 vero).
-  - [ ] `pnpm bench` gira in CI in meno di 2 minuti [H].
+  - [x] `pnpm bench` gira in CI in meno di 2 minuti [H]. 1 s con il solo `signal-summary-0`.
 - **Test:** hash delle fixture; smoke test dell'harness.
 
 ### I-05 · Pitch YIN + VAD a confronto

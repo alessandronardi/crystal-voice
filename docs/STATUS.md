@@ -2,9 +2,9 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-10 — I-04 implementata, in attesa di CI; I-10 in corso in parallelo
+**Ultimo aggiornamento:** 2026-11-10 — I-04 con DoD completa e CI verde, in attesa di PR e merge; I-10 in corso in parallelo
 
-> **I-04 implementata, non chiusa (2026-11-10).** Branch `issue/I-04-fixtures-harness`, nessun commit di I-04. Test locali verdi su Windows. **Non eseguito:** la CI su Linux. Mancano quindi due evidenze: il determinismo degli hash fuori da Windows e il tempo di `pnpm bench` in CI. Revisione avversariale: CONDITIONAL GO; rilievi corretti salvo le due domande al product owner (sotto). **I-10** è in lavorazione in una sessione parallela, nel suo worktree (branch `issue/I-10-crystal-core`).
+> **I-04: tutte le voci della DoD hanno un'evidenza; mancano PR e merge (2026-11-10).** Branch `issue/I-04-fixtures-harness` (commit `611cfdb`, `353c4cd`). CI verde sulla [run 42781706222](https://github.com/alessandronardi/crystal-voice/actions/runs/42781706222) (`ubuntu-latest`): hash delle fixture identici a quelli generati su Windows, bench in 1 s. Revisione avversariale: CONDITIONAL GO, rilievi corretti; domande decise (D-E, D-F). ADR-0016 resta **Proposto**. **I-10** è in lavorazione in una sessione parallela, nel suo worktree (branch `issue/I-10-crystal-core`).
 >
 > **I-01 chiusa il 2026-11-09.** Unita in `main` con la [PR crystal-voice#1](https://github.com/alessandronardi/crystal-voice/pull/1) in squash (commit `16cea26`); CI verde su `main` dopo il merge (run 42710710213). Residui non bloccanti: riga M0 senza versioni esatte di Chrome e SO; SPEC §5 e §14 da allineare ad ADR-0015. Nessuna issue attiva: prossime consigliate I-04 e I-10.
 
@@ -12,21 +12,23 @@
 
 - **Fase corrente:** 1 (PoC Chrome) e, in parallelo, 2–3 sul nucleo puro.
 - **Gate:** G0 non avviato · G-PoC, G1, G2 non raggiunti.
-- **Issue attive:** I-04 (questa sessione), I-10 (sessione parallela). Chiuse: **I-01**. Sbloccate: I-02, I-17; I-18 dopo I-04.
+- **Issue attive:** I-04 (in attesa di merge), I-10 (sessione parallela). Chiuse: **I-01**. Sbloccate: I-02, I-17; I-18 dopo I-04.
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
 
-## I-04: Definition of Done (implementata, non chiusa)
+## I-04: Definition of Done (completa, in attesa di merge)
 
 | Voce | Stato | Evidenza |
 |---|---|---|
-| `pnpm fixtures` deterministico (hash dei WAV stabile) | Fatto su Windows; **Linux non verificato** | `pnpm fixtures` seguito da `pnpm fixtures --check` (fresh process): «31 fixture identiche al manifest». `tests/unit/fixtures/determinism.test.ts` ricostruisce tutto e confronta con `manifest.json` e i meta. Su Linux: **non eseguito**, la CI non è ancora partita su questo branch (nessun push) e Docker non era disponibile al revisore. Mitigazioni: quantizzazione int16 simmetrica, float dei meta arrotondati a 9 decimali, LF forzato con `.gitattributes`. |
+| `pnpm fixtures` deterministico (hash dei WAV stabile) | Fatto | Windows 11: `pnpm fixtures` seguito da `pnpm fixtures --check` (fresh process): «31 fixture identiche al manifest». Linux: passo `fixtures` (`--check` sul manifest generato su Windows, poi generazione) verde sulla [run 42781706222](https://github.com/alessandronardi/crystal-voice/actions/runs/42781706222), 8 s, Node da `.nvmrc`. `tests/unit/fixtures/determinism.test.ts` ricostruisce tutto e confronta con `manifest.json` e i meta. Esito letto dall'API pubblica di GitHub (stato e durata dei passi); log non letti. Mitigazioni: quantizzazione int16 simmetrica, float dei meta arrotondati a 9 decimali, LF forzato con `.gitattributes`. |
 | Ogni fixture ha un `.meta.json` con parametri e valori attesi | Fatto | 31 meta in `tests/fixtures/`: parametri, seed, valori attesi. Per la voce: f0 mediana, traccia f0 vera ogni 10 ms (`null` dove non sonora), IQR, onset, secondi sonori. Più cambio voce, livello della musica, quota di clipping, turni. Definizioni in `tests/fixtures/README.md`. |
-| `pnpm bench` in CI in meno di 2 minuti [H] | **Non eseguito in CI** | Locale (Windows 11, Node 26.13.0): `pnpm bench` 0,6 s per 31 fixture, 354 s di audio, con il solo analizzatore `signal-summary-0`; `pnpm fixtures` 8,5 s. CI: passo con `timeout-minutes: 2` e report caricato come artefatto, ma mai eseguito. La misura non dice nulla del costo di YIN, VAD e descrittori (I-05/I-06). |
+| `pnpm bench` in CI in meno di 2 minuti [H] | Fatto, con riserva | CI: passo `bench` verde in 1 s sulla [run 42781706222](https://github.com/alessandronardi/crystal-voice/actions/runs/42781706222) (timeout 2 min, report `latest.json` caricato come artefatto). Locale: 0,6 s per 31 fixture, 354 s di audio. **Riserva:** misura con il solo analizzatore `signal-summary-0`. La misura non dice nulla del costo di YIN, VAD e descrittori (I-05/I-06). |
 | Test: hash delle fixture; smoke test dell'harness | Fatto | `pnpm test`: 11 file, 193 test verdi. In più: codec WAV, PRNG con valori di riferimento confermati da un'implementazione Python indipendente, generatori (property test), `dsp-core` (`stats`, `signalSummary`), harness (report, WAV manomesso, manifest assente). |
 
 **Verifiche eseguite il 2026-11-10** (Windows 11, Node 26.13.0, pnpm 12.18.0): `pnpm typecheck`, `pnpm lint`, `pnpm test` (193), `pnpm fixtures`, `pnpm fixtures --check`, `pnpm bench`, tutti verdi. `pnpm build` ed E2E non rieseguiti: I-04 non tocca l'estensione.
 
 **Prima CI del branch (commit `611cfdb`): rossa.** Su `ubuntu-latest` il property test dei quantili ha trovato il controesempio `[-0, 0]` (seed fast-check 2069321282). Con quell'input P0 restituiva `+0` invece di `-0`, perché l'interpolazione `a + 0·(b − a)` cambia il segno dello zero. Correzione: quando non c'è nulla da interpolare si restituisce l'ordinale esatto. Aggiunto un test di regressione; il property test con quel seed passa per 1000 esecuzioni in locale. I passi «fixtures» e «bench» non erano stati raggiunti.
+
+**CI:** la prima run (`611cfdb`) era rossa, vedi sotto; la seconda (`353c4cd`, [run 42781706222](https://github.com/alessandronardi/crystal-voice/actions/runs/42781706222)) è verde in tutti i job, E2E compreso.
 
 **Revisione avversariale:** un passaggio, CONDITIONAL GO, 2 HIGH, 6 MEDIUM, 6 LOW.
 - **Corretti:**
@@ -82,7 +84,7 @@
 
 ## Prossimi passi
 
-1. I-04: riallineare il branch a `main` (squash di I-01 già unito), commit e push (su richiesta) per far girare la CI su Linux; poi PR.
+1. **Umano:** aprire la PR di I-04 (https://github.com/alessandronardi/crystal-voice/pull/new/issue/I-04-fixtures-harness), rivederla e fare il merge in squash. Poi I-04 è chiusa.
 2. **Umano:** accettare o modificare ADR-0016. Il numero 0016 va controllato contro eventuali ADR della sessione I-10 prima del merge.
 3. I-10: seguire la sessione parallela (piano da approvare).
 4. **Umano:** completare la riga M0 con le versioni esatte di Chrome e il SO.
@@ -144,3 +146,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-09 | Claude | I-01 | Node 26 in locale | Suite completa verde su Node 26.13.0 in locale |
 | 2026-11-09 | Claude | I-01 | Chiusa | PR crystal-voice#1 unita in squash (`16cea26`), CI verde su `main` |
 | 2026-11-10 | Claude | I-04 | Implementata, non chiusa | 31 fixture deterministiche, `pnpm bench`, 193 test verdi; revisione avversariale CONDITIONAL GO, rilievi corretti; CI su Linux non eseguita; nessun commit. I-10 avviata in sessione parallela |
+| 2026-11-10 | Claude | I-04 | DoD completa | Commit `611cfdb` e `353c4cd` (fix dei quantili su −0 trovato dalla CI); CI verde ([run 42781706222](https://github.com/alessandronardi/crystal-voice/actions/runs/42781706222)): hash stabili su Linux, bench 1 s; ADR-0016 Proposto; in attesa di PR |

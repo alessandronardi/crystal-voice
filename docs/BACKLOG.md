@@ -197,13 +197,13 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 ### I-11 · renderer-three «vetrina»
 
 - **Riferimenti:** SPEC §10; ADR-0012, ADR-0014.
-- **Stato:** implementata sul branch `issue/I-11-renderer-three`, non committata. Restano le misure su hardware reale (M17, M18), il giudizio sulla resa e sui veli (M19) e la prima esecuzione del job CI `render-three`. Evidenze in `docs/STATUS.md`.
+- **Stato:** mergiata il 2026-11-10 ([PR crystal-voice#7](https://github.com/alessandronardi/crystal-voice/pull/7), `424bfc3`), CI verde anche su Linux. Chiusa il 2026-11-10: M17 eseguito, M18 superato (due tornate), M19 «accettabile» con veli riconosciuti; taratura estetica al G2. Evidenze in `docs/STATUS.md`.
 - **DoD:**
-  - [ ] Materiale, ambiente procedurale, luce, ombra, piatto girevole, economy; versione di Three.js fissata e funzioni usate verificate su quella release.
-  - [ ] Tratti velati resi in modo riconoscibile.
-  - [ ] `webglcontextlost` → ripiego sulla tavola SVG senza crash.
-  - [ ] 100 cicli monta/smonta senza crescita di memoria GPU.
-  - [ ] Tempo di primo frame e frame time p50/p90/p95 misurati su hardware di riferimento documentato.
+  - [x] Materiale, ambiente procedurale, luce, ombra, piatto girevole, economy; versione di Three.js fissata e funzioni usate verificate su quella release. Resa «accettabile» per il product owner (M19); taratura estetica al G2.
+  - [x] Tratti velati resi in modo riconoscibile («si riconoscono», product owner su GPU reale, M19).
+  - [x] `webglcontextlost` → ripiego sulla tavola SVG senza crash (perdita simulata in Chromium, anche su Linux in CI).
+  - [x] 100 cicli monta/smonta senza crescita di memoria GPU (M18: 3.040 K prima e dopo 100 e 200 cicli).
+  - [x] Tempo di primo frame e frame time p50/p90/p95 misurati su hardware di riferimento documentato (M17, Radeon RX Vega 10, 2026-11-10).
 - **Test:** screenshot di riferimento con tolleranza; test di dispose.
 
 ### I-12 · renderer-svg «tavola cristallografica»

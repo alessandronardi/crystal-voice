@@ -2,18 +2,18 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-09 — I-01 completata sul branch, CI verde; manca il merge
+**Ultimo aggiornamento:** 2026-11-09 — I-01 chiusa
 
-> **I-01: tutte le voci della DoD hanno un'evidenza; manca solo il merge.** CI verde sulla [run 42707392231](https://github.com/alessandronardi/crystal-voice/actions/runs/42707392231) (commit `34f972c`). Il passo successivo è la PR da `issue/I-01-skeleton-ci` verso `main`, con revisione umana e merge in squash. M0 è registrato su dichiarazione del product owner.
+> **I-01 chiusa il 2026-11-09.** Unita in `main` con la [PR crystal-voice#1](https://github.com/alessandronardi/crystal-voice/pull/1) in squash (commit `16cea26`); CI verde su `main` dopo il merge (run 42710710213). Residui non bloccanti: riga M0 senza versioni esatte di Chrome e SO; SPEC §5 e §14 da allineare ad ADR-0015. Nessuna issue attiva: prossime consigliate I-04 e I-10.
 
 ## Sintesi
 
 - **Fase corrente:** 1 (PoC Chrome) e, in parallelo, 2–3 sul nucleo puro.
 - **Gate:** G0 non avviato · G-PoC, G1, G2 non raggiunti.
-- **Issue attiva:** I-01 · Scheletro monorepo, build MV3, lint di purezza, CI.
+- **Issue attiva:** nessuna. Chiuse: **I-01**. Sbloccate: I-02, I-04, I-10, I-17.
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
 
-## I-01: stato della Definition of Done
+## I-01: Definition of Done (chiusa)
 
 | Voce | Stato | Evidenza |
 |---|---|---|
@@ -42,16 +42,15 @@
 
 ## Prossimi passi
 
-1. **Umano:** aprire la PR da `issue/I-01-skeleton-ci` (https://github.com/alessandronardi/crystal-voice/pull/new/issue/I-01-skeleton-ci), rivederla e fare il merge in squash. L'agente non può aprirla: `gh` non è installato. Poi I-01 è chiusa.
-2. **Umano:** completare la riga M0 con le versioni esatte di Chrome e il SO.
-3. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
-4. Dopo I-01: I-04 e I-10 (pure, verificabili per intero in Node), I-02 (richiede Chrome reale), I-17.
+1. **Umano:** completare la riga M0 con le versioni esatte di Chrome e il SO.
+2. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
+3. Prossima issue: I-04 o I-10 (pure, verificabili per intero in Node); poi I-02 (richiede Chrome reale) e I-17.
+4. **Umano:** attivare la protezione di `main` descritta in CONTRIBUTING.md (CI obbligatoria, nessun push diretto).
 5. In parallelo, azioni umane: avviare G0 (`docs/LEGAL_G0_CHECKLIST.md`) e preparare moduli di consenso e reclutamento per il dataset (I-08).
 
 ## Blocchi
 
 - Fase 4 e 5 bloccate fino a G0.
-- Chiusura di I-01: PR e merge (azione umana).
 
 ## Dipendenze nuove (I-01)
 
@@ -98,3 +97,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-09 | Claude | I-01 | Implementata, non chiusa | Test locali verdi; due revisioni avversariali (NO-GO → CONDITIONAL GO, rilievi residui corretti); M0, CI e D-A…D-D aperti; nessun commit |
 | 2026-11-09 | Claude | I-01 | Decisioni applicate | D-A…D-D applicate (ADR-0015, AGENTS §8, Node 26); M0 registrato su dichiarazione del product owner; remote `origin` e push; CI verde (run 42707392231) |
 | 2026-11-09 | Claude | I-01 | Node 26 in locale | Suite completa verde su Node 26.13.0 in locale |
+| 2026-11-09 | Claude | I-01 | Chiusa | PR crystal-voice#1 unita in squash (`16cea26`), CI verde su `main` |

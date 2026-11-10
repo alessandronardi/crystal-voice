@@ -2,9 +2,9 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-10 — I-05a implementata, in attesa di CI; I-04 chiusa
+**Ultimo aggiornamento:** 2026-11-10 — I-05a con DoD completa e CI verde, in attesa di PR e merge; I-04 chiusa
 
-> **I-05a implementata, non chiusa (2026-11-10).** Branch `issue/I-05-pitch-vad`, nessun commit. Test locali verdi (225). M2 entro gli obiettivi **solo su voci sintetiche**: errore f0 mediano 0,21%, errori d'ottava 0%. **Non eseguito:** la CI. I-05 è divisa: i motori VAD reali sono in I-05b, che richiede l'approvazione delle dipendenze. Revisione avversariale: CONDITIONAL GO; rilievi corretti o con promessa ridotta. Decisioni D-G…D-K registrate più sotto; ADR-0017 estende lo stimatore a 1100 Hz per il canto.
+> **I-05a: tutte le voci della DoD hanno un'evidenza; mancano PR e merge (2026-11-10).** Branch `issue/I-05-pitch-vad`, commit `a62b900`. CI verde sulla [run 42808425841](https://github.com/alessandronardi/crystal-voice/actions/runs/42808425841) (`ubuntu-latest`): fixture identiche al manifest, bench in 6 s, E2E verde. M2 entro gli obiettivi **solo su voci sintetiche**: errore f0 mediano 0,21%, errori d'ottava 0%. I-05 è divisa: i motori VAD reali sono in I-05b, che richiede l'approvazione delle dipendenze. Revisione avversariale: CONDITIONAL GO; rilievi corretti o con promessa ridotta. Decisioni D-G…D-K registrate più sotto; ADR-0017 estende lo stimatore a 1100 Hz per il canto.
 >
 > **I-04 chiusa il 2026-11-10** ([PR crystal-voice#3](https://github.com/alessandronardi/crystal-voice/pull/3), merge squash `eaddd6b`). **I-10:** la sessione parallela è ferma su una domanda senza risposta e non ha prodotto codice; va ripresa in una nuova conversazione.
 >
@@ -17,7 +17,7 @@
 - **Issue attive:** I-05a (questa sessione). Chiuse: **I-01**, **I-04**. Sbloccate: I-02, I-10, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
 
-## I-05a: Definition of Done (implementata, non chiusa)
+## I-05a: Definition of Done (completa, in attesa di merge)
 
 | Voce | Stato | Evidenza |
 |---|---|---|
@@ -25,7 +25,7 @@
 | Mix mono secondo ADR-0016 | Fatto | `packages/dsp-core/test/mono.test.ts`: controfase completa (ripiego e warning), quasi completa (0,9 contro −1), parziale (10 dB, nessun warning), voce duplicata in fase, input non finiti. Sul bench `voice-a-antiphase` → `channel-fallback` + `PHASE_CANCELLATION`; `voice-a-antiphase-partial` → `average`. La proprietà sull'ordine dei blocchi è rimandata al percorso a blocchi (ADR aggiornato). `PHASE_CANCELLATION_DB` = 20 resta [H] non calibrata |
 | Anti-alias verificato | Fatto | Δ < 0,01 dB fino a 6,5 kHz; −6 dB a 7,2 kHz; ≤ −103 dB da 8 kHz (44,1 e 48 kHz). Test: ≥ 60 dB a 9, 12, 15 kHz |
 | Interfaccia `VadEngine` pronta | Fatto, **promessa ridotta** | Sincrona, frame da 20 ms: adatta a libfvad. Silero (finestre da 512 campioni, onnxruntime asincrono) non ci entra senza adattatore: la forma definitiva si fissa in I-05b. Pre-filtro `primary: false` |
-| `pnpm bench` con M2 e M12, CI < 2 min | Locale sì; **CI non eseguita** | Bench locale 5,8 s per 32 fixture e 366 s di audio; M12 0,0145 s/s in Node. Nel DSP worker di Chrome non misurato |
+| `pnpm bench` con M2 e M12, CI < 2 min | Fatto | CI: passo `bench` verde in 6 s sulla [run 42808425841](https://github.com/alessandronardi/crystal-voice/actions/runs/42808425841) (passo `fixtures` 16 s, test 13 s). Locale 5,8 s per 32 fixture e 366 s di audio; M12 0,0145 s/s in Node. Nel DSP worker di Chrome non misurato. Esito letto dall'API pubblica di GitHub; log non letti |
 
 **Verifiche eseguite il 2026-11-10** (Windows 11, Node 26.13.0): `pnpm typecheck`, `pnpm lint`, `pnpm test` (15 file, 225 test), `pnpm fixtures --check` (32 fixture), `pnpm bench`, tutti verdi. Build ed E2E non rieseguiti: I-05a non tocca l'estensione.
 
@@ -122,7 +122,7 @@
 
 ## Prossimi passi
 
-1. I-05a: commit e push (su richiesta) per la CI; poi PR e merge.
+1. **Umano:** aprire la PR di I-05a (https://github.com/alessandronardi/crystal-voice/pull/new/issue/I-05-pitch-vad), rivederla e fare il merge in squash. Poi I-05a è chiusa.
 2. I-05b: decidere le dipendenze VAD (libfvad compilato con Emscripten; Silero con onnxruntime-web, circa 10–12 MB di WASM).
 3. I-10: ripartire in una nuova conversazione. Usare un numero di ADR dopo il 0017 e un branch `issue/I-10-crystal-core`.
 4. **Umano:** completare la riga M0 con le versioni esatte di Chrome e il SO; cancellare `.agents/` e `.codex/`.
@@ -187,4 +187,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-10 | Claude | I-04 | Implementata, non chiusa | 31 fixture deterministiche, `pnpm bench`, 193 test verdi; revisione avversariale CONDITIONAL GO, rilievi corretti; CI su Linux non eseguita; nessun commit. I-10 avviata in sessione parallela |
 | 2026-11-10 | Claude | I-04 | DoD completa | Commit `611cfdb` e `353c4cd` (fix dei quantili su −0 trovato dalla CI); CI verde ([run 42781706222](https://github.com/alessandronardi/crystal-voice/actions/runs/42781706222)): hash stabili su Linux, bench 1 s; ADR-0016 Proposto; in attesa di PR |
 | 2026-11-10 | Claude | I-04 | Chiusa | PR crystal-voice#3 unita in squash (`eaddd6b`) |
-| 2026-11-10 | Claude | I-05a | Implementata, non chiusa | I-05 divisa (D-G); ADR-0016 accettato (D-H); mix mono, resampler, YIN, interfaccia VAD; M2 0,21% / 0% su voci sintetiche; revisione CONDITIONAL GO, rilievi corretti; CI non eseguita; nessun commit |
+| 2026-11-10 | Claude | I-05a | DoD completa | I-05 divisa (D-G); ADR-0016 accettato (D-H); ADR-0017 (D-K); mix mono, resampler, YIN 60–1100 Hz, interfaccia VAD; M2 0,21% / 0% su voci sintetiche; revisione CONDITIONAL GO, rilievi corretti; commit `a62b900`, CI verde ([run 42808425841](https://github.com/alessandronardi/crystal-voice/actions/runs/42808425841)); in attesa di PR |

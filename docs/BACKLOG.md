@@ -119,13 +119,13 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 
 - **Riferimenti:** SPEC §7.1–§7.4; ADR-0016, ADR-0017; `docs/BENCHMARK_PROTOCOL.md` M2, M12.
 - **Perimetro:** mix mono con test in controfase (ADR-0016); resampling anti-alias a 16 kHz; frame; YIN con confidenza e periodicità; interfaccia `VadEngine` e pre-filtro RMS + banda (solo diagnostica); analizzatore di pitch nel bench.
-- **Stato:** implementata sul branch `issue/I-05-pitch-vad`, non chiusa (manca la CI). Evidenze in `docs/STATUS.md`.
+- **Stato:** DoD completa sul branch `issue/I-05-pitch-vad` (commit `a62b900`), CI verde (run 42808425841); in attesa di PR e merge. Evidenze in `docs/STATUS.md`.
 - **DoD:**
   - [x] Errore mediano f0 ≤ 1% e errori d'ottava ≤ 2% sulle fixture con f0 noto, oppure valori misurati riportati e soglia rinegoziata in ADR. Misurato 0,21% e 0,00%, solo su voci sintetiche.
   - [x] Mix mono secondo ADR-0016, con test su controfase completa, parziale e stereo in fase.
   - [x] Anti-alias verificato, con attenuazione misurata riportata.
   - [x] Interfaccia `VadEngine` per motori sincroni a 20 ms (adatta a libfvad); pre-filtro marcato non primario. La forma definitiva, che deve ospitare anche Silero (finestre da 512 campioni, inferenza asincrona), si fissa in I-05b.
-  - [ ] `pnpm bench` riporta M2 e M12; tempo in CI sotto i 2 minuti. In locale 5,8 s; CI non ancora eseguita.
+  - [x] `pnpm bench` riporta M2 e M12; tempo in CI sotto i 2 minuti. CI 6 s, locale 5,8 s.
 - **Test:** unit e property su `dsp-core`; benchmark registrato.
 
 ### I-05b · Motori VAD a confronto

@@ -3,22 +3,28 @@
 // capture state lives in CaptureSession (capture machine + watchdog); this
 // file only wires it to chrome.runtime and WebAudio. Only chrome.runtime is
 // available here. The worklet counts samples; no DSP before I-05/I-06.
+// Two sources: the tab (stream ID from tabCapture, played back) and the
+// microphone (I-17: no playback, kept alive by the side panel's port).
 import {
   isHeartbeatMessage,
+  isOffscreenStartMic,
   isOffscreenStartTab,
   isOffscreenStop,
   isPlayerEvent,
+  panelPortSessionId,
   type CaptureDiag,
   type HeartbeatReply,
   type OffscreenStartTab,
+  type SessionId,
 } from '@voicecrystal/contracts';
 import { isOwnExtensionContext } from '../shared/sender.ts';
-import { CaptureSession, type AudioFacts } from './capture-session.ts';
+import { CaptureSession, type AudioFacts, type SessionBinding } from './capture-session.ts';
 import { PCM_PROCESSOR_NAME, type PcmCountMessage } from './pcm-protocol.ts';
+import { micPermissionState, openMicStream } from './sources/mic-source.ts';
 
 const WORKLET_URL = chrome.runtime.getURL('pcm-processor.js');
 const TICK_INTERVAL_MS = 500;
-/** [H] Time to wait for the service worker's reason after a track ends. */
+/** [H] Time to wait for the service worker's reason after a tab track ends. */
 const STREAM_ENDED_GRACE_MS = 500;
 
 interface AudioGraph {
@@ -74,11 +80,11 @@ async function releaseGraph(graph: AudioGraph): Promise<void> {
 }
 
 /** A start refused because a session exists: its own short ERROR, the running one untouched. */
-function refuseBusy(message: OffscreenStartTab): void {
+function refuseBusy(sessionId: SessionId): void {
   send({
     v: 1,
     type: 'CAPTURE_DIAG',
-    sessionId: message.sessionId,
+    sessionId,
     seq: 0,
     state: 'ERROR',
     exitReason: 'CAPTURE_ERROR',
@@ -92,13 +98,14 @@ function refuseBusy(message: OffscreenStartTab): void {
   });
 }
 
-async function startTab(message: OffscreenStartTab): Promise<void> {
+/** Creates the session of this document, or refuses with CAPTURE_BUSY. */
+function openSession(sessionId: SessionId, binding: SessionBinding): { session: CaptureSession; graph: AudioGraph } | null {
   if (current !== null) {
-    refuseBusy(message);
-    return;
+    refuseBusy(sessionId);
+    return null;
   }
   const graph: AudioGraph = { stream: null, context: null, source: null, worklet: null, ticker: null };
-  const session = new CaptureSession(message.sessionId, message.tabId, {
+  const session = new CaptureSession(sessionId, binding, {
     now: () => performance.now(),
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (handle) => {
@@ -113,20 +120,15 @@ async function startTab(message: OffscreenStartTab): Promise<void> {
     },
   });
   current = { session, graph };
+  return current;
+}
 
-  let stream: MediaStream;
-  try {
-    // Chrome's legacy constraint form is the documented way to use a
-    // tabCapture stream ID (tabCapture docs, Chrome 116+).
-    const constraints = {
-      audio: { mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: message.streamId } },
-      video: false,
-    } as unknown as MediaStreamConstraints;
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
-  } catch {
-    session.denied('STREAM_NOT_AVAILABLE');
-    return;
-  }
+/**
+ * Wires an open stream: AudioContext, counting worklet, optional pass-through.
+ * The tab needs the pass-through (capturing it mutes it); the microphone must
+ * not have one (BACKLOG I-17: no feedback to the speakers).
+ */
+async function runGraph(session: CaptureSession, graph: AudioGraph, stream: MediaStream, passThrough: boolean): Promise<void> {
   graph.stream = stream;
   if (!session.isLive()) {
     // Stopped while the stream was being opened.
@@ -138,10 +140,10 @@ async function startTab(message: OffscreenStartTab): Promise<void> {
     graph.context = new AudioContext({ latencyHint: 'interactive' });
     await graph.context.audioWorklet.addModule(WORKLET_URL);
     graph.source = graph.context.createMediaStreamSource(stream);
-    // Pass-through: capturing a tab mutes it, so the user hears it from here.
-    graph.source.connect(graph.context.destination);
+    if (passThrough) graph.source.connect(graph.context.destination);
     // Analysis branch. The worklet has no outputs, so nothing reaches the
-    // speakers twice (SPEC §5: no double audio).
+    // speakers twice (SPEC §5: no double audio), and nothing at all for the
+    // microphone.
     graph.worklet = new AudioWorkletNode(graph.context, PCM_PROCESSOR_NAME, {
       numberOfInputs: 1,
       numberOfOutputs: 0,
@@ -152,24 +154,32 @@ async function startTab(message: OffscreenStartTab): Promise<void> {
     graph.source.connect(graph.worklet);
     if (graph.context.state === 'suspended') await graph.context.resume();
   } catch {
-    session.fail('CAPTURE_ERROR', graph.context === null ? 'AUDIO_CONTEXT_FAILED' : 'PLAYBACK_ROUTING_FAILED');
+    const code = graph.context === null || !passThrough ? 'AUDIO_CONTEXT_FAILED' : 'PLAYBACK_ROUTING_FAILED';
+    session.fail('CAPTURE_ERROR', code);
     return;
   }
   if (!session.isLive()) return;
 
-  for (const track of stream.getAudioTracks()) {
-    track.addEventListener(
-      'ended',
-      () => {
-        // The track also ends when the tab closes or navigates; the service
-        // worker's reason (NAVIGATED_AWAY) usually follows within milliseconds.
-        // Wait for it briefly so a closed tab is not reported as an error.
-        setTimeout(() => {
-          session.stop('STREAM_ENDED');
-        }, STREAM_ENDED_GRACE_MS);
-      },
-      { once: true },
-    );
+  const onEnded = (): void => {
+    if (!passThrough) {
+      // A microphone track ends when the device goes away or the grant is
+      // revoked: nothing else to wait for.
+      session.stop('STREAM_ENDED');
+      return;
+    }
+    // The track also ends when the tab closes or navigates; the service
+    // worker's reason (NAVIGATED_AWAY) usually follows within milliseconds.
+    // Wait for it briefly so a closed tab is not reported as an error.
+    setTimeout(() => {
+      session.stop('STREAM_ENDED');
+    }, STREAM_ENDED_GRACE_MS);
+  };
+  const tracks = stream.getAudioTracks();
+  for (const track of tracks) track.addEventListener('ended', onEnded, { once: true });
+  // A track that ended while the graph was being built fired no event here (review M-3).
+  if (tracks.length === 0 || tracks.some((track) => track.readyState === 'ended')) {
+    onEnded();
+    return;
   }
   const facts: AudioFacts = {
     sampleRate: Math.round(graph.context.sampleRate),
@@ -181,6 +191,57 @@ async function startTab(message: OffscreenStartTab): Promise<void> {
     session.tick();
   }, TICK_INTERVAL_MS);
 }
+
+async function startTab(message: OffscreenStartTab): Promise<void> {
+  const opened = openSession(message.sessionId, { source: 'tab', tabId: message.tabId });
+  if (opened === null) return;
+  let stream: MediaStream;
+  try {
+    // Chrome's legacy constraint form is the documented way to use a
+    // tabCapture stream ID (tabCapture docs, Chrome 116+).
+    const constraints = {
+      audio: { mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: message.streamId } },
+      video: false,
+    } as unknown as MediaStreamConstraints;
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+  } catch {
+    opened.session.denied('STREAM_NOT_AVAILABLE');
+    return;
+  }
+  await runGraph(opened.session, opened.graph, stream, true);
+}
+
+async function startMic(sessionId: SessionId): Promise<void> {
+  const opened = openSession(sessionId, { source: 'mic' });
+  if (opened === null) return;
+  const permission = await micPermissionState();
+  // With a grant, a microphone that never opens is a device problem, not a
+  // missing permission (review L-1).
+  if (permission === 'granted') opened.session.setAuthorizingTimeoutCode('STREAM_NOT_AVAILABLE');
+  const result = await openMicStream(permission);
+  if (!result.ok) {
+    opened.session.denied(result.code);
+    return;
+  }
+  await runGraph(opened.session, opened.graph, result.stream, false);
+}
+
+// The side panel's port for a microphone session (I-17): the session lasts
+// as long as the port. Ports from anything but this extension's pages, for
+// another session, or a second one, are closed at once.
+chrome.runtime.onConnect.addListener((port) => {
+  const sessionId = panelPortSessionId(port.name);
+  if (sessionId === null) return;
+  const session = current?.session;
+  const sender = port.sender;
+  if (sender === undefined || !isOwnExtensionContext(sender) || session?.id !== sessionId || !session.attachPanel()) {
+    port.disconnect();
+    return;
+  }
+  port.onDisconnect.addListener(() => {
+    session.detachPanel();
+  });
+});
 
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   // From the content script of a tab: heartbeat and player events only.
@@ -200,6 +261,8 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   if (!isOwnExtensionContext(sender)) return false;
   if (isOffscreenStartTab(message)) {
     void startTab(message);
+  } else if (isOffscreenStartMic(message)) {
+    void startMic(message.sessionId);
   } else if (isOffscreenStop(message) && current?.session.id === message.sessionId) {
     current.session.stop(message.reason);
   }

@@ -6,7 +6,9 @@ import {
   AUTHORIZING_TIMEOUT_MS,
   CaptureSession,
   HEARTBEAT_TIMEOUT_MS,
+  PANEL_ATTACH_TIMEOUT_MS,
   RELEASE_TIMEOUT_MS,
+  type SessionBinding,
 } from '../src/offscreen/capture-session.ts';
 
 const SESSION = '3f1c2b4a-9d8e-4f7a-8b6c-5d4e3f2a1b0c';
@@ -26,8 +28,8 @@ class Harness {
   readonly session: CaptureSession;
   private hbSeq = 0;
 
-  constructor() {
-    this.session = new CaptureSession(SESSION, TAB, {
+  constructor(binding: SessionBinding = { source: 'tab', tabId: TAB }) {
+    this.session = new CaptureSession(SESSION, binding, {
       now: () => this.now,
       setTimer: (fn, ms) => {
         const id = this.nextId++;
@@ -318,6 +320,119 @@ describe('heartbeat watchdog (ADR-0004)', () => {
     h.session.onPlayerEvent({ v: 1, type: 'PLAYER_EVENT', sessionId: SESSION, seq: 99, kind: 'seek' }, 8);
     await flush();
     expect(h.session.state).toBe('LISTENING');
+  });
+});
+
+describe('microphone sessions (I-17)', () => {
+  const MIC: SessionBinding = { source: 'mic' };
+
+  /** A microphone session with its panel attached, listening. */
+  function micListening(): Harness {
+    const h = new Harness(MIC);
+    expect(h.session.attachPanel()).toBe(true);
+    h.start();
+    return h;
+  }
+
+  it('has no heartbeat watchdog: it keeps listening with no content script at all', async () => {
+    const h = micListening();
+    await h.advance(HEARTBEAT_TIMEOUT_MS * 5);
+    expect(h.session.state).toBe('LISTENING');
+    expect(h.last?.activeMs).toBeGreaterThan(14_000);
+  });
+
+  it('rejects every heartbeat and player event as not its own', () => {
+    const h = micListening();
+    expect(h.heartbeat()).toBe(false);
+    expect(h.heartbeat({}, null)).toBe(false);
+    expect(h.session.onPlayerEvent({ v: 1, type: 'PLAYER_EVENT', sessionId: SESSION, seq: 99, kind: 'seek' }, TAB)).toBe(
+      false,
+    );
+    expect(h.session.ignored.wrongTab).toBe(3);
+    // Not even a paused player can pause it (SPEC §6.1: PAUSED is for the tab only).
+    expect(h.session.state).toBe('LISTENING');
+  });
+
+  it('closing the panel stops the session with USER_STOP, once', async () => {
+    const h = micListening();
+    await h.advance(1_000);
+    h.session.detachPanel();
+    h.session.detachPanel();
+    await flush();
+    expect(h.last).toMatchObject({ state: 'INTERRUPTED', exitReason: 'USER_STOP' });
+    expect(h.releases).toBe(1);
+    expect(h.idles).toBe(1);
+  });
+
+  it('closing the panel while authorizing also stops it', async () => {
+    const h = new Harness(MIC);
+    h.session.attachPanel();
+    h.session.detachPanel();
+    await flush();
+    expect(h.last).toMatchObject({ state: 'INTERRUPTED', exitReason: 'USER_STOP' });
+  });
+
+  it(`with no panel port within ${PANEL_ATTACH_TIMEOUT_MS} ms the session stops (panel closed during the start)`, async () => {
+    const h = new Harness(MIC);
+    h.start();
+    await h.advance(PANEL_ATTACH_TIMEOUT_MS - 100);
+    expect(h.session.state).toBe('LISTENING');
+    await h.advance(200);
+    expect(h.last).toMatchObject({ state: 'INTERRUPTED', exitReason: 'USER_STOP' });
+  });
+
+  it('accepts one panel only, and none for a tab session or after the end', async () => {
+    const h = micListening();
+    expect(h.session.attachPanel()).toBe(false);
+    expect(new Harness().session.attachPanel()).toBe(false);
+    h.session.stop('USER_STOP');
+    await flush();
+    expect(h.session.attachPanel()).toBe(false);
+  });
+
+  it('a detach without an attached panel changes nothing', async () => {
+    const h = new Harness(MIC);
+    h.session.detachPanel();
+    h.start();
+    await flush();
+    expect(h.session.state).toBe('LISTENING');
+  });
+
+  it(`a microphone that never opens ends with MIC_PERMISSION_REQUIRED after ${AUTHORIZING_TIMEOUT_MS} ms`, async () => {
+    const h = new Harness(MIC);
+    h.session.attachPanel();
+    await h.advance(AUTHORIZING_TIMEOUT_MS + 100, false);
+    expect(h.last).toMatchObject({ state: 'ERROR', exitReason: 'CAPTURE_ERROR', code: 'MIC_PERMISSION_REQUIRED' });
+  });
+
+  it('with a grant, a microphone that never opens ends with STREAM_NOT_AVAILABLE (review L-1)', async () => {
+    const h = new Harness(MIC);
+    h.session.attachPanel();
+    h.session.setAuthorizingTimeoutCode('STREAM_NOT_AVAILABLE');
+    await h.advance(AUTHORIZING_TIMEOUT_MS + 100, false);
+    expect(h.last).toMatchObject({ state: 'ERROR', code: 'STREAM_NOT_AVAILABLE' });
+  });
+
+  it('45 s of listening ends in INSUFFICIENT_DATA / WALL_TIMEOUT, as for the tab', async () => {
+    const h = micListening();
+    await h.advance(46_000);
+    expect(h.last).toMatchObject({ state: 'INSUFFICIENT_DATA', exitReason: 'WALL_TIMEOUT' });
+  });
+
+  it('stop() is accepted from every state of a microphone session', async () => {
+    for (const step of ['authorizing', 'listening', 'ended'] as const) {
+      const h = new Harness(MIC);
+      h.session.attachPanel();
+      if (step !== 'authorizing') h.start();
+      if (step === 'ended') {
+        h.session.stop('USER_STOP');
+        await flush();
+      }
+      h.session.stop('USER_STOP');
+      await flush();
+      expect(h.session.state).toBe('IDLE');
+      expect(h.idles).toBe(1);
+    }
   });
 });
 

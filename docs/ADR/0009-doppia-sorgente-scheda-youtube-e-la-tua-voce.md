@@ -27,6 +27,13 @@ Solo YouTube (rischio di prodotto non pubblicabile); web app separata (duplicazi
 
 Stessi test DSP su sorgente file; E2E microfono con dispositivo finto di Chrome (`--use-fake-device-for-media-stream`).
 
+**Nota di attuazione (I-17, 2026-11-11).** Il `needs current-doc verification` sul microfono:
+- **Brave (Chromium 157), Windows 11:** verificato secondo il product owner. Con il permesso dato in `permission.html` (scheda dell'estensione), l'offscreen apre il microfono da solo, anche dopo la chiusura di quella scheda (M13, M13b, M13c, M14: «Tutto funzionante», comunicato in chat; l'agente non l'ha osservato).
+- **Chromium 156 di Playwright:** con il permesso concesso via CDP sull'origine dell'estensione l'offscreen apre il microfono; senza permesso `getUserMedia` fallisce subito, senza bloccarsi (`tests/e2e/mic.spec.ts`).
+- **Google Chrome stabile e Chrome 120:** non eseguito. Per I-17 la verifica in Brave basta (decisione del product owner, 2026-11-11).
+
+Nessun ADR di spostamento della cattura nella pagina visibile è servito.
+
 ## Riferimenti
 
 SPEC §2, §3, §5

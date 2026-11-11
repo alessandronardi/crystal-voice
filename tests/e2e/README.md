@@ -103,10 +103,40 @@ File: `harness.ts` (helper comuni), `tab-capture.spec.ts`, `lifecycle.spec.ts`, 
 | 2026-11-11 | idem | headless | **19/20**: in `tab-capture.spec.ts` l'offerta «Interrompi la cattura in corso» spariva prima del controllo. Difetto vero del pannello (la diagnostica della sessione attiva cancellava l'errore del click), corretto; aggiunta la regressione; memoria +14,1 MB |
 | 2026-11-11 | idem, codice finale | con finestra | 20/20 (6,4 min); S3 143 ms; memoria +13,0 MB |
 | 2026-11-11 | idem, codice finale | headless | 20/20 (6,1 min); S3 109 ms; memoria +16,7 MB; chiusura della scheda `INTERRUPTED / NAVIGATED_AWAY` |
+| 2026-11-11 | CI `ubuntu-latest`, Chromium di Playwright 1.64.0, PR crystal-voice#10 (`4879972`), metodo finale della memoria, 300 cicli | con finestra sotto `xvfb-run`, corsa 1 | 20/20; S3 nell'intervallo 61–68 ms delle due corse; persistenti +7,3 MB; chiusura della scheda `INTERRUPTED / NAVIGATED_AWAY` |
+| 2026-11-11 | idem | con finestra sotto `xvfb-run`, corsa 2 | 20/20; S3 nell'intervallo 61–68 ms delle due corse; persistenti +6,5 MB; chiusura della scheda `INTERRUPTED / NAVIGATED_AWAY` |
 
 **`tabs.onUpdated` senza permesso `tabs`, misurato in Chromium 156:** con `pushState` dentro YouTube arriva `status: 'loading'` *con* il nuovo URL, che è leggibile tramite l'host del content script; con una navigazione verso un altro host arriva `status: 'loading'` senza URL. Il service worker ferma subito la sessione per un URL leggibile fuori da `/watch` e per un `loading` senza URL. Un URL `/watch` lo lascia al watchdog, che riconosce `VIDEO_CHANGED`. La prima versione fermava ogni `loading`, e in headless il test `VIDEO_CHANGED` falliva con `NAVIGATED_AWAY`.
 
-**Cosa non provano:** un vero annuncio di YouTube; la pagina reale di YouTube, dove il `<video>` principale si sceglie come il più grande fra quelli visibili (non provato con anteprime al passaggio del mouse o con il miniplayer); Google Chrome stabile e Chrome 120; Linux, che verrà dalla CI.
+**Cosa non provano:** un vero annuncio di YouTube; la pagina reale di YouTube, dove il `<video>` principale si sceglie come il più grande fra quelli visibili (non provato con anteprime al passaggio del mouse o con il miniplayer); Google Chrome stabile e Chrome 120. Linux: solo in CI, con finestra sotto `xvfb-run` (righe sopra); headless su Linux non eseguito.
+
+## Microfono (I-17, `mic.spec.ts`)
+
+Lancio dedicato con `--use-fake-device-for-media-stream --use-file-for-fake-audio-capture=tests/fixtures/voice-a.wav`, fixture sintetica generata da script (R16). **Senza** `--use-fake-ui-for-media-stream`: concederebbe anche la richiesta dell'offscreen e nasconderebbe la domanda di I-17. Il consenso dato in `permission.html` è simulato con il comando CDP `Browser.grantPermissions` (`audioCapture`) sull'origine `chrome-extension://<id>`; il prompt vero e l'indicatore di registrazione sono manuali (M13, M13b, M13c, M14).
+
+| Scenario | Esito atteso |
+|---|---|
+| Senza permesso, «Usa il microfono» nel pannello | Messaggio `MIC_PERMISSION_REQUIRED`, pulsante che apre `permission.html` in una scheda, nessun offscreen |
+| Senza permesso, avvio forzato dalla pagina sonda | `ERROR / MIC_PERMISSION_REQUIRED` in 20–31 ms, senza attendere il timeout di 10 s. Il pannello legge lo stato `prompt`; l'offscreen non riporta il proprio, quindi non si distingue se il rifiuto viene dal controllo del permesso o da `getUserMedia` |
+| Con permesso | `LISTENING`, campioni del dispositivo finto in crescita; `activeSession` = `{ sessionId, source: 'mic' }` senza `tabId`; la sessione oltrepassa i 3 s di aggancio, quindi la porta del pannello la tiene viva; «Interrompi» → `INTERRUPTED / USER_STOP` |
+| Pannello chiuso (CDP `Target.closeTarget`) | `INTERRUPTED / USER_STOP` entro 1 s, offscreen chiuso, routing pulito |
+| Permesso negato (CDP `Browser.setPermission`, `microphone: denied`) | `permission.html` mostra «Il microfono non è autorizzato…» |
+| Una cattura fra le sorgenti | Scheda in corso → avvio mic `CAPTURE_BUSY`; mic in corso → click sulla toolbar `CAPTURE_BUSY`; «Interrompi la cattura in corso» ferma la prima in entrambi i casi |
+| S8 col microfono | Worker terminato: la cattura prosegue, lo stop e un nuovo avvio funzionano |
+| Doppio click su «Usa il microfono» | Una sola sessione, viva oltre i 3 s di aggancio, `lastStart` senza errore |
+| Offscreen chiuso senza messaggio finale | «Usa il microfono» torna disponibile e il nuovo avvio parte |
+| 45 s | `INSUFFICIENT_DATA / WALL_TIMEOUT` |
+| `permission-page.spec.ts`, lancio a parte con `--use-fake-ui-for-media-stream` | Il pulsante porta a «concesso» e tutte le tracce ottenute risultano `ended`. Prova solo la pagina: con l'interfaccia finta il permesso risulta già concesso al caricamento |
+
+| Data | Ambiente | Modalità | Esito |
+|---|---|---|---|
+| 2026-11-11 | Windows 11 Home 10.0.26300, Node 26.13.0, `@playwright/test` 1.64.0, Chromium 156; branch `issue/I-17-mic-source`, non committato | con finestra | 3/3; senza permesso rifiuto in 31 ms; 48 kHz, 36.051 campioni/s misurati sull'arrivo dei diagnostici (finestra di 4 s, diagnostici ogni 0,5 s); pannello chiuso → fine in 384 ms |
+| 2026-11-11 | idem | headless | 3/3; rifiuto in 20 ms; 48 kHz, 42.091 campioni/s; pannello chiuso → fine in 375 ms |
+| 2026-11-11 | idem, fase B prima della revisione | con finestra | `mic.spec.ts` 6/6 e `permission-page.spec.ts` 1/1; rifiuto in 19 ms; pannello chiuso → fine in 383 ms. Suite intera 27/27 con finestra e 27/27 headless |
+| 2026-11-11 | idem, codice finale dopo la revisione | con finestra | Suite intera **29/29** (6,9 min): `mic.spec.ts` 8/8, `permission-page.spec.ts` 1/1; S3 111 ms; 100 cicli della scheda +8,3 MB |
+| 2026-11-11 | idem, codice finale dopo la revisione | headless | Suite intera **29/29** (6,7 min); S3 97 ms; 100 cicli della scheda +13,3 MB |
+
+**Cosa non provano:** che il prompt vero di `permission.html` lasci all'offscreen un permesso utilizzabile (M13, punto chiave: riportato superato in Brave dal product owner), il permesso «solo questa volta» (M13b), l'indicatore di registrazione, la revoca o lo scollegamento durante l'ascolto (M14c), un microfono reale, l'assenza di pass-through (solo all'ascolto), Google Chrome. Il conteggio dei campioni sotto i 48.000/s viene dalla misura sull'arrivo dei messaggi, non da una verifica del flusso: non è stato indagato oltre.
 
 ## Non verificato
 

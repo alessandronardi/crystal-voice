@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PANEL_PORT_PREFIX,
   TERMINAL_CAPTURE_STATES,
   isCaptureDiag,
+  isCaptureStartMessage,
+  isOffscreenStartMic,
+  panelPortSessionId,
   isCaptureErrorCode,
   isCaptureExitReason,
   isCaptureState,
@@ -74,6 +78,44 @@ describe('OFFSCREEN_START_TAB', () => {
     expect(isOffscreenStartTab({ ...base, v: 2 })).toBe(false);
     expect(isOffscreenStartTab(null)).toBe(false);
     expect(isOffscreenStartTab([base])).toBe(false);
+  });
+});
+
+describe('OFFSCREEN_START_MIC and the panel port', () => {
+  it('accepts a well-formed start, with no stream ID', () => {
+    expect(isOffscreenStartMic({ v: 1, type: 'OFFSCREEN_START_MIC', sessionId: SESSION })).toBe(true);
+    expect(isOffscreenStartMic({ v: 1, type: 'OFFSCREEN_START_MIC', sessionId: 'x' })).toBe(false);
+    expect(isOffscreenStartMic({ v: 2, type: 'OFFSCREEN_START_MIC', sessionId: SESSION })).toBe(false);
+    expect(isOffscreenStartMic({ v: 1, type: 'OFFSCREEN_START_TAB', sessionId: SESSION })).toBe(false);
+    expect(isOffscreenStartMic(null)).toBe(false);
+  });
+
+  it('reads the session id of a panel port name', () => {
+    expect(panelPortSessionId(`${PANEL_PORT_PREFIX}${SESSION}`)).toBe(SESSION);
+    expect(panelPortSessionId(`${PANEL_PORT_PREFIX}nope`)).toBeNull();
+    expect(panelPortSessionId(SESSION)).toBeNull();
+    expect(panelPortSessionId('')).toBeNull();
+  });
+});
+
+describe('CAPTURE_START guard', () => {
+  const mic = { v: 1, type: 'CAPTURE_START', source: 'mic', tabId: null, sessionId: SESSION, seq: 0 };
+  it('accepts tab starts with a tab and mic or file starts without one', () => {
+    expect(isCaptureStartMessage(mic)).toBe(true);
+    expect(isCaptureStartMessage({ ...mic, source: 'file' })).toBe(true);
+    expect(isCaptureStartMessage({ ...mic, source: 'tab', tabId: 7 })).toBe(true);
+  });
+
+  it('rejects a mismatched tab id, unknown sources and bad envelopes', () => {
+    expect(isCaptureStartMessage({ ...mic, tabId: 7 })).toBe(false);
+    expect(isCaptureStartMessage({ ...mic, source: 'tab' })).toBe(false);
+    expect(isCaptureStartMessage({ ...mic, source: 'tab', tabId: -1 })).toBe(false);
+    expect(isCaptureStartMessage({ ...mic, source: 'screen' })).toBe(false);
+    const { tabId: _t, ...noTab } = mic;
+    expect(isCaptureStartMessage(noTab)).toBe(false);
+    expect(isCaptureStartMessage({ ...mic, sessionId: 'x' })).toBe(false);
+    expect(isCaptureStartMessage({ ...mic, seq: -1 })).toBe(false);
+    expect(isCaptureStartMessage({ ...mic, v: 2 })).toBe(false);
   });
 });
 

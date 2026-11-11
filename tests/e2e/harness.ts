@@ -98,7 +98,8 @@ export class ExtensionHarness {
   /** Extension page that records CAPTURE_DIAG and answers storage/context queries. */
   probe!: Page;
 
-  async launch(): Promise<void> {
+  /** `args`: extra Chromium flags, e.g. the fake media device of the microphone tests (I-17). */
+  async launch(options: { args?: readonly string[] } = {}): Promise<void> {
     if (!existsSync(join(EXTENSION_PATH, 'manifest.json'))) {
       throw new Error('dist/extension/manifest.json not found: run `pnpm build` first.');
     }
@@ -106,7 +107,11 @@ export class ExtensionHarness {
     this.context = await chromium.launchPersistentContext(this.userDataDir, {
       channel: 'chromium',
       headless: HEADLESS,
-      args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`],
+      args: [
+        `--disable-extensions-except=${EXTENSION_PATH}`,
+        `--load-extension=${EXTENSION_PATH}`,
+        ...(options.args ?? []),
+      ],
     });
     await this.context.route(`${ORIGIN}/watch*`, (route) =>
       route.fulfill({ contentType: 'text/html', body: VIDEO_PAGE }),
@@ -266,6 +271,41 @@ export class ExtensionHarness {
       if (last !== null && last !== undefined && last !== false && last !== '') return last;
     }
     return last;
+  }
+
+  /**
+   * Grants the microphone to the extension's origin, as a «Consenti» on the
+   * prompt of permission.html would (CDP Browser.grantPermissions). The
+   * offscreen then has to use that grant on its own: that is what I-17 checks.
+   */
+  async grantMic(): Promise<void> {
+    await this.browserSession.send('Browser.grantPermissions', {
+      origin: `chrome-extension://${this.extensionId}`,
+      permissions: ['audioCapture'],
+    });
+  }
+
+  /** Sets the extension origin's microphone permission (CDP Browser.setPermission), e.g. 'denied' for «Blocca». */
+  async setMic(setting: 'granted' | 'denied' | 'prompt'): Promise<void> {
+    await this.browserSession.send('Browser.setPermission', {
+      origin: `chrome-extension://${this.extensionId}`,
+      // A PermissionDescriptor takes the Permissions API name, not grantPermissions' 'audioCapture'.
+      permission: { name: 'microphone' },
+      setting,
+    });
+  }
+
+  /** Removes every grant made with grantMic (CDP Browser.resetPermissions). */
+  async resetPermissions(): Promise<void> {
+    await this.browserSession.send('Browser.resetPermissions', {});
+  }
+
+  /** Closes every side panel document (CDP Target.closeTarget); returns how many. */
+  async closeSidePanels(): Promise<number> {
+    const panelUrl = `chrome-extension://${this.extensionId}/sidepanel.html`;
+    const panels = (await this.targets()).filter((t) => t.type === 'page' && t.url === panelUrl);
+    for (const panel of panels) await this.browserSession.send('Target.closeTarget', { targetId: panel.targetId });
+    return panels.length;
   }
 
   /** A browser-level CDP command (e.g. SystemInfo.getProcessInfo). */

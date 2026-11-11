@@ -268,12 +268,15 @@ describe('checkManifest', () => {
   it.each([
     [{ matches: ['<all_urls>'], js: ['youtube-content.js'] }, 'match-without-adr'],
     [{ matches: ['https://*/*'], js: ['youtube-content.js'] }, 'match-without-adr'],
+    // SPEC §5's original pattern is superseded by ADR-0021.
+    [{ matches: ['https://www.youtube.com/watch*'], js: ['youtube-content.js'] }, 'match-without-adr'],
+    [{ matches: ['https://*.youtube.com/*'], js: ['youtube-content.js'] }, 'match-without-adr'],
     [
-      { matches: ['https://www.youtube.com/watch*'], js: ['youtube-content.js'], world: 'MAIN' },
+      { matches: ['https://www.youtube.com/*'], js: ['youtube-content.js'], world: 'MAIN' },
       'manifest-key-without-adr',
     ],
     [
-      { matches: ['https://www.youtube.com/watch*'], js: ['youtube-content.js'], all_frames: true },
+      { matches: ['https://www.youtube.com/*'], js: ['youtube-content.js'], all_frames: true },
       'manifest-key-without-adr',
     ],
   ])('rejects the content script %j (R4, R9)', (entry, rule) => {

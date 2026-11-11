@@ -9,7 +9,7 @@
   "side_panel": { "default_path": "sidepanel.html" },
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/watch*"],
+      "matches": ["https://www.youtube.com/*"],
       "js": ["youtube-content.js"],
       "run_at": "document_idle"
     }

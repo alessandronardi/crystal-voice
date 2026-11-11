@@ -27,6 +27,16 @@ Permesso `tabs` per leggere l'URL (permesso più ampio, solo se I-03 lo dimostra
 
 Scenario S3 automatizzato o manuale: stop entro 3 s.
 
+## Nota di attuazione (2026-11-11, I-03)
+
+- **Cambio di `videoId`:** l'uscita è `INTERRUPTED / VIDEO_CHANGED`, come in SPEC §6.1, e non `NAVIGATED_AWAY` come scritto sopra. Decisione del product owner del 2026-11-11. `NAVIGATED_AWAY` resta per un URL fuori da `/watch` e per l'assenza di heartbeat.
+- **Segnali aggiuntivi attuati:**
+  - `tabs.onRemoved`;
+  - `tabs.onUpdated`, con un URL leggibile fuori da `/watch` o `status: 'loading'` senza URL;
+  - `tabCapture.onStatusChanged`;
+  - `MediaStreamTrack` `ended`, con un'attesa di 500 ms [H] del motivo dal service worker.
+- **Content script su tutto `www.youtube.com`:** ADR-0021.
+
 ## Riferimenti
 
 [tabCapture](https://developer.chrome.com/docs/extensions/reference/api/tabCapture)

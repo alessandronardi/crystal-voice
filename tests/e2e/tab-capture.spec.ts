@@ -311,6 +311,7 @@ test('the panel flags a capture whose offscreen disappeared (review M-3)', async
   await page.click('#play');
   await clickAction(page);
   await expect.poll(async () => (await lastDiag())?.state, { timeout: 15_000 }).toBe('running');
+  const closed = await lastDiag();
   // Simulates an unexpected close: the document goes away without a final diagnostic.
   await worker.evaluate(() => chrome.offscreen.closeDocument());
   await expect.poll(offscreenCount).toBe(0);
@@ -319,9 +320,22 @@ test('the panel flags a capture whose offscreen disappeared (review M-3)', async
       timeout: 10_000,
     })
     .toBe(true);
-  // A new start works again.
+  // A new start works again. The last diagnostic is still the closed
+  // session's 'running', so wait for a new session id, then for the panel to
+  // show it, before pressing stop.
   await clickAction(page);
-  await expect.poll(async () => (await lastDiag())?.state, { timeout: 15_000 }).toBe('running');
+  await expect
+    .poll(
+      async () => {
+        const d = await lastDiag();
+        return d !== undefined && d.sessionId !== closed?.sessionId && d.state === 'running';
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+  await expect
+    .poll(() => inSidePanel(`document.querySelector('[data-testid="capture-stale"]') === null`))
+    .toBe(true);
   await inSidePanel(`document.querySelector('[data-testid="capture-stop"]').click()`);
   await expect.poll(offscreenCount, { timeout: 10_000 }).toBe(0);
   await page.close();

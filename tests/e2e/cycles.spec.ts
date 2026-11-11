@@ -7,8 +7,14 @@
 //     --extension-process on its command line);
 //   - the browser process and the audio service.
 // PIDs and types come from the CDP command SystemInfo.getProcessInfo; bytes
-// from the OS (Windows: PrivateMemorySize64; Linux: VmRSS). The probe page's
-// recorded diagnostics are cleared at every reading so that the test's own
+// from the OS as private memory (Windows: PrivateMemorySize64; Linux:
+// Private_Clean + Private_Dirty of /proc/<pid>/smaps_rollup). Resident memory
+// is reported too: on Linux it first served as the metric and grew by ~80 MB
+// in CI with a plateau, since it counts shared pages and pages the allocator
+// keeps after a free. Before every reading a garbage collection is forced in
+// each extension context (CDP HeapProfiler.collectGarbage), so the reading
+// does not depend on when the collector runs. The probe page's recorded
+// diagnostics are cleared at every reading so that the test's own
 // bookkeeping does not grow inside the measured process.
 // Also reported, not asserted: the used JS heap of the offscreen document
 // while listening (CDP Runtime.getHeapUsage) and the whole process tree, which
@@ -47,7 +53,10 @@ interface ProcessInfo {
 }
 
 interface OsProcess {
+  /** Private memory, bytes (asserted). */
   bytes: number;
+  /** Resident memory, bytes (reported). */
+  rss: number;
   extension: boolean;
 }
 
@@ -59,21 +68,26 @@ function osProcesses(pids: readonly number[]): Map<number, OsProcess> {
       `$ids = @(${pids.join(',')}); ` +
       `Get-CimInstance Win32_Process | Where-Object { $ids -contains $_.ProcessId } | ` +
       `ForEach-Object { $p = Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue; ` +
-      `if ($p) { "$($_.ProcessId) $($p.PrivateMemorySize64) $([int]($_.CommandLine -like '*--extension-process*'))" } }`;
+      `if ($p) { "$($_.ProcessId) $($p.PrivateMemorySize64) $($p.WorkingSet64) $([int]($_.CommandLine -like '*--extension-process*'))" } }`;
     const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', script], { encoding: 'utf8' });
     for (const line of result.stdout.split(/\r?\n/)) {
-      const [pid, bytes, extension] = line.trim().split(' ');
-      if (pid === undefined || bytes === undefined) continue;
-      out.set(Number(pid), { bytes: Number(bytes), extension: extension === '1' });
+      const [pid, bytes, rss, extension] = line.trim().split(' ');
+      if (pid === undefined || bytes === undefined || rss === undefined) continue;
+      out.set(Number(pid), { bytes: Number(bytes), rss: Number(rss), extension: extension === '1' });
     }
     return out;
   }
   for (const pid of pids) {
     try {
-      const match = /VmRSS:\s+(\d+) kB/.exec(readFileSync(`/proc/${pid}/status`, 'utf8'));
+      const rollup = readFileSync(`/proc/${pid}/smaps_rollup`, 'utf8');
+      const kb = (field: string): number => {
+        const value = new RegExp(`^${field}:\\s+(\\d+) kB`, 'm').exec(rollup)?.[1];
+        return value === undefined ? 0 : Number(value) * 1024;
+      };
       const cmdline = readFileSync(`/proc/${pid}/cmdline`, 'utf8');
       out.set(pid, {
-        bytes: match?.[1] === undefined ? 0 : Number(match[1]) * 1024,
+        bytes: kb('Private_Clean') + kb('Private_Dirty'),
+        rss: kb('Rss'),
         extension: cmdline.includes('--extension-process'),
       });
     } catch {
@@ -89,15 +103,20 @@ interface Reading {
   /** Of which the extension renderer, MB. */
   extensionMb: number;
   extensionProcesses: number;
+  /** Reported only: resident memory of the same processes, MB. */
+  persistentRssMb: number;
+  /** Reported only: used JS heap of the extension contexts after the forced GC, MB. */
+  extensionHeapMb: number;
   /** Reported only: every Chromium process, MB. */
   treeMb: number;
 }
 
-async function readOnce(): Promise<Reading> {
+async function readOnce(): Promise<Omit<Reading, 'extensionHeapMb'>> {
   const info = (await h.browserCdp('SystemInfo.getProcessInfo', {})) as { processInfo: ProcessInfo[] };
   const known = info.processInfo.filter((p) => p.id > 0);
   const os = osProcesses(known.map((p) => p.id));
   let persistent = 0;
+  let persistentRss = 0;
   let extension = 0;
   let extensionProcesses = 0;
   let tree = 0;
@@ -109,10 +128,14 @@ async function readOnce(): Promise<Reading> {
       extension += o.bytes;
       extensionProcesses++;
     }
-    if (o.extension || PERSISTENT_TYPES.includes(p.type)) persistent += o.bytes;
+    if (o.extension || PERSISTENT_TYPES.includes(p.type)) {
+      persistent += o.bytes;
+      persistentRss += o.rss;
+    }
   }
   return {
     persistentMb: persistent / 2 ** 20,
+    persistentRssMb: persistentRss / 2 ** 20,
     extensionMb: extension / 2 ** 20,
     extensionProcesses,
     treeMb: tree / 2 ** 20,
@@ -131,7 +154,8 @@ async function measure(): Promise<Reading> {
     g.vcDiags.length = 0;
     g.vcTypes.length = 0;
   });
-  const readings: Reading[] = [];
+  const heap = await h.collectExtensionGarbage();
+  const readings: Omit<Reading, 'extensionHeapMb'>[] = [];
   for (let i = 0; i < 3; i++) {
     await h.probe.waitForTimeout(1_000);
     readings.push(await readOnce());
@@ -140,6 +164,8 @@ async function measure(): Promise<Reading> {
     persistentMb: median(readings.map((r) => r.persistentMb)),
     extensionMb: median(readings.map((r) => r.extensionMb)),
     extensionProcesses: median(readings.map((r) => r.extensionProcesses)),
+    persistentRssMb: median(readings.map((r) => r.persistentRssMb)),
+    extensionHeapMb: heap / 2 ** 20,
     treeMb: median(readings.map((r) => r.treeMb)),
   };
 }
@@ -178,17 +204,21 @@ test(`${CYCLES} start/stop cycles: clean state each time, memory growth ≤ ${MA
     platform: process.platform,
     cycles: CYCLES,
     warmUp: WARM_UP,
-    asserted: `extension renderer + ${PERSISTENT_TYPES.join(' + ')} (${process.platform === 'win32' ? 'PrivateMemorySize64' : 'VmRSS'})`,
+    asserted: `extension renderer + ${PERSISTENT_TYPES.join(' + ')}, private memory (${process.platform === 'win32' ? 'PrivateMemorySize64' : 'smaps_rollup Private_*'}), after a forced GC`,
     samples: samples.map((s) => ({
       cycle: s.cycle,
       persistentMb: round(s.reading.persistentMb),
       extensionMb: round(s.reading.extensionMb),
       extensionProcesses: s.reading.extensionProcesses,
+      persistentRssMb: round(s.reading.persistentRssMb),
+      extensionHeapMb: round(s.reading.extensionHeapMb),
       treeMb: round(s.reading.treeMb),
     })),
     offscreenHeapMb,
     growthMb: round(growthMb),
     extensionGrowthMb: round(last.extensionMb - first.extensionMb),
+    rssGrowthMb: round(last.persistentRssMb - first.persistentRssMb),
+    extensionHeapGrowthMb: round(last.extensionHeapMb - first.extensionHeapMb),
     treeGrowthMb: round(last.treeMb - first.treeMb),
   };
   test.info().annotations.push({ type: 'memory', description: JSON.stringify(report) });

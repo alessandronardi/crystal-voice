@@ -322,6 +322,33 @@ export class ExtensionHarness {
     return total;
   }
 
+  /**
+   * Forces a garbage collection (CDP HeapProfiler.collectGarbage) in every
+   * extension context (service worker, panels, probe, offscreen if open) and
+   * returns their used JS heap afterwards, bytes. Memory readings then show
+   * what is still referenced, not what the collector has not reached yet.
+   */
+  async collectExtensionGarbage(): Promise<number> {
+    const origin = `chrome-extension://${this.extensionId}/`;
+    let total = 0;
+    for (const target of (await this.targets()).filter((t) => t.type !== 'tab' && t.url.startsWith(origin))) {
+      const { sessionId } = await this.browserSession.send('Target.attachToTarget', {
+        targetId: target.targetId,
+        flatten: false,
+      });
+      try {
+        await this.relayCommand(sessionId, 'HeapProfiler.collectGarbage', {});
+        const usage = (await this.relayCommand(sessionId, 'Runtime.getHeapUsage', {})) as { usedSize?: number };
+        total += usage.usedSize ?? 0;
+      } catch {
+        // Target gone between listing and attaching (e.g. a closing offscreen).
+      } finally {
+        await this.browserSession.send('Target.detachFromTarget', { sessionId }).catch(() => undefined);
+      }
+    }
+    return total;
+  }
+
   private async relay(sessionId: string, expression: string): Promise<unknown> {
     const result = (await this.relayCommand(sessionId, 'Runtime.evaluate', {
       expression,

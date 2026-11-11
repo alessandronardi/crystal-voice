@@ -29,6 +29,20 @@ export const AUTHORIZING_TIMEOUT_MS = 10_000;
 /** [H] SPEC §6: every terminal state is back to IDLE within 1 s; release gets this much of it. */
 export const RELEASE_TIMEOUT_MS = 800;
 
+/**
+ * [H] I-17: a microphone session lives as long as the side panel that asked
+ * for it. Its port must arrive within this time from the start, or the panel
+ * is taken as closed (closed while the offscreen was being created).
+ */
+export const PANEL_ATTACH_TIMEOUT_MS = 3_000;
+
+/**
+ * What a session is bound to. A tab session is kept alive by the heartbeats
+ * of that tab's content script (ADR-0004); a microphone session by its side
+ * panel's port (BACKLOG I-17: stop when the panel closes).
+ */
+export type SessionBinding = { source: 'tab'; tabId: number } | { source: 'mic' };
+
 export interface AudioFacts {
   sampleRate: number | null;
   baseLatency: number | null;
@@ -82,22 +96,58 @@ export class CaptureSession {
   private contentSeq = -1;
   private videoId: string | null = null;
   private finishing = false;
+  private panelDeadline: unknown = null;
+  private panelAttached = false;
+  private authorizingTimeoutCode: CaptureErrorCode;
   readonly ignored: IgnoredCounts = { wrongTab: 0, wrongSession: 0, staleSeq: 0, rejectedEvent: 0 };
 
   readonly id: SessionId;
-  readonly tabId: number;
+  readonly binding: SessionBinding;
   private readonly deps: SessionDeps;
 
-  constructor(id: SessionId, tabId: number, deps: SessionDeps) {
+  constructor(id: SessionId, binding: SessionBinding, deps: SessionDeps) {
     this.id = id;
-    this.tabId = tabId;
+    this.binding = binding;
     this.deps = deps;
     this.startedAt = deps.now();
     this.apply({ type: 'START' });
+    // A microphone that never opens is by default reported like a refusal:
+    // the offscreen cannot ask, the permission page can (SPEC §5).
+    this.authorizingTimeoutCode = binding.source === 'mic' ? 'MIC_PERMISSION_REQUIRED' : 'STREAM_NOT_AVAILABLE';
     this.authorizing = deps.setTimer(() => {
       this.authorizing = null;
-      this.denied('STREAM_NOT_AVAILABLE');
+      this.denied(this.authorizingTimeoutCode);
     }, AUTHORIZING_TIMEOUT_MS);
+    if (binding.source === 'mic') {
+      this.panelDeadline = deps.setTimer(() => {
+        this.panelDeadline = null;
+        this.apply({ type: 'STOP' });
+      }, PANEL_ATTACH_TIMEOUT_MS);
+    }
+  }
+
+  /** The error reported if no stream arrives in AUTHORIZING (e.g. a granted microphone that hangs). */
+  setAuthorizingTimeoutCode(code: CaptureErrorCode): void {
+    this.authorizingTimeoutCode = code;
+  }
+
+  /**
+   * The side panel's port for this microphone session arrived. Returns false
+   * when it is not wanted (tab session, already attached, or ending): the
+   * caller then disconnects it.
+   */
+  attachPanel(): boolean {
+    if (this.binding.source !== 'mic' || this.panelAttached || !this.isLive()) return false;
+    this.panelAttached = true;
+    this.clearPanelDeadline();
+    return true;
+  }
+
+  /** The attached panel's port closed: the panel is gone, the session stops (USER_STOP). */
+  detachPanel(): void {
+    if (!this.panelAttached) return;
+    this.panelAttached = false;
+    this.apply({ type: 'STOP' });
   }
 
   get state(): CaptureState {
@@ -114,7 +164,8 @@ export class CaptureSession {
     this.audio = audio;
     this.apply({ type: 'ACQUIRED' });
     // The first heartbeat has the same margin as the others (ADR-0004).
-    this.armWatchdog();
+    // No heartbeats for the microphone: its panel port keeps it alive.
+    if (this.binding.source === 'tab' && this.isLive()) this.armWatchdog();
   }
 
   denied(code: CaptureErrorCode): void {
@@ -202,7 +253,8 @@ export class CaptureSession {
     seq: number,
     senderTabId: number | undefined,
   ): 'ok' | 'stale' | 'not-mine' {
-    if (senderTabId !== this.tabId) {
+    // A microphone session has no tab: every content script is a stranger to it.
+    if (this.binding.source !== 'tab' || senderTabId !== this.binding.tabId) {
       this.ignored.wrongTab++;
       return 'not-mine';
     }
@@ -221,6 +273,11 @@ export class CaptureSession {
   private clearAuthorizing(): void {
     if (this.authorizing !== null) this.deps.clearTimer(this.authorizing);
     this.authorizing = null;
+  }
+
+  private clearPanelDeadline(): void {
+    if (this.panelDeadline !== null) this.deps.clearTimer(this.panelDeadline);
+    this.panelDeadline = null;
   }
 
   private armWatchdog(): void {
@@ -268,6 +325,7 @@ export class CaptureSession {
     if (this.watchdog !== null) this.deps.clearTimer(this.watchdog);
     this.watchdog = null;
     this.clearAuthorizing();
+    this.clearPanelDeadline();
     try {
       // Bounded: a context.close() that hangs must not keep the session out of IDLE.
       await Promise.race([

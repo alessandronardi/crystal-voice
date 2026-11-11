@@ -1,12 +1,18 @@
-// Diagnostic capture view (I-02, I-03; the real listening UI is I-13).
+// Diagnostic capture view (I-02, I-03, I-17; the real listening UI is I-13).
 // Mirrors the offscreen's CAPTURE_DIAG, shows why a session ended, and offers
 // to stop the running session when a new start is refused (SPEC §5
-// CAPTURE_BUSY). Text goes through textContent only (AGENTS.md R17).
+// CAPTURE_BUSY). Starts the microphone («Usa il microfono»): the permission is
+// checked here first and, if missing, asked in permission.html, since a side
+// panel cannot prompt (SPEC §5). A microphone session lives as long as this
+// panel: the port opened to the offscreen closes with it. Text goes through
+// textContent only (AGENTS.md R17).
 import {
+  PANEL_PORT_PREFIX,
   isCaptureDiag,
   isTerminalCaptureState,
   type CaptureDiag,
   type CaptureErrorCode,
+  type CaptureExitReason,
   type CaptureMessage,
   type CaptureState,
   type SessionId,
@@ -42,10 +48,50 @@ interface ViewState {
   startFailure: CaptureErrorCode | null;
   /** The session the service worker routes to, if any. */
   active: ActiveSession | null;
-  stopSeq: number;
+  /** Envelope seq of this panel's CAPTURE_START and CAPTURE_STOP. */
+  seq: number;
   /** Sessions already ended: late diagnostics of theirs are ignored and counted. */
   ended: Set<SessionId>;
   ignored: number;
+  /** Microphone sessions seen (own starts and the routing state): their texts differ. */
+  micSessions: Set<SessionId>;
+  /** The microphone session this panel asked for, and its port to the offscreen. */
+  ownMic: SessionId | null;
+  port: chrome.runtime.Port | null;
+  /** The origin's microphone permission as last seen, null if unknown. */
+  micPermission: PermissionState | null;
+  /**
+   * A microphone start asked by this panel and not answered yet (no
+   * diagnostic, no recorded outcome): the button is hidden meanwhile, so a
+   * double click cannot start a second request (review M-1).
+   */
+  micStarting: SessionId | null;
+  /** Own microphone session whose port closed with no final diagnostic: the offscreen is gone (review M-2). */
+  portLost: SessionId | null;
+  /** When the routing state was last seen to change (performance.now()). */
+  activeAt: number;
+}
+
+/** [H] A start not answered within this time no longer hides «Usa il microfono». */
+const START_ANSWER_TIMEOUT_MS = 15_000;
+
+function errorText(code: CaptureErrorCode, mic: boolean): string {
+  if (mic && code in t.micErrors) return t.micErrors[code as keyof typeof t.micErrors];
+  return t.errors[code];
+}
+
+function exitText(reason: CaptureExitReason, mic: boolean): string {
+  if (mic && reason in t.micExitReasons) return t.micExitReasons[reason as keyof typeof t.micExitReasons];
+  return t.exitReasons[reason];
+}
+
+/** The extension origin's microphone permission, or null if the browser cannot tell. */
+async function micPermission(): Promise<PermissionStatus | null> {
+  try {
+    return await navigator.permissions.query({ name: 'microphone' });
+  } catch {
+    return null;
+  }
 }
 
 function formatMs(seconds: number | null): string {
@@ -98,34 +144,111 @@ export function mountCaptureView(root: HTMLElement): void {
     liveAt: 0,
     startFailure: null,
     active: null,
-    stopSeq: 0,
+    seq: 0,
     ended: new Set(),
     ignored: 0,
+    micSessions: new Set(),
+    ownMic: null,
+    port: null,
+    micPermission: null,
+    micStarting: null,
+    portLost: null,
+    activeAt: 0,
   };
 
   const isRunning = (diag: CaptureDiag | null): diag is CaptureDiag => diag !== null && RUNNING.includes(diag.state);
   const isStale = (): boolean => isRunning(state.live) && performance.now() - state.liveAt > STALE_AFTER_MS;
 
+  /**
+   * Whether «Usa il microfono» is offered. Not while a start is pending, nor
+   * while a session is alive. A session counts as alive while its
+   * diagnostics flow; it stops counting when they go stale, when this panel's
+   * own port was lost, or when the routing state names a session that has
+   * not reported for a while (the offscreen died with no final message).
+   * The service worker then refuses with CAPTURE_BUSY if a document is in
+   * fact alive, or clears the stale routing state and starts.
+   */
+  const canStartMic = (): boolean => {
+    if (state.micStarting !== null) return false;
+    const live = state.live;
+    const lost = (id: SessionId): boolean => id === state.portLost;
+    if (isRunning(live) && !isStale() && !lost(live.sessionId)) return false;
+    const active = state.active;
+    if (active === null || lost(active.sessionId)) return true;
+    const reporting = live !== null && live.sessionId === active.sessionId && !isStale();
+    return !reporting && performance.now() - state.activeAt > STALE_AFTER_MS;
+  };
+
   const sendStop = (sessionId: SessionId): void => {
-    const message: CaptureMessage = { v: 1, type: 'CAPTURE_STOP', reason: 'USER_STOP', sessionId, seq: state.stopSeq++ };
+    const message: CaptureMessage = { v: 1, type: 'CAPTURE_STOP', reason: 'USER_STOP', sessionId, seq: state.seq++ };
     void chrome.runtime.sendMessage(message).catch(() => undefined);
+  };
+
+  const closePort = (): void => {
+    state.port?.disconnect();
+    state.port = null;
+  };
+
+  const startMic = async (): Promise<void> => {
+    if (state.micStarting !== null) return;
+    // Pending from the click on, before any await (review M-1).
+    const sessionId = crypto.randomUUID();
+    state.micStarting = sessionId;
+    render();
+    // A side panel cannot show the permission prompt: without a grant, send
+    // the user to permission.html (SPEC §5) instead of starting.
+    const permission = await micPermission();
+    state.micPermission = permission?.state ?? null;
+    if (permission !== null && permission.state !== 'granted') {
+      state.micStarting = null;
+      state.startFailure = 'MIC_PERMISSION_REQUIRED';
+      render();
+      return;
+    }
+    state.ownMic = sessionId;
+    state.micSessions.add(sessionId);
+    state.startFailure = null;
+    state.portLost = null;
+    const message: CaptureMessage = { v: 1, type: 'CAPTURE_START', source: 'mic', tabId: null, sessionId, seq: state.seq++ };
+    void chrome.runtime.sendMessage(message).catch(() => undefined);
+    // A start nobody answers must not hide the button for ever.
+    setTimeout(() => {
+      if (state.micStarting === sessionId) {
+        state.micStarting = null;
+        render();
+      }
+    }, START_ANSWER_TIMEOUT_MS);
+    render();
+  };
+
+  /** The pending start got an answer (a diagnostic or a recorded outcome). */
+  const answered = (sessionId: SessionId): void => {
+    if (state.micStarting === sessionId) state.micStarting = null;
+  };
+
+  const openPermissionPage = (): void => {
+    void chrome.tabs.create({ url: chrome.runtime.getURL('permission.html') }).catch(() => undefined);
   };
 
   const render = (): void => {
     const children: HTMLElement[] = [];
     const live = state.live;
+    const mic = live !== null && state.micSessions.has(live.sessionId);
     const status = paragraph(live === null ? t.idle : t.states[live.state], 'capture-status', 'text-sm font-medium');
     status.dataset['state'] = live?.state ?? 'IDLE';
+    status.dataset['source'] = live === null ? '' : mic ? 'mic' : 'tab';
     children.push(status);
 
     if (live?.exitReason != null) {
-      children.push(paragraph(t.exitReasons[live.exitReason], 'capture-exit', 'text-sm text-slate-700'));
+      children.push(paragraph(exitText(live.exitReason, mic), 'capture-exit', 'text-sm text-slate-700'));
     }
     if (isStale()) children.push(paragraph(t.stale, 'capture-stale', 'text-sm text-amber-700', 'status'));
     const failure = state.startFailure ?? live?.code ?? null;
+    const micFailure = state.startFailure === 'MIC_PERMISSION_REQUIRED' || mic;
     if (failure !== null) {
-      children.push(paragraph(t.errors[failure], 'capture-error', 'text-sm text-red-700', 'alert'));
+      children.push(paragraph(errorText(failure, micFailure), 'capture-error', 'text-sm text-red-700', 'alert'));
     }
+    if (mic && isRunning(live)) children.push(paragraph(t.micNote, 'capture-mic-note', 'text-sm text-slate-600'));
 
     if (live !== null) {
       const list = document.createElement('dl');
@@ -157,7 +280,36 @@ export function mountCaptureView(root: HTMLElement): void {
         }),
       );
     }
+    // Only while the grant is still missing: an old session's code must not
+    // keep sending the user to a page they no longer need.
+    if (failure === 'MIC_PERMISSION_REQUIRED' && state.micPermission !== 'granted') {
+      children.push(stopButton(t.openPermission, 'capture-open-permission', openPermissionPage));
+    }
+    if (canStartMic()) {
+      children.push(
+        stopButton(t.useMic, 'capture-use-mic', () => {
+          void startMic();
+        }),
+      );
+    }
     section.replaceChildren(...children);
+  };
+
+  /** Attaches this panel to the microphone session it started, once the offscreen reports it. */
+  const attachPort = (diag: CaptureDiag): void => {
+    if (diag.sessionId !== state.ownMic || state.port !== null || isTerminalCaptureState(diag.state)) return;
+    const port = chrome.runtime.connect({ name: `${PANEL_PORT_PREFIX}${diag.sessionId}` });
+    const sessionId = diag.sessionId;
+    port.onDisconnect.addListener(() => {
+      // Refused or closed by the offscreen. Normally the session's final
+      // diagnostic says why; without one the document is gone (review M-2).
+      if (state.port === port) state.port = null;
+      if (!state.ended.has(sessionId)) {
+        state.portLost = sessionId;
+        render();
+      }
+    });
+    state.port = port;
   };
 
   const onDiag = (diag: CaptureDiag): void => {
@@ -165,6 +317,7 @@ export function mountCaptureView(root: HTMLElement): void {
       state.ignored++;
       return;
     }
+    answered(diag.sessionId);
     if (diag.code === 'CAPTURE_BUSY') {
       // A refused second start must not hide the running session, nor count as its sign of life.
       state.startFailure = diag.code;
@@ -179,8 +332,10 @@ export function mountCaptureView(root: HTMLElement): void {
     }
     state.live = diag;
     state.liveAt = performance.now();
+    attachPort(diag);
     if (isTerminalCaptureState(diag.state)) {
       state.ended.add(diag.sessionId);
+      if (diag.sessionId === state.ownMic) closePort();
       // The session that made a start busy is over: the refusal no longer holds.
       if (state.startFailure === 'CAPTURE_BUSY') state.startFailure = null;
     }
@@ -189,14 +344,32 @@ export function mountCaptureView(root: HTMLElement): void {
 
   const onLastStart = (value: unknown): void => {
     if (!isLastStart(value)) return;
+    if (value.source === 'mic') state.micSessions.add(value.sessionId);
+    // Only a refusal answers a pending start: an accepted one is answered by
+    // its first diagnostic, and until then the button stays hidden.
+    if (value.failure !== null) answered(value.sessionId);
     state.startFailure = value.failure;
     render();
   };
 
   const onActive = (value: unknown): void => {
     state.active = isActiveSession(value) ? value : null;
+    state.activeAt = performance.now();
+    if (state.active?.source === 'mic') state.micSessions.add(state.active.sessionId);
     render();
   };
+
+  // A grant given in permission.html while this panel is open clears the request.
+  void micPermission().then((status) => {
+    if (status === null) return;
+    state.micPermission = status.state;
+    status.addEventListener('change', () => {
+      state.micPermission = status.state;
+      if (status.state === 'granted' && state.startFailure === 'MIC_PERMISSION_REQUIRED') state.startFailure = null;
+      render();
+    });
+    render();
+  });
 
   chrome.runtime.onMessage.addListener((message: unknown, sender) => {
     if (!isOwnExtensionContext(sender)) return false;
@@ -217,12 +390,13 @@ export function mountCaptureView(root: HTMLElement): void {
     })
     .catch(() => undefined);
 
-  // Re-render once a second so a capture that stopped reporting shows as stale.
-  let wasStale = false;
+  // Re-render once a second so a capture that stopped reporting shows as
+  // stale, and «Usa il microfono» comes back when the routing state is orphaned.
+  let was = '';
   setInterval(() => {
-    const stale = isStale();
-    if (stale !== wasStale) render();
-    wasStale = stale;
+    const now = `${String(isStale())}|${String(canStartMic())}`;
+    if (now !== was) render();
+    was = now;
   }, 1_000);
   render();
 }

@@ -1,5 +1,5 @@
 // Internal messages between the service worker, the offscreen document, the
-// content script and the side panel (I-02, I-03). NOT part of SPEC §9
+// content script and the side panel (I-02, I-03, I-17). NOT part of SPEC §9
 // `CaptureMessage`: like PING/PONG they are plumbing until the DSP exists, and
 // carry no audio. `CAPTURE_DIAG` stands in for CAPTURE_PROGRESS / CAPTURE_RESULT
 // / CAPTURE_FAILED until then (product owner decision, 2026-11-11).
@@ -26,6 +26,24 @@ export interface OffscreenStartTab {
   tabId: number;
   streamId: string;
 }
+
+/**
+ * Service worker → offscreen: start a microphone session (I-17, ADR-0009).
+ * No stream ID: the offscreen opens the microphone itself with the permission
+ * the user granted to the extension's origin in permission.html.
+ */
+export interface OffscreenStartMic {
+  v: 1;
+  type: 'OFFSCREEN_START_MIC';
+  sessionId: SessionId;
+}
+
+/**
+ * Name prefix of the port the side panel opens to the offscreen for a
+ * microphone session (`vc-panel:<sessionId>`). The port closes with the panel
+ * document, and the session stops with it (BACKLOG I-17).
+ */
+export const PANEL_PORT_PREFIX = 'vc-panel:';
 
 /** Exit reasons the service worker may ask for. */
 export type OffscreenStopReason = Extract<CaptureExitReason, 'USER_STOP' | 'NAVIGATED_AWAY' | 'STREAM_ENDED'>;
@@ -86,8 +104,15 @@ export interface CaptureDiag {
   outputLatency: number | null;
 }
 
-export type InternalMessage = OffscreenStartTab | OffscreenStop | SessionBind | PlayerEvent | CaptureDiag;
+export type InternalMessage =
+  | OffscreenStartTab
+  | OffscreenStartMic
+  | OffscreenStop
+  | SessionBind
+  | PlayerEvent
+  | CaptureDiag;
 
+export type CaptureStartMessage = Extract<CaptureMessage, { type: 'CAPTURE_START' }>;
 export type CaptureStopMessage = Extract<CaptureMessage, { type: 'CAPTURE_STOP' }>;
 export type HeartbeatMessage = Extract<CaptureMessage, { type: 'HEARTBEAT' }>;
 
@@ -208,6 +233,19 @@ export function isOffscreenStartTab(value: unknown): value is OffscreenStartTab 
   );
 }
 
+export function isOffscreenStartMic(value: unknown): value is OffscreenStartMic {
+  return (
+    isRecord(value) && value['v'] === 1 && value['type'] === 'OFFSCREEN_START_MIC' && isSessionId(value['sessionId'])
+  );
+}
+
+/** The session id of a panel port name, or null when the name is not one. */
+export function panelPortSessionId(name: string): SessionId | null {
+  if (!name.startsWith(PANEL_PORT_PREFIX)) return null;
+  const id = name.slice(PANEL_PORT_PREFIX.length);
+  return isSessionId(id) ? id : null;
+}
+
 export function isOffscreenStop(value: unknown): value is OffscreenStop {
   if (!isRecord(value)) return false;
   const reason = value['reason'];
@@ -283,6 +321,26 @@ export function isCaptureDiag(value: unknown): value is CaptureDiag {
     isNonNegativeFinite(value['activeMs']) &&
     isNonNegativeFiniteOrNull(value['baseLatency']) &&
     isNonNegativeFiniteOrNull(value['outputLatency'])
+  );
+}
+
+/**
+ * Guard for the SPEC §9 start request. A tab start names its tab; microphone
+ * and file starts have `tabId: null`. Which sources a context may start is the
+ * receiver's decision (SPEC §5: the tab starts only from the toolbar).
+ */
+export function isCaptureStartMessage(value: unknown): value is CaptureStartMessage {
+  if (!isRecord(value)) return false;
+  const source = value['source'];
+  const tabId = value['tabId'];
+  const sourceOk =
+    source === 'tab' ? isSeq(tabId) : (source === 'mic' || source === 'file') && tabId === null;
+  return (
+    value['v'] === 1 &&
+    value['type'] === 'CAPTURE_START' &&
+    isSessionId(value['sessionId']) &&
+    isSeq(value['seq']) &&
+    sourceOk
   );
 }
 

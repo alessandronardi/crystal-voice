@@ -53,6 +53,19 @@ const exitReasons = {
   CAPTURE_ERROR: 'Errore di cattura.',
 } satisfies Record<CaptureExitReason, string>;
 
+// Microphone wording where the tab wording would be wrong (I-17).
+const micErrors = {
+  MIC_PERMISSION_REQUIRED:
+    'Serve l’autorizzazione al microfono. Si concede una volta sola, nella pagina di autorizzazione di VoiceCrystal.',
+  STREAM_NOT_AVAILABLE:
+    'Il microfono non è disponibile: controlla che sia collegato e che un’altra applicazione non lo stia usando.',
+} satisfies Partial<Record<CaptureErrorCode, string>>;
+
+const micExitReasons = {
+  STREAM_ENDED: 'Il microfono si è interrotto: scollegato, usato da un’altra applicazione o autorizzazione revocata.',
+  USER_STOP: 'Interrotta da te, o perché il pannello è stato chiuso.',
+} satisfies Partial<Record<CaptureExitReason, string>>;
+
 export const strings = {
   appName: 'VoiceCrystal',
   pages: {
@@ -61,8 +74,24 @@ export const strings = {
     permission: { title: 'Microfono · VoiceCrystal', heading: 'Autorizzazione del microfono' },
   },
   placeholder: 'In costruzione.',
+  permission: {
+    intro:
+      'VoiceCrystal ascolta la tua voce e la analizza su questo dispositivo: l’audio non viene salvato né inviato. Il browser chiede il permesso del microfono una volta sola, qui: il pannello laterale non può chiederlo.',
+    allow: 'Consenti il microfono',
+    asking: 'Rispondi alla richiesta del browser…',
+    granted:
+      'Fatto: il microfono è autorizzato. Torna al pannello di VoiceCrystal e premi «Usa il microfono». Puoi chiudere questa scheda.',
+    denied:
+      'Il microfono non è autorizzato. Per cambiarlo: clicca l’icona a sinistra dell’indirizzo di questa pagina, imposta Microfono su «Consenti» e ricarica la pagina.',
+    unavailable: 'Nessun microfono disponibile: controlla che sia collegato e che un’altra applicazione non lo stia usando.',
+  },
   capture: {
-    idle: 'Apri un video su YouTube e clicca l’icona di VoiceCrystal per ascoltarlo.',
+    idle: 'Apri un video su YouTube e clicca l’icona di VoiceCrystal per ascoltarlo, oppure usa il microfono.',
+    useMic: 'Usa il microfono',
+    openPermission: 'Apri la pagina di autorizzazione',
+    micNote: 'Il microfono resta acceso finché questo pannello è aperto, al massimo 45 secondi di ascolto.',
+    micErrors,
+    micExitReasons,
     states: captureStates,
     errors: captureErrors,
     exitReasons,

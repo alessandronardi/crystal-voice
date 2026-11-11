@@ -1,6 +1,14 @@
-// Start of a tab capture (SPEC §5, ADR-0002). The service worker coordinates
-// only: the offscreen document owns the stream and the authoritative state.
-import type { CaptureErrorCode, OffscreenStartTab, SessionBind } from '@voicecrystal/contracts';
+// Start of a tab capture (SPEC §5, ADR-0002) or of a microphone session
+// (I-17). The service worker coordinates only: the offscreen document owns the
+// stream and the authoritative state.
+import type {
+  CaptureErrorCode,
+  CaptureStartMessage,
+  OffscreenStartMic,
+  OffscreenStartTab,
+  SessionBind,
+  SessionId,
+} from '@voicecrystal/contracts';
 import {
   ACTIVE_SESSION_KEY,
   LAST_START_KEY,
@@ -51,7 +59,7 @@ export function onActionClicked(tab: chrome.tabs.Tab): void {
 let starting: Promise<void> | null = null;
 
 export async function startTabCapture(tabId: number, url: string | undefined): Promise<void> {
-  const start: LastStart = { sessionId: crypto.randomUUID(), tabId, source: 'tab', failure: null };
+  const start: LastStart & { source: 'tab' } = { sessionId: crypto.randomUUID(), tabId, source: 'tab', failure: null };
   const fail = (failure: CaptureErrorCode): Promise<void> => recordStart({ ...start, failure });
 
   if (!isYoutubeWatchUrl(url)) {
@@ -64,7 +72,7 @@ export async function startTabCapture(tabId: number, url: string | undefined): P
     await fail('CAPTURE_BUSY');
     return;
   }
-  starting = runStart(start, fail);
+  starting = runTabStart(start, fail);
   try {
     await starting;
   } finally {
@@ -72,7 +80,43 @@ export async function startTabCapture(tabId: number, url: string | undefined): P
   }
 }
 
-async function runStart(start: LastStart, fail: (failure: CaptureErrorCode) => Promise<void>): Promise<void> {
+/**
+ * Start of a microphone session, asked by the side panel (SPEC §5: «Usa il
+ * microfono»; I-17). No user gesture is needed here: the microphone permission
+ * belongs to the extension's origin and was granted in permission.html. The
+ * offscreen is authoritative: it reports MIC_PERMISSION_REQUIRED if it cannot
+ * open the microphone. The session id is the panel's, so the panel can attach
+ * its port to the session it asked for.
+ */
+export async function startMicCapture(sessionId: SessionId): Promise<void> {
+  const start: LastStart = { sessionId, source: 'mic', failure: null };
+  const fail = (failure: CaptureErrorCode): Promise<void> => recordStart({ ...start, failure });
+  // One start at a time across both sources (SPEC §5: one capture per profile).
+  if (starting !== null) {
+    await fail('CAPTURE_BUSY');
+    return;
+  }
+  starting = runMicStart(start, fail);
+  try {
+    await starting;
+  } finally {
+    starting = null;
+  }
+}
+
+/**
+ * A SPEC §9 CAPTURE_START from an extension page. Only the microphone starts
+ * this way: the tab starts from the toolbar only (SPEC §5 [F], ADR-0002) and
+ * files are decoded in the panel (I-18). Anything else is ignored.
+ */
+export function onCaptureStartRequest(message: CaptureStartMessage): Promise<void> | null {
+  return message.source === 'mic' ? startMicCapture(message.sessionId) : null;
+}
+
+type Fail = (failure: CaptureErrorCode) => Promise<void>;
+
+/** Records the start and creates the offscreen; false (outcome recorded) when the start cannot go on. */
+async function prepareOffscreen(start: LastStart, fail: Fail): Promise<boolean> {
   // Recorded before any await: a second click arriving meanwhile writes its
   // CAPTURE_BUSY after this, so the panel keeps showing it (review M-1).
   const recorded = recordStart(start);
@@ -84,15 +128,41 @@ async function runStart(start: LastStart, fail: (failure: CaptureErrorCode) => P
     // is stale (the document died): clean it and go on.
     if (await hasOffscreen()) {
       await fail('CAPTURE_BUSY');
-      return;
+      return false;
     }
     if ((await readActiveSession()) !== null) await chrome.storage.session.remove(ACTIVE_SESSION_KEY);
     await ensureOffscreen();
+    return true;
   } catch {
     await closeOffscreen();
     await fail('OFFSCREEN_FAILED');
-    return;
+    return false;
   }
+}
+
+/** Writes the routing state, then sends the start message; false (document closed) on failure. */
+async function deliver(active: ActiveSession, message: OffscreenStartTab | OffscreenStartMic, fail: Fail): Promise<boolean> {
+  try {
+    // Routing state first, so the final message of the session can clear it.
+    await chrome.storage.session.set({ [ACTIVE_SESSION_KEY]: active });
+    await chrome.runtime.sendMessage(message);
+    return true;
+  } catch {
+    await chrome.storage.session.remove(ACTIVE_SESSION_KEY).catch(() => undefined);
+    await closeOffscreen();
+    await fail('OFFSCREEN_FAILED');
+    return false;
+  }
+}
+
+async function runMicStart(start: LastStart & { source: 'mic' }, fail: Fail): Promise<void> {
+  if (!(await prepareOffscreen(start, fail))) return;
+  const message: OffscreenStartMic = { v: 1, type: 'OFFSCREEN_START_MIC', sessionId: start.sessionId };
+  await deliver({ sessionId: start.sessionId, source: 'mic' }, message, fail);
+}
+
+async function runTabStart(start: LastStart & { source: 'tab' }, fail: Fail): Promise<void> {
+  if (!(await prepareOffscreen(start, fail))) return;
 
   // Asked only after the offscreen exists, sent at once, exactly once, never stored.
   let streamId: string;
@@ -113,16 +183,7 @@ async function runStart(start: LastStart, fail: (failure: CaptureErrorCode) => P
     streamId,
   };
   const active: ActiveSession = { sessionId: start.sessionId, tabId: start.tabId, source: 'tab' };
-  try {
-    // Routing state first, so the final message of the session can clear it.
-    await chrome.storage.session.set({ [ACTIVE_SESSION_KEY]: active });
-    await chrome.runtime.sendMessage(message);
-  } catch {
-    await chrome.storage.session.remove(ACTIVE_SESSION_KEY).catch(() => undefined);
-    await closeOffscreen();
-    await fail('OFFSCREEN_FAILED');
-    return;
-  }
+  if (!(await deliver(active, message, fail))) return;
 
   // Tell the tab's content script which session to keep alive (ADR-0004).
   const bindMessage: SessionBind = { v: 1, type: 'SESSION_BIND', sessionId: start.sessionId };

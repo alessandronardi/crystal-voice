@@ -19,7 +19,8 @@ export async function stopActiveSession(sessionId: SessionId, reason: OffscreenS
 
 async function stopIfTab(tabId: number, reason: OffscreenStopReason): Promise<void> {
   const active = await readActiveSession();
-  if (active !== null && active.tabId === tabId) await stopActiveSession(active.sessionId, reason);
+  // A microphone session has no tab: tab signals never stop it.
+  if (active?.source === 'tab' && active.tabId === tabId) await stopActiveSession(active.sessionId, reason);
 }
 
 /** The captured tab was closed. */

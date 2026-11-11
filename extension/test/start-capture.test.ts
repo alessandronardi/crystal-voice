@@ -368,6 +368,90 @@ describe('session routing (I-03)', () => {
   });
 });
 
+describe('microphone start (I-17)', () => {
+  const PANEL_SESSION = '0b9a8c7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d';
+
+  it('creates the offscreen, records a tab-less session and sends OFFSCREEN_START_MIC', async () => {
+    const { startMicCapture } = await load();
+    await startMicCapture(PANEL_SESSION);
+    expect(mock.createDocument).toHaveBeenCalledTimes(1);
+    expect(mock.createDocument.mock.calls[0]?.[0].reasons).toEqual(['USER_MEDIA', 'WORKERS']);
+    expect(mock.getMediaStreamId).not.toHaveBeenCalled();
+    expect(mock.sent).toEqual([{ v: 1, type: 'OFFSCREEN_START_MIC', sessionId: PANEL_SESSION }]);
+    expect(mock.store.get('activeSession')).toEqual({ sessionId: PANEL_SESSION, source: 'mic' });
+    expect(lastStart()).toEqual({ sessionId: PANEL_SESSION, source: 'mic', failure: null });
+    // No content script to bind: the panel keeps the session alive (port).
+    expect(mock.tabsSendMessage).not.toHaveBeenCalled();
+  });
+
+  it('is refused with CAPTURE_BUSY while a tab session runs, and touches nothing', async () => {
+    mock.contexts.push({ contextType: 'OFFSCREEN_DOCUMENT' });
+    mock.store.set('activeSession', { sessionId: '3f1c2b4a-9d8e-4f7a-8b6c-5d4e3f2a1b0c', tabId: 7, source: 'tab' });
+    const { startMicCapture } = await load();
+    await startMicCapture(PANEL_SESSION);
+    expect(mock.createDocument).not.toHaveBeenCalled();
+    expect(mock.sent).toEqual([]);
+    expect(lastStart()).toMatchObject({ source: 'mic', failure: 'CAPTURE_BUSY' });
+    expect(mock.store.get('activeSession')).toMatchObject({ source: 'tab', tabId: 7 });
+  });
+
+  it('shares the one-start-at-a-time guard with the toolbar', async () => {
+    const { onActionClicked, startMicCapture } = await load();
+    onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
+    await startMicCapture(PANEL_SESSION);
+    await settle();
+    expect(mock.createDocument).toHaveBeenCalledTimes(1);
+    expect(mock.sent).toHaveLength(1);
+    expect(mock.sent[0]).toMatchObject({ type: 'OFFSCREEN_START_TAB' });
+    expect(lastStart()).toMatchObject({ source: 'mic', failure: 'CAPTURE_BUSY' });
+  });
+
+  it('closes the offscreen when the start message cannot be delivered', async () => {
+    mock.sendMessage.mockImplementationOnce(() => Promise.reject(new Error('no receiver')));
+    const { startMicCapture } = await load();
+    await startMicCapture(PANEL_SESSION);
+    expect(mock.closeDocument).toHaveBeenCalledTimes(1);
+    expect(mock.store.has('activeSession')).toBe(false);
+    expect(lastStart()).toMatchObject({ source: 'mic', failure: 'OFFSCREEN_FAILED' });
+  });
+
+  it('a CAPTURE_START from a page starts the microphone only; tab and file requests are ignored', async () => {
+    const { onCaptureStartRequest } = await load();
+    const base = { v: 1 as const, type: 'CAPTURE_START' as const, sessionId: PANEL_SESSION, seq: 0 };
+    expect(onCaptureStartRequest({ ...base, source: 'tab', tabId: 7 })).toBeNull();
+    expect(onCaptureStartRequest({ ...base, source: 'file', tabId: null })).toBeNull();
+    await settle();
+    expect(mock.createDocument).not.toHaveBeenCalled();
+    expect(mock.getMediaStreamId).not.toHaveBeenCalled();
+    await onCaptureStartRequest({ ...base, source: 'mic', tabId: null });
+    expect(mock.sent).toEqual([{ v: 1, type: 'OFFSCREEN_START_MIC', sessionId: PANEL_SESSION }]);
+  });
+
+  it('tab signals never stop a microphone session', async () => {
+    mock.store.set('activeSession', { sessionId: PANEL_SESSION, source: 'mic' });
+    vi.resetModules();
+    const routing = await import('../src/background/routing.ts');
+    const { isYoutubeWatchUrl } = await import('../src/background/start-capture.ts');
+    routing.onTabRemoved(7);
+    routing.onTabUpdated(7, { status: 'loading' }, isYoutubeWatchUrl);
+    routing.onCaptureStatus(7, 'stopped');
+    await settle();
+    expect(mock.sent).toEqual([]);
+  });
+
+  it('routing records: a mic record has no tab id, a tab record needs one', async () => {
+    vi.resetModules();
+    const { isActiveSession, isLastStart } = await import('../src/shared/session-storage.ts');
+    expect(isActiveSession({ sessionId: PANEL_SESSION, source: 'mic' })).toBe(true);
+    expect(isActiveSession({ sessionId: PANEL_SESSION, source: 'mic', tabId: 7 })).toBe(false);
+    expect(isActiveSession({ sessionId: PANEL_SESSION, source: 'tab' })).toBe(false);
+    expect(isActiveSession({ sessionId: PANEL_SESSION, source: 'file' })).toBe(false);
+    expect(isLastStart({ sessionId: PANEL_SESSION, source: 'mic', failure: 'MIC_PERMISSION_REQUIRED' })).toBe(true);
+    expect(isLastStart({ sessionId: PANEL_SESSION, source: 'mic', tabId: null, failure: null })).toBe(false);
+    expect(isLastStart({ sessionId: PANEL_SESSION, source: 'tab', tabId: 3, failure: 'NOPE' })).toBe(false);
+  });
+});
+
 describe('ensureOffscreen', () => {
   it('creates one document for concurrent calls', async () => {
     vi.resetModules();

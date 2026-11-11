@@ -64,6 +64,9 @@ jobs:
       - run: pnpm build
       # Headed under a virtual display: headless support is documented in tests/e2e/README.md.
       - run: xvfb-run --auto-servernum pnpm test:e2e
+        # TEMPORARY diagnostic (I-03): 300 cycles to see whether Linux memory plateaus. Revert.
+        env:
+          VC_CYCLES: '300'
 
   golden-browsers:
     name: golden hashes (Chromium, Firefox)

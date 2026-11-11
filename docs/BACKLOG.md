@@ -54,7 +54,7 @@
 
 - **Riferimenti:** SPEC §5; ADR-0001, ADR-0002, ADR-0003; VC-02, VC-03, VC-19.
 - **Obiettivo:** dimostrare in Chrome reale che la cattura non compromette il player.
-- **Stato:** chiusa il 2026-11-11 per decisione del product owner, senza la misura della latenza (M21 non eseguita). Prove manuali in Brave 1.99.56 (Chromium 157), non in Google Chrome. Merge prima di I-03 approvato: fino a I-03 R8 non vale, nessuna build distribuita. Evidenze in `docs/STATUS.md`.
+- **Stato:** mergiata il 2026-11-11 ([PR crystal-voice#9](https://github.com/alessandronardi/crystal-voice/pull/9), `18cb21e`). Chiusa il 2026-11-11 per decisione del product owner, senza la misura della latenza (M21 non eseguita). Prove manuali in Brave 1.99.56 (Chromium 157), non in Google Chrome. Merge prima di I-03 approvato: fino a I-03 R8 non vale, nessuna build distribuita. Evidenze in `docs/STATUS.md`.
 - **Perimetro:** `action.onClicked` con `sidePanel.open()` sincrono; `ensureOffscreen()` con `USER_MEDIA`, `WORKERS`; `getMediaStreamId`; `getUserMedia` nell'offscreen; pass-through con `latencyHint: 'interactive'`; AudioWorklet che conta i campioni ricevuti (nessun DSP); stop pulito.
 - **DoD:**
   - [x] 30 avvii manuali consecutivi su un video di riferimento: pannello aperto, audio udibile, nessun doppio audio, stop ripristina l'audio normale (M20: 30/30 in Brave 1.99.56, Chromium 157).

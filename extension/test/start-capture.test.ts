@@ -11,7 +11,10 @@ interface ChromeMock {
   calls: Calls;
   contexts: unknown[];
   stored: Record<string, unknown>[];
+  /** Current content of chrome.storage.session. */
+  store: Map<string, unknown>;
   sent: unknown[];
+  tabsSendMessage: Mock<(tabId: number, message: unknown) => Promise<unknown>>;
   createDocument: Mock<(options: chrome.offscreen.CreateParameters) => Promise<void>>;
   getMediaStreamId: Mock<(options: { targetTabId: number }) => Promise<string>>;
   sendMessage: Mock<(message: unknown) => Promise<unknown>>;
@@ -23,7 +26,9 @@ function installChrome(): ChromeMock {
     calls: [],
     contexts: [],
     stored: [],
+    store: new Map(),
     sent: [],
+    tabsSendMessage: vi.fn<(tabId: number, message: unknown) => Promise<unknown>>(),
     createDocument: vi.fn<(options: chrome.offscreen.CreateParameters) => Promise<void>>(),
     getMediaStreamId: vi.fn<(options: { targetTabId: number }) => Promise<string>>(),
     sendMessage: vi.fn<(message: unknown) => Promise<unknown>>(),
@@ -44,6 +49,10 @@ function installChrome(): ChromeMock {
     return Promise.resolve().then(() => {
       mock.contexts.push({ contextType: 'OFFSCREEN_DOCUMENT' });
     });
+  });
+  mock.tabsSendMessage.mockImplementation(() => {
+    mock.calls.push('tabs.sendMessage');
+    return Promise.resolve(undefined);
   });
   mock.getMediaStreamId.mockImplementation(() => {
     mock.calls.push('getMediaStreamId');
@@ -71,11 +80,25 @@ function installChrome(): ChromeMock {
       },
     },
     tabCapture: { getMediaStreamId: mock.getMediaStreamId },
+    tabs: { sendMessage: mock.tabsSendMessage },
     storage: {
       session: {
         set: (items: Record<string, unknown>) => {
           mock.calls.push('storage.set');
           mock.stored.push(structuredClone(items));
+          for (const [key, value] of Object.entries(items)) mock.store.set(key, structuredClone(value));
+          return Promise.resolve();
+        },
+        get: (keys: string | string[]) => {
+          const out: Record<string, unknown> = {};
+          for (const key of Array.isArray(keys) ? keys : [keys]) {
+            if (mock.store.has(key)) out[key] = mock.store.get(key);
+          }
+          return Promise.resolve(out);
+        },
+        remove: (keys: string | string[]) => {
+          mock.calls.push('storage.remove');
+          for (const key of Array.isArray(keys) ? keys : [keys]) mock.store.delete(key);
           return Promise.resolve();
         },
       },
@@ -85,6 +108,11 @@ function installChrome(): ChromeMock {
 }
 
 const WATCH = 'https://www.youtube.com/watch?v=abc123';
+
+/** Current lastStart record. */
+function lastStart(): Record<string, unknown> | undefined {
+  return mock.store.get('lastStart') as Record<string, unknown> | undefined;
+}
 
 async function load() {
   vi.resetModules();
@@ -170,7 +198,7 @@ describe('onActionClicked (ADR-0002, R6)', () => {
     expect(mock.calls[0]).toBe('sidePanel.open');
     expect(mock.createDocument).not.toHaveBeenCalled();
     expect(mock.getMediaStreamId).not.toHaveBeenCalled();
-    expect(mock.stored.at(-1)).toMatchObject({ lastStart: { failure: 'NOT_YOUTUBE_WATCH', tabId: 7 } });
+    expect(lastStart()).toMatchObject({ failure: 'NOT_YOUTUBE_WATCH', tabId: 7 });
   });
 
   it('with an offscreen already alive records CAPTURE_BUSY and asks no stream id', async () => {
@@ -180,7 +208,7 @@ describe('onActionClicked (ADR-0002, R6)', () => {
     await settle();
     expect(mock.getMediaStreamId).not.toHaveBeenCalled();
     expect(mock.createDocument).not.toHaveBeenCalled();
-    expect(mock.stored.at(-1)).toMatchObject({ lastStart: { failure: 'CAPTURE_BUSY' } });
+    expect(lastStart()).toMatchObject({ failure: 'CAPTURE_BUSY' });
   });
 
   it('maps a getMediaStreamId rejection to STREAM_NOT_AVAILABLE and sends nothing', async () => {
@@ -189,7 +217,7 @@ describe('onActionClicked (ADR-0002, R6)', () => {
     onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
     await settle();
     expect(mock.sent).toEqual([]);
-    expect(mock.stored.at(-1)).toMatchObject({ lastStart: { failure: 'STREAM_NOT_AVAILABLE' } });
+    expect(lastStart()).toMatchObject({ failure: 'STREAM_NOT_AVAILABLE' });
   });
 
   it('closes the offscreen after a failed stream id, so the next click can start (review H-1)', async () => {
@@ -201,7 +229,7 @@ describe('onActionClicked (ADR-0002, R6)', () => {
     expect(mock.contexts).toHaveLength(0);
     onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
     await settle();
-    expect(mock.stored.at(-1)).toMatchObject({ lastStart: { failure: null } });
+    expect(lastStart()).toMatchObject({ failure: null });
     expect(mock.sent).toHaveLength(1);
   });
 
@@ -211,10 +239,10 @@ describe('onActionClicked (ADR-0002, R6)', () => {
     onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
     await settle();
     expect(mock.closeDocument).toHaveBeenCalledTimes(1);
-    expect(mock.stored.at(-1)).toMatchObject({ lastStart: { failure: 'OFFSCREEN_FAILED' } });
+    expect(lastStart()).toMatchObject({ failure: 'OFFSCREEN_FAILED' });
     onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
     await settle();
-    expect(mock.stored.at(-1)).toMatchObject({ lastStart: { failure: null } });
+    expect(lastStart()).toMatchObject({ failure: null });
   });
 
   it('two concurrent clicks ask one stream id; the second gets CAPTURE_BUSY (review M-1)', async () => {
@@ -225,8 +253,9 @@ describe('onActionClicked (ADR-0002, R6)', () => {
     expect(mock.getMediaStreamId).toHaveBeenCalledTimes(1);
     expect(mock.createDocument).toHaveBeenCalledTimes(1);
     expect(mock.sent).toHaveLength(1);
-    const failures = mock.stored.map((item) => (item['lastStart'] as { failure: unknown }).failure);
-    expect(failures).toContain('CAPTURE_BUSY');
+    // The refused click's outcome is the last one written, so the panel shows it.
+    expect(lastStart()).toMatchObject({ failure: 'CAPTURE_BUSY' });
+    expect(mock.store.get('activeSession')).toBeDefined();
   });
 
   it('maps a createDocument rejection to OFFSCREEN_FAILED', async () => {
@@ -235,7 +264,107 @@ describe('onActionClicked (ADR-0002, R6)', () => {
     onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
     await settle();
     expect(mock.getMediaStreamId).not.toHaveBeenCalled();
-    expect(mock.stored.at(-1)).toMatchObject({ lastStart: { failure: 'OFFSCREEN_FAILED' } });
+    expect(lastStart()).toMatchObject({ failure: 'OFFSCREEN_FAILED' });
+  });
+});
+
+describe('session routing (I-03)', () => {
+  it('records the active session before the start message, binds the tab, never stores the stream id', async () => {
+    const { onActionClicked } = await load();
+    onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
+    await settle();
+    const active = mock.store.get('activeSession') as Record<string, unknown>;
+    expect(Object.keys(active).sort()).toEqual(['sessionId', 'source', 'tabId']);
+    expect(active).toMatchObject({ tabId: 7, source: 'tab' });
+    const setActive = mock.calls.indexOf('storage.set', mock.calls.indexOf('getMediaStreamId'));
+    expect(setActive).toBeLessThan(mock.calls.indexOf('sendMessage'));
+    expect(mock.sent[0]).toMatchObject({ type: 'OFFSCREEN_START_TAB', tabId: 7, sessionId: active['sessionId'] });
+    expect(mock.tabsSendMessage).toHaveBeenCalledWith(7, { v: 1, type: 'SESSION_BIND', sessionId: active['sessionId'] });
+    expect(JSON.stringify([...mock.store.values()])).not.toContain('stream-id-secret');
+  });
+
+  it('stops the session at once when the tab has no content script', async () => {
+    mock.tabsSendMessage.mockImplementation(() => Promise.reject(new Error('Receiving end does not exist')));
+    const { onActionClicked } = await load();
+    onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
+    await settle();
+    const active = mock.store.get('activeSession') as { sessionId: string };
+    expect(mock.sent.at(-1)).toEqual({ v: 1, type: 'OFFSCREEN_STOP', sessionId: active.sessionId, reason: 'NAVIGATED_AWAY' });
+  });
+
+  it('clears a stale active session when no offscreen exists, then starts', async () => {
+    mock.store.set('activeSession', { sessionId: '3f1c2b4a-9d8e-4f7a-8b6c-5d4e3f2a1b0c', tabId: 3, source: 'tab' });
+    const { onActionClicked } = await load();
+    onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
+    await settle();
+    expect(lastStart()).toMatchObject({ failure: null });
+    expect(mock.store.get('activeSession')).toMatchObject({ tabId: 7 });
+  });
+
+  it('closing the captured tab stops its session; other tabs do not', async () => {
+    const session = '3f1c2b4a-9d8e-4f7a-8b6c-5d4e3f2a1b0c';
+    mock.store.set('activeSession', { sessionId: session, tabId: 7, source: 'tab' });
+    vi.resetModules();
+    const routing = await import('../src/background/routing.ts');
+    routing.onTabRemoved(8);
+    await settle();
+    expect(mock.sent).toEqual([]);
+    routing.onTabRemoved(7);
+    await settle();
+    expect(mock.sent).toEqual([{ v: 1, type: 'OFFSCREEN_STOP', sessionId: session, reason: 'NAVIGATED_AWAY' }]);
+  });
+
+  it('a readable navigation off /watch and a stopped capture end the session', async () => {
+    const session = '3f1c2b4a-9d8e-4f7a-8b6c-5d4e3f2a1b0c';
+    mock.store.set('activeSession', { sessionId: session, tabId: 7, source: 'tab' });
+    vi.resetModules();
+    const routing = await import('../src/background/routing.ts');
+    const { isYoutubeWatchUrl } = await import('../src/background/start-capture.ts');
+    routing.onTabUpdated(7, {}, isYoutubeWatchUrl);
+    routing.onTabUpdated(7, { url: WATCH }, isYoutubeWatchUrl);
+    routing.onTabUpdated(7, { status: 'complete' }, isYoutubeWatchUrl);
+    routing.onTabUpdated(8, { status: 'loading' }, isYoutubeWatchUrl);
+    // pushState to another video: loading with a readable /watch URL is the watchdog's call.
+    routing.onTabUpdated(7, { status: 'loading', url: 'https://www.youtube.com/watch?v=other' }, isYoutubeWatchUrl);
+    routing.onCaptureStatus(7, 'active');
+    await settle();
+    expect(mock.sent).toEqual([]);
+    routing.onTabUpdated(7, { url: 'https://example.com/' }, isYoutubeWatchUrl);
+    routing.onTabUpdated(7, { status: 'loading' }, isYoutubeWatchUrl);
+    routing.onCaptureStatus(7, 'stopped');
+    await settle();
+    const stop = (reason: string) => ({ v: 1, type: 'OFFSCREEN_STOP', sessionId: session, reason });
+    expect(mock.sent).toEqual([stop('NAVIGATED_AWAY'), stop('NAVIGATED_AWAY'), stop('STREAM_ENDED')]);
+  });
+
+  it('the final diagnostic of the active session clears the routing state', async () => {
+    const session = '3f1c2b4a-9d8e-4f7a-8b6c-5d4e3f2a1b0c';
+    mock.store.set('activeSession', { sessionId: session, tabId: 7, source: 'tab' });
+    vi.resetModules();
+    const routing = await import('../src/background/routing.ts');
+    const base = {
+      v: 1 as const,
+      type: 'CAPTURE_DIAG' as const,
+      seq: 1,
+      code: null,
+      samples: 0,
+      sampleRate: null,
+      elapsedMs: 0,
+      activeMs: 0,
+      baseLatency: null,
+      outputLatency: null,
+    };
+    await routing.onDiag({ ...base, sessionId: session, state: 'LISTENING', exitReason: null });
+    expect(mock.store.has('activeSession')).toBe(true);
+    await routing.onDiag({
+      ...base,
+      sessionId: '00000000-0000-4000-8000-000000000000',
+      state: 'INTERRUPTED',
+      exitReason: 'USER_STOP',
+    });
+    expect(mock.store.has('activeSession')).toBe(true);
+    await routing.onDiag({ ...base, sessionId: session, state: 'INTERRUPTED', exitReason: 'USER_STOP' });
+    expect(mock.store.has('activeSession')).toBe(false);
   });
 });
 

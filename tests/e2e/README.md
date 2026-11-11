@@ -64,6 +64,50 @@ Cosa **non** prova: il click di una persona in Google Chrome stabile, perché il
 | 2026-11-10 | come sopra, dopo la revisione avversariale, **senza flag di autoplay** | con finestra e headless | 6/6 superati. Stessi esiti, più: offscreen chiuso dall'esterno durante la cattura → il pannello mostra «Nessun aggiornamento dalla cattura» entro 10 s, e un nuovo avvio funziona. Tolleranza sul ritmo dei campioni: tra 0,6 e 1,4 volte la frequenza su 4 s (granularità dei report 0,5 s); sui 60 s di pausa almeno 50 s di campioni, cioè ≥ 83% |
 | 2026-11-10 | come sopra | con finestra | **Controprova** con il bundle modificato a mano perché crei l'offscreen con il solo motivo `AUDIO_PLAYBACK`: il test fallisce, con 0 offscreen dopo 60 s di silenzio invece di 1. Chrome chiude il documento, cioè VC-03 si riproduce e il test se ne accorge. Bundle ricostruito subito dopo |
 
+## Ciclo di vita e watchdog (I-03)
+
+File: `harness.ts` (helper comuni), `tab-capture.spec.ts`, `lifecycle.spec.ts`, `cycles.spec.ts`.
+
+**Come sono costruiti i test:**
+- **Pagine sintetiche** servite da `context.route()`, senza rete:
+  - `/watch*`: un `<video>` standard che riproduce un tono WAV a 8 kHz generato nella pagina (R16), avviato con un click;
+  - `/`: una «home» che diventa una pagina video con `pushState`, come la navigazione SPA di YouTube (ADR-0021).
+  - I comandi `window.vc.*` agiscono sul player come farebbe una persona: pausa, velocità, seek, cambio di sorgente.
+- **Pagina sonda:** i diagnostici li registra una pagina dell'estensione aperta in una scheda (`collection.html`), non il service worker. Così sopravvivono al riavvio del worker (S8).
+- **Pannello laterale:** ogni scheda aperta con `sidePanel.open({ tabId })` ha il suo documento, e Chrome lo elenca due volte, come target `page` e come target `tab`. Gli helper valutano le espressioni in tutti i documenti di tipo `page`.
+- **S8:** il worker si termina con `ServiceWorker.stopAllWorkers` da una sessione CDP della pagina sonda, che ha la stessa origine. Un marcatore nello scope globale prova che il worker successivo è un'istanza nuova. `Target.closeTarget` sul worker risponde senza errori ma non lo termina.
+
+**Scenari automatizzati, in Chromium 156 di Playwright, Windows 11:**
+
+| Scenario | Esito atteso |
+|---|---|
+| Senza sessione | Il content script non invia messaggi (3 s osservati) |
+| S2, pausa di 60 s | `PAUSED`, offscreen vivo, tempo di ascolto fermo; alla ripresa `LISTENING` |
+| S3, navigazione verso un altro sito | `INTERRUPTED / NAVIGATED_AWAY`. Con il solo watchdog: 2,6–2,8 s (tre misure). Con il segnale `tabs.onUpdated` (`status: 'loading'` senza URL leggibile): 77–143 ms (tredici misure, con finestra e headless) |
+| S7, velocità 1,5× | `PLAYBACK_RATE_CHANGED` |
+| Seek | `VIDEO_SEEK` |
+| S6 sintetico (cambio di `src`) | `AD_OR_SOURCE_CHANGE`. Gli annunci veri restano manuali (M8) |
+| Altro video nella stessa pagina (`pushState`) | `VIDEO_CHANGED` |
+| Navigazione SPA dalla home a `/watch`, poi avvio | Cattura viva per 5 s |
+| Chiusura della scheda | Fine della sessione e risorse rilasciate. Senza attesa l'uscita era `ERROR / STREAM_ENDED`, perché la traccia termina prima che arrivi `tabs.onRemoved`; con 500 ms di attesa dopo la fine della traccia è `INTERRUPTED / NAVIGATED_AWAY` (una corsa headless). Il test accetta entrambe |
+| Due schede | La seconda riceve `CAPTURE_BUSY`; «Interrompi la cattura in corso» ferma la prima; poi la seconda parte |
+| S8, service worker terminato | La cattura prosegue; lo stop risveglia il worker e funziona; anche il nuovo avvio con il worker appena svegliato funziona |
+| 45 s di ascolto | `INSUFFICIENT_DATA / WALL_TIMEOUT` (manca il rilevatore di voce) |
+| Pausa fino a 120 s | `INSUFFICIENT_DATA / ABSOLUTE_TIMEOUT` |
+| 100 cicli avvio/stop | Ogni ciclo torna a `IDLE`, nessun offscreen, routing pulito. Memoria: vedi `docs/BENCHMARK_PROTOCOL.md` §7 |
+
+| Data | Ambiente | Modalità | Esito |
+|---|---|---|---|
+| 2026-11-11 | Windows 11 Home 10.0.26300, Node 26.13.0, `@playwright/test` 1.64.0, Chromium 156 | con finestra | 20/20 superati (6,7 min), prima del segnale `status: 'loading'` |
+| 2026-11-11 | idem, dopo la revisione | con finestra | 20/20 (6,3 min); S3 132 ms; memoria +8,2 MB |
+| 2026-11-11 | idem | headless | **19/20**: in `tab-capture.spec.ts` l'offerta «Interrompi la cattura in corso» spariva prima del controllo. Difetto vero del pannello (la diagnostica della sessione attiva cancellava l'errore del click), corretto; aggiunta la regressione; memoria +14,1 MB |
+| 2026-11-11 | idem, codice finale | con finestra | 20/20 (6,4 min); S3 143 ms; memoria +13,0 MB |
+| 2026-11-11 | idem, codice finale | headless | 20/20 (6,1 min); S3 109 ms; memoria +16,7 MB; chiusura della scheda `INTERRUPTED / NAVIGATED_AWAY` |
+
+**`tabs.onUpdated` senza permesso `tabs`, misurato in Chromium 156:** con `pushState` dentro YouTube arriva `status: 'loading'` *con* il nuovo URL, che è leggibile tramite l'host del content script; con una navigazione verso un altro host arriva `status: 'loading'` senza URL. Il service worker ferma subito la sessione per un URL leggibile fuori da `/watch` e per un `loading` senza URL. Un URL `/watch` lo lascia al watchdog, che riconosce `VIDEO_CHANGED`. La prima versione fermava ogni `loading`, e in headless il test `VIDEO_CHANGED` falliva con `NAVIGATED_AWAY`.
+
+**Cosa non provano:** un vero annuncio di YouTube; la pagina reale di YouTube, dove il `<video>` principale si sceglie come il più grande fra quelli visibili (non provato con anteprime al passaggio del mouse o con il miniplayer); Google Chrome stabile e Chrome 120; Linux, che verrà dalla CI.
+
 ## Non verificato
 
 - **Chrome 120** (`minimum_chrome_version`): non eseguito, nessuna build 120 disponibile in questo ambiente. Va caricato a mano (voce M0 della checklist manuale).

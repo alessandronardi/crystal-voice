@@ -2,9 +2,11 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-10 — I-02 chiusa senza la misura della latenza (decisione del product owner; branch `issue/I-02-tab-capture-poc`, PR in apertura); I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale in PR crystal-voice#8, `25561f6`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
+**Ultimo aggiornamento:** 2026-11-11 — I-03 implementata, commit e PR aperta su richiesta del product owner senza le prove manuali su YouTube reale (M3–M11 non eseguite), in attesa delle sue decisioni (branch `issue/I-03-watchdog-capture-machine`); I-02 chiusa senza la misura della latenza (decisione del product owner; PR crystal-voice#9, `18cb21e`); I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale in PR crystal-voice#8, `25561f6`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
 
-> **I-02 chiusa il 2026-11-11 per decisione del product owner, senza la misura della latenza (M21).** Merge prima di I-03 approvato dal product owner: fino a I-03 R8 non vale e nessuna build va distribuita. Approvata anche la prima voce di `GUARD_EXCEPTIONS`.
+> **I-03 implementata il 2026-11-11; commit e PR su richiesta del product owner prima delle prove manuali** sul branch `issue/I-03-watchdog-capture-machine` (da `origin/main`, `18cb21e`). Verificati dall'agente: typecheck, lint, 398 test Node, build con guardia del bundle, E2E nel Chromium 156 di Playwright su pagine sintetiche (E2E 20/20 con finestra e 20/20 headless sul codice finale). **Non eseguiti:** gli scenari M3–M11 su youtube.com reale (Brave o Google Chrome), compreso M8 con annunci veri; Chrome 120. **In attesa del product owner:** emendamento di ADR-0011 (tre archi in più), conferma del metodo di misura della memoria. R8 vale in Chromium sulle pagine sintetiche; sulla pagina reale di YouTube non è ancora provato.
+>
+> **I-02 chiusa il 2026-11-11 per decisione del product owner, senza la misura della latenza (M21).** [PR crystal-voice#9](https://github.com/alessandronardi/crystal-voice/pull/9) unita in squash (`18cb21e`), CI verde dopo la correzione di un test E2E instabile (M-3, commit `901ea68`). Merge prima di I-03 approvato dal product owner: fino a I-03 R8 non vale e nessuna build va distribuita. Approvata anche la prima voce di `GUARD_EXCEPTIONS`.
 >
 > *Storico (2026-11-10):* Branch `issue/I-02-tab-capture-poc` da `origin/main` (`25561f6`); contiene anche la riga di STATUS sul merge di crystal-voice#8 (decisione del product owner). Codice completo per il perimetro della issue. Verificati dall'agente: typecheck, lint, 341 test Node, build con guardia del bundle, E2E 6/6 con finestra e headless nel Chromium 156 di Playwright. Il 2026-11-11 il product owner ha eseguito in **Brave 1.99.56 (Chromium 157.0.8103.50)**, Windows 11 26H2, uscita Realtek: M1, M2, M3 e M10 superati, **M20 30 su 30**. **Non eseguiti:** M21 (latenza con loopback: misura acustica non riuscita, registrata come non eseguita su decisione del product owner), tutto in Google Chrome stabile e in Chrome 120. Il product owner ha chiuso I-02 senza questa voce; VC-19 resta aperto (I-06). **R8 non vale fino a I-03:** senza watchdog la cattura sopravvive alla navigazione nella stessa scheda; nessuna build va distribuita prima di I-03.
 >
@@ -24,8 +26,36 @@
 
 - **Fase corrente:** 1 (PoC Chrome) e, in parallelo, 2–3 sul nucleo puro.
 - **Gate:** G0 non avviato · G-PoC, G1, G2 non raggiunti.
-- **Issue attive:** I-10 in attesa della revisione estetica G2. Chiuse: **I-01**, **I-02** (senza misura della latenza), **I-04**, **I-05a**, **I-11**, **I-12**. Sbloccate: I-03, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
+- **Issue attive:** I-03 implementata, in PR (prove manuali M3–M11 e decisioni aperte); I-10 in attesa della revisione estetica G2. Chiuse: **I-01**, **I-02** (senza misura della latenza), **I-04**, **I-05a**, **I-11**, **I-12**. Sbloccate: I-03, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
+
+## I-03: Definition of Done (implementata, non chiusa)
+
+| Voce | Stato | Evidenza |
+|---|---|---|
+| Test a modello della macchina: ogni stato raggiunge `IDLE`; `stop()` accettato da ogni stato; nessuna transizione non dichiarata | Fatto | `extension/test/capture-machine.test.ts`: sequenze casuali di eventi (fast-check) da ogni stato; archi di SPEC §6.1 separati dai tre archi dell'emendamento proposto di ADR-0011 (`AUTHORIZING→INTERRUPTED`, `FINALIZING→INTERRUPTED`, `FINALIZING→ERROR`), senza i quali `stop()` non sarebbe accettato ovunque; senza voce nessun `RESULT_READY`; tempi 45 s (campioni) e 120 s (assoluto). Watchdog con orologio finto in `capture-session.test.ts` (22 test) |
+| S2, S3, S6, S7, S8 eseguiti in Chrome reale con esito registrato | **Parziale:** automatizzati nel Chromium 156 di Playwright su pagine sintetiche; su YouTube reale non eseguiti | E2E `lifecycle.spec.ts` con finestra e headless: S2 pausa 60 s → `PAUSED`, offscreen vivo, ripresa → `LISTENING`; S3 navigazione verso un altro sito → `NAVIGATED_AWAY` in 77–143 ms (2,6–2,8 s con il solo watchdog); S6 solo sintetico (cambio di `src` → `AD_OR_SOURCE_CHANGE`); S7 1,5× → `PLAYBACK_RATE_CHANGED`; S8 worker terminato con `ServiceWorker.stopAllWorkers` (non da `chrome://serviceworker-internals`): cattura viva, stop e nuovo avvio funzionano. Le voci M3–M11 della checklist manuale su youtube.com reale, M8 con un annuncio vero, spettano al product owner |
+| 100 cicli start/stop: nessun crash; crescita di memoria dell'offscreen ≤ 20 MB [H] | Fatto in Chromium (metodo da confermare) | `cycles.spec.ts`: ogni ciclo torna a `IDLE`, zero offscreen, `activeSession` vuoto. Misura: processo renderer dell'estensione (ospita l'offscreen) + browser + servizio audio, memoria privata dal sistema operativo, mediana di tre letture dopo 5 cicli di riscaldamento: quattro corse, con finestra +8,2 e +13,0 MB, headless +14,1 e +16,7 MB: entro la soglia, margine stretto in headless. In ogni corsa la memoria sale fino al ciclo 25 e poi scende. Controprova con una perdita artificiale di 1 MB per ciclo: +110,4 MB, test rosso. Metodi scartati e numeri in `docs/BENCHMARK_PROTOCOL.md` §7 |
+| Doppio click e due schede: una sola sessione, la seconda riceve `CAPTURE_BUSY` | Fatto in Chromium | E2E: secondo click → `CAPTURE_BUSY`, un solo offscreen; il pannello offre «Interrompi la cattura in corso», che ferma la prima sessione da qualunque scheda; poi il nuovo avvio parte. M10 su YouTube reale da ripetere |
+
+**Scelte di I-03 (decisioni del product owner, 2026-11-11):**
+- Content script su `https://www.youtube.com/*`, inerte finché non riceve `SESSION_BIND` ([ADR-0021](ADR/0021-content-script-su-tutto-www-youtube-com.md)): senza, la navigazione SPA verso `/watch` non lo inietta.
+- Stato e uscita su `CAPTURE_DIAG` esteso (`state`, `exitReason`, `elapsedMs`, `activeMs`); `CAPTURE_PROGRESS` arriva con il DSP.
+- Cambio di `videoId` → `VIDEO_CHANGED`, come SPEC §6.1. **Conflitto annotato:** ADR-0004 indicava `NAVIGATED_AWAY` anche per il cambio di `videoId`; aggiunta in ADR-0004 una nota di attuazione che rimanda a questa decisione.
+
+**Altre scelte:**
+- Offscreen autorevole: `CaptureSession` guida la macchina pura e ha un solo `finish()` idempotente, con rilascio limitato a 800 ms.
+- `chrome.storage.session.activeSession` (`sessionId`, `tabId`, `source`) per l'instradamento; `lastStart` resta solo l'esito del click. Un `activeSession` senza offscreen è orfano e viene pulito.
+- Segnali aggiuntivi nel service worker: `tabs.onRemoved`, `tabCapture.onStatusChanged`, `tabs.onUpdated`. Senza il permesso `tabs`, misurato: con `pushState` arriva `loading` con l'URL leggibile; verso un altro host `loading` senza URL. Si ferma per un URL fuori da `/watch` o per `loading` senza URL.
+- Fine della traccia: 500 ms di attesa prima di `STREAM_ENDED`, così la chiusura della scheda risulta `INTERRUPTED / NAVIGATED_AWAY` (osservato in una corsa headless).
+- Autorizzazione: timeout di 10 s in `AUTHORIZING`.
+- Annunci: solo eventi media standard e salti di `currentTime` (R4); un salto all'indietro o in avanti oltre il tempo trascorso, non uno stallo.
+
+**Revisione avversariale (I-03):** un passaggio, NO-GO (1 BLOCKING, 2 HIGH, 5 MEDIUM, 4 LOW).
+- **Corretti, con test:** B-1 (rilascio che falliva o si bloccava lasciava la sessione viva: ora `catch` e rilascio limitato); H-1 (la misura della memoria escludeva il processo dell'offscreen: ora lo include, con controprova); M-1 (doppio click: `lastStart` scritto prima di ogni `await`); M-2 (timeout di autorizzazione); M-4 (uno stallo leggeva come cambio di sorgente); M-5 (scelta del `<video>` principale per area); L-1…L-4.
+- **Documentati:** M-3 (archi fuori da SPEC §6.1: emendamento di ADR-0011 proposto, test separati).
+- **Aperti:** H-2 (nessuno scenario su YouTube reale: M3–M11 manuali). Un secondo passaggio della revisione non è stato eseguito.
+- **Trovato dall'agente nella verifica finale:** il pannello perdeva l'offerta «Interrompi la cattura in corso» entro 0,5 s, perché la diagnostica della sessione attiva cancellava l'errore del click. Corretto separando l'errore del click da quello della sessione; regressione nell'E2E. Il primo E2E headless lo aveva mostrato come test rosso.
 
 ## I-02: Definition of Done (chiusa il 2026-11-11, senza la voce sulla latenza)
 
@@ -276,7 +306,7 @@
 ## Prossimi passi
 
 1. I-10: revisione estetica del catalogo da parte di una persona, al G2.
-2. I-02: merge della PR (squash). Poi I-03 (watchdog: ripristina R8). Latenza del pass-through (VC-19): da misurare in I-06 o con un metodo nuovo per M21. Dopo: I-03 (watchdog, R8).
+2. I-03: **umano** — M3–M11 su youtube.com reale (Brave o Google Chrome), M8 con un annuncio vero; decidere l'emendamento di ADR-0011 e il metodo di misura della memoria. Commit e PR fatti il 2026-11-11 prima delle prove, su richiesta del product owner. Latenza del pass-through (VC-19): da misurare in I-06 o con un metodo nuovo per M21.
 3. I-05b: decidere le dipendenze VAD (libfvad compilato con Emscripten; Silero con onnxruntime-web, circa 10–12 MB di WASM; proposta: Silero solo in Node per il confronto).
 4. **Umano:** archiviare la vecchia sessione I-10 ferma su una domanda; cancellare `.agents/` e `.codex/`; completare la riga M0 con le versioni esatte di Chrome e il SO.
 5. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
@@ -382,3 +412,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-10 | Claude | I-02 | Implementata, aperta, non committata | Avvio da toolbar, offscreen `USER_MEDIA`+`WORKERS`, pass-through, worklet che conta, stop idempotente, pannello diagnostico; gesto automatizzato con `Extensions.triggerAction`; E2E 6/6 con finestra e headless, 341 test Node; revisione CONDITIONAL GO, H-1, M-1, M-2, M-3 e L-3 corretti; M20, M21 e l'ascolto non eseguiti |
 | 2026-11-11 | Claude | I-02 | Prove umane registrate | Product owner in Brave 1.99.56 (Chromium 157): M1, M2, M3, M10 superati, M20 30/30; M21 non eseguita: due tentativi acustici non validi (tono non registrato), decisione del product owner |
 | 2026-11-11 | Claude | I-02 | Chiusa | Decisione del product owner: chiusa senza M21 (latenza), merge prima di I-03 approvato; commit e PR |
+| 2026-11-11 | Claude | I-03 | Implementata, in PR | Macchina a tabella, watchdog nell'offscreen, `activeSession`, content script su `www.youtube.com/*` (ADR-0021), `CAPTURE_BUSY` con stop della prima sessione; E2E di S2, S3, S6 sintetico, S7, S8 e 100 cicli in Chromium; revisione NO-GO, rilievi corretti salvo H-2; M3–M11 su YouTube reale non eseguite |

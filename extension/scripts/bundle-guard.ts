@@ -124,8 +124,8 @@ export const ALLOWED_PERMISSIONS: readonly string[] = [
   'storage',
 ];
 
-/** The only content-script match pattern approved by SPEC §5. */
-export const ALLOWED_CONTENT_SCRIPT_MATCHES: readonly string[] = ['https://www.youtube.com/watch*'];
+/** The only content-script match pattern approved: SPEC §5 as amended by ADR-0021. */
+export const ALLOWED_CONTENT_SCRIPT_MATCHES: readonly string[] = ['https://www.youtube.com/*'];
 
 export const MINIMUM_CHROME_VERSION = 120;
 

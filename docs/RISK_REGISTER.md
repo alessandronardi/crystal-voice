@@ -7,8 +7,8 @@ Stato dei 23 rilievi della revisione avversariale del 9 novembre 2026 (`docs/ADV
 | ID | Sev. | Rischio | Mitigazione | Issue | ADR | Stato | Evidenza |
 |---|---|---|---|---|---|---|---|
 | VC-01 | BLOCKER | Termini YouTube e policy dello store | G0; doppia sorgente | I-16 | 0009 | Mitigazione pianificata | — |
-| VC-02 | CRITICAL | Avvio: gesto perso o `onClicked` non ricevuto | `sidePanel.open()` sincrono | I-02 | 0002 | Mitigazione pianificata | — |
-| VC-03 | CRITICAL | Offscreen chiuso dopo 30 s di pausa | Motivi `USER_MEDIA`, `WORKERS` | I-02 | 0003 | Mitigazione pianificata | — |
+| VC-02 | CRITICAL | Avvio: gesto perso o `onClicked` non ricevuto | `sidePanel.open()` sincrono | I-02 | 0002 | Mitigato in Chromium; Chrome stabile da verificare | I-02: unit test, `sidePanel.open` prima di ogni altra chiamata; E2E `tab-capture.spec.ts` con `Extensions.triggerAction`: pannello aperto, stream concesso. Click umano: M1 e M20 (30/30) superati in Brave 1.99.56 (Chromium 157) dal product owner il 2026-11-11; Google Chrome stabile non eseguito |
+| VC-03 | CRITICAL | Offscreen chiuso dopo 30 s di pausa | Motivi `USER_MEDIA`, `WORKERS` | I-02 | 0003 | Mitigato in Chromium; Chrome stabile da verificare | I-02, E2E nel Chromium 156 di Playwright, pausa simulata (tono a guadagno 0, senza flag di autoplay): offscreen vivo dopo 60 s di silenzio; controprova con il solo `AUDIO_PLAYBACK`: offscreen chiuso, test rosso (`tests/e2e/README.md`). Test unitario contro `AUDIO_PLAYBACK` nei sorgenti. M3 (pausa di un video reale, Chrome stabile) non eseguito |
 | VC-04 | CRITICAL | Cattura dopo navigazione esterna | Watchdog heartbeat | I-03 | 0004 | Mitigazione pianificata | — |
 | VC-05 | CRITICAL | Numero di lati instabile per la stessa voce | Semispazi, cammino continuo | I-10 | 0005 | Mitigazione pianificata | — |
 | VC-06 | CRITICAL | Affinità gonfiata (60–80% per sconosciuti) | Percentile di vicinanza | I-09, I-15 | 0007 | Mitigazione pianificata | — |
@@ -24,7 +24,7 @@ Stato dei 23 rilievi della revisione avversariale del 9 novembre 2026 (`docs/ADV
 | VC-16 | MEDIUM | Stato perso alla terminazione del SW | `chrome.storage.session` | I-03 | 0001 | Mitigazione pianificata | — |
 | VC-17 | MEDIUM | Contratti incompleti | SPEC §9 v0.3 | I-01 | — | Mitigato | SPEC v0.3 §9 |
 | VC-18 | MEDIUM | Quota per PNG nel record | Miniature WebP, rigenerazione | I-14 | — | Mitigazione pianificata | — |
-| VC-19 | MEDIUM | Latenza del pass-through; player muto | Misura; avviso `PLAYER_MUTED` | I-02, I-06 | — | Aperto | — |
+| VC-19 | MEDIUM | Latenza del pass-through; player muto | Misura; avviso `PLAYER_MUTED` | I-02, I-06 | — | Aperto | I-02: `latencyHint: 'interactive'`; stime del browser in Chromium 156 (`baseLatency` 10 ms, `outputLatency` 40 ms), non una misura. Loopback M21 non eseguito: due tentativi acustici del product owner non validi (tono non registrato dal microfono), 2026-11-11; all'ascolto nessuno sfasamento segnalato |
 | VC-20 | MEDIUM | Dati personali di terzi | Avviso all'export; G0 | I-14 | — | Aperto | — |
 | VC-21 | MEDIUM | Timeout assoluto mancante | 120 s | I-03 | — | Mitigato | SPEC v0.3 §6 |
 | VC-22 | LOW | Pannello troppo stretto | Collezione a tutta scheda | I-15 | — | Mitigazione pianificata | — |

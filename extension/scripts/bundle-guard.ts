@@ -92,8 +92,16 @@ export interface GuardException {
   reason: string;
 }
 
-/** Reviewed exceptions. Empty in I-01: adding one needs a reason in review. */
-export const GUARD_EXCEPTIONS: readonly GuardException[] = [];
+/** Reviewed exceptions. Adding one needs a reason in review. */
+export const GUARD_EXCEPTIONS: readonly GuardException[] = [
+  {
+    file: 'background.js',
+    rule: 'no-remote-url',
+    snippet: 'protocol===`https:`',
+    reason:
+      'I-02: isYoutubeWatchUrl compares the clicked tab URL protocol with "https:" (SPEC §5, NOT_YOUTUBE_WATCH). A comparison, not a network endpoint.',
+  },
+];
 
 export function applyExceptions(
   findings: readonly Finding[],

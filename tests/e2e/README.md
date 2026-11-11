@@ -103,10 +103,12 @@ File: `harness.ts` (helper comuni), `tab-capture.spec.ts`, `lifecycle.spec.ts`, 
 | 2026-11-11 | idem | headless | **19/20**: in `tab-capture.spec.ts` l'offerta «Interrompi la cattura in corso» spariva prima del controllo. Difetto vero del pannello (la diagnostica della sessione attiva cancellava l'errore del click), corretto; aggiunta la regressione; memoria +14,1 MB |
 | 2026-11-11 | idem, codice finale | con finestra | 20/20 (6,4 min); S3 143 ms; memoria +13,0 MB |
 | 2026-11-11 | idem, codice finale | headless | 20/20 (6,1 min); S3 109 ms; memoria +16,7 MB; chiusura della scheda `INTERRUPTED / NAVIGATED_AWAY` |
+| 2026-11-11 | CI `ubuntu-latest`, Chromium di Playwright 1.64.0, PR crystal-voice#10 (`4879972`), metodo finale della memoria, 300 cicli | con finestra sotto `xvfb-run`, corsa 1 | 20/20; S3 nell'intervallo 61–68 ms delle due corse; persistenti +7,3 MB; chiusura della scheda `INTERRUPTED / NAVIGATED_AWAY` |
+| 2026-11-11 | idem | con finestra sotto `xvfb-run`, corsa 2 | 20/20; S3 nell'intervallo 61–68 ms delle due corse; persistenti +6,5 MB; chiusura della scheda `INTERRUPTED / NAVIGATED_AWAY` |
 
 **`tabs.onUpdated` senza permesso `tabs`, misurato in Chromium 156:** con `pushState` dentro YouTube arriva `status: 'loading'` *con* il nuovo URL, che è leggibile tramite l'host del content script; con una navigazione verso un altro host arriva `status: 'loading'` senza URL. Il service worker ferma subito la sessione per un URL leggibile fuori da `/watch` e per un `loading` senza URL. Un URL `/watch` lo lascia al watchdog, che riconosce `VIDEO_CHANGED`. La prima versione fermava ogni `loading`, e in headless il test `VIDEO_CHANGED` falliva con `NAVIGATED_AWAY`.
 
-**Cosa non provano:** un vero annuncio di YouTube; la pagina reale di YouTube, dove il `<video>` principale si sceglie come il più grande fra quelli visibili (non provato con anteprime al passaggio del mouse o con il miniplayer); Google Chrome stabile e Chrome 120; Linux, che verrà dalla CI.
+**Cosa non provano:** un vero annuncio di YouTube; la pagina reale di YouTube, dove il `<video>` principale si sceglie come il più grande fra quelli visibili (non provato con anteprime al passaggio del mouse o con il miniplayer); Google Chrome stabile e Chrome 120. Linux: solo in CI, con finestra sotto `xvfb-run` (righe sopra); headless su Linux non eseguito.
 
 ## Non verificato
 

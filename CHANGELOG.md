@@ -51,8 +51,15 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 - ADR-0019 (Accettato): nomi degli abiti di `habit-1` fedeli alla geometria («trigonale smussato», «esagonale doppio»); prismi ditrigonale e diesagonale veri rinviati a una versione futura (decisione L1).
 - ADR-0017 (Accettato): stimatore f0 esteso a 60–1100 Hz per il canto; il frame intonato dei descrittori resta 60–500 Hz (decisione D-K).
 - I-04: `dsp-core` con quantili tipo 7, mediana, IQR e `signalSummary` (`signal-summary-0`); nessun `extractorVersion` ancora.
+- I-02: avvio dalla toolbar. In `action.onClicked`, `sidePanel.open()` sincrono come prima istruzione; poi offscreen con i soli motivi `USER_MEDIA` e `WORKERS`, creato una volta anche con richieste concorrenti; `tabCapture.getMediaStreamId` solo dopo l'offscreen e stream ID inviato una volta, mai salvato. Su pagine non `/watch` il pannello si apre e mostra `NOT_YOUTUBE_WATCH`; con una cattura già attiva, `CAPTURE_BUSY`.
+- I-02: offscreen con `getUserMedia` sullo stream della scheda, pass-through verso le casse (`latencyHint: 'interactive'`) e AudioWorklet senza uscite che conta i campioni (nessun DSP, nessun PCM fuori dal worklet); uno stop unico e idempotente rilascia tracce, nodi e contesto e chiude il documento. Un avvio fallito chiude l'offscreen che aveva creato; due click concorrenti producono un solo avvio.
+- I-02: pannello diagnostico in italiano: stato, campioni ricevuti, frequenza, latenze stimate dal browser, pulsante «Interrompi», messaggi d'errore, avviso se la cattura smette di aggiornarsi.
+- I-02: messaggi interni in `contracts/src/internal.ts` (`OFFSCREEN_START_TAB`, `OFFSCREEN_STOP`, `CAPTURE_DIAG`), fuori da `CaptureMessage`, con guardie di tipo; guardia per `CAPTURE_STOP`.
+- I-02 chiusa il 2026-11-11 senza la misura della latenza del pass-through (decisione del product owner); prove manuali M1–M3, M10 e M20 (30/30) in Brave.
+- I-02: E2E `tab-capture.spec.ts`. Il click sull'icona è simulato con il comando CDP `Extensions.triggerAction` sul target `tab`, su una finta pagina `/watch` con tono sintetico; il test copre la pausa di 60 s e lo stop dal pannello. Voci manuali M20 (30 avvii) e M21 (latenza con loopback).
 
 ### Modificato
+- I-02: i messaggi al service worker, all'offscreen e al pannello si accettano solo dai contesti dell'estensione (URL del mittente nell'origine dell'estensione), non dai content script. Prima eccezione della guardia del bundle: il confronto con `"https:"` in `isYoutubeWatchUrl`.
 - I-11: aggirate due perdite di Three 0.186.1 (buffer dell'`InstancedMesh` di `RoomEnvironment`; LUT DFG condivisa che tratteneva ogni renderer smontato: heap da ~29 KB a ~3,5 KB per ciclo).
 - Timeout espliciti di 30 s a due test pesanti di crystal-core (seed dorati, continuità), che sotto carico parallelo superavano i 5 s di default.
 - I-10: Vite 8.3.5 anche fra le dipendenze di sviluppo della radice (già nel lockfile per l'estensione; MIT), per impacchettare `crystal-core` nel test dei browser. CI: job «golden hashes (Chromium, Firefox)».

@@ -2,9 +2,13 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-10 — I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale sul branch `issue/I-11-closure`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
+**Ultimo aggiornamento:** 2026-11-10 — I-02 chiusa senza la misura della latenza (decisione del product owner; branch `issue/I-02-tab-capture-poc`, PR in apertura); I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale in PR crystal-voice#8, `25561f6`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
 
-> **I-11 chiusa il 2026-11-10.** DoD completa dopo le verifiche del product owner su GPU reale; la chiusura documentale e la modalità `--memory` del bench sono sul branch `issue/I-11-closure`, in attesa di PR. [PR crystal-voice#7](https://github.com/alessandronardi/crystal-voice/pull/7) unita in squash (`424bfc3`), CI tutta verde: il job `renderer-three` su Linux dà le stesse misure di Windows (immagini di riferimento 0,000%). Su GPU reale (Radeon RX Vega 10 integrata), misure del product owner: **M17 eseguito** (vetrina: primo frame 232–236 ms, costo frame p95 4,7–6,1 ms; economy: 169–170 ms, p95 2,5–2,6 ms); **M18 superato** al secondo giro, con due tornate di 100 cicli: 3.040 K prima, 8.160 K con un cristallo, 3.040 K dopo 100 e dopo 200 cicli e a distanza (il primo giro, con una tornata, lasciava +960 K stabili, non ripresentati; causa non nota); **M19 «accettabile»**, veli «si riconoscono»; riserva estetica («Funziona, sì, ma a metà»), da tarare al G2. Chiusura documentale e bench sul branch `issue/I-11-closure`.
+> **I-02 chiusa il 2026-11-11 per decisione del product owner, senza la misura della latenza (M21).** Merge prima di I-03 approvato dal product owner: fino a I-03 R8 non vale e nessuna build va distribuita. Approvata anche la prima voce di `GUARD_EXCEPTIONS`.
+>
+> *Storico (2026-11-10):* Branch `issue/I-02-tab-capture-poc` da `origin/main` (`25561f6`); contiene anche la riga di STATUS sul merge di crystal-voice#8 (decisione del product owner). Codice completo per il perimetro della issue. Verificati dall'agente: typecheck, lint, 341 test Node, build con guardia del bundle, E2E 6/6 con finestra e headless nel Chromium 156 di Playwright. Il 2026-11-11 il product owner ha eseguito in **Brave 1.99.56 (Chromium 157.0.8103.50)**, Windows 11 26H2, uscita Realtek: M1, M2, M3 e M10 superati, **M20 30 su 30**. **Non eseguiti:** M21 (latenza con loopback: misura acustica non riuscita, registrata come non eseguita su decisione del product owner), tutto in Google Chrome stabile e in Chrome 120. Il product owner ha chiuso I-02 senza questa voce; VC-19 resta aperto (I-06). **R8 non vale fino a I-03:** senza watchdog la cattura sopravvive alla navigazione nella stessa scheda; nessuna build va distribuita prima di I-03.
+>
+> **I-11 chiusa il 2026-11-10.** DoD completa dopo le verifiche del product owner su GPU reale; la chiusura documentale e la modalità `--memory` del bench sono in [PR crystal-voice#8](https://github.com/alessandronardi/crystal-voice/pull/8), unita in squash (`25561f6`), CI verde (quattro job). [PR crystal-voice#7](https://github.com/alessandronardi/crystal-voice/pull/7) unita in squash (`424bfc3`), CI tutta verde: il job `renderer-three` su Linux dà le stesse misure di Windows (immagini di riferimento 0,000%). Su GPU reale (Radeon RX Vega 10 integrata), misure del product owner: **M17 eseguito** (vetrina: primo frame 232–236 ms, costo frame p95 4,7–6,1 ms; economy: 169–170 ms, p95 2,5–2,6 ms); **M18 superato** al secondo giro, con due tornate di 100 cicli: 3.040 K prima, 8.160 K con un cristallo, 3.040 K dopo 100 e dopo 200 cicli e a distanza (il primo giro, con una tornata, lasciava +960 K stabili, non ripresentati; causa non nota); **M19 «accettabile»**, veli «si riconoscono»; riserva estetica («Funziona, sì, ma a metà»), da tarare al G2.
 >
 > *Storico dell'implementazione:* branch `issue/I-11-renderer-three` da `06c5836`. `renderCrystal` in `packages/renderer-three` con Three.js `0.186.1` (approvato dal product owner): vetrina e economy, tratti velati, ripiego sulla tavola SVG. Verificati in locale: typecheck, lint, 316 test Node; `pnpm test:render` in Chromium con WebGL **software** (SwiftShader): 11 test su 11 verdi sul codice finale (9,8 min): 4 immagini di riferimento identiche (0,000%), ogni velo cambia l'immagine, 100 cicli senza oggetti WebGL vivi e heap JS da 4,24 a 4,59 MB, perdita di contesto e WebGL assente → tavola SVG. Revisione avversariale: CONDITIONAL GO (0 BLOCKING, 3 HIGH, 5 MEDIUM, 6 LOW); rilievi corretti salvo quelli che richiedono hardware reale o la CI; un secondo passaggio non è stato eseguito. **Non eseguiti:** frame time e primo frame su GPU reale (M17), memoria GPU nei 100 cicli (M18), giudizio umano sulla resa e sui veli (M19), job CI `render-three` su Linux.
 >
@@ -20,8 +24,37 @@
 
 - **Fase corrente:** 1 (PoC Chrome) e, in parallelo, 2–3 sul nucleo puro.
 - **Gate:** G0 non avviato · G-PoC, G1, G2 non raggiunti.
-- **Issue attive:** I-10 in attesa della revisione estetica G2. Chiuse: **I-01**, **I-04**, **I-05a**, **I-11**, **I-12**. Sbloccate: I-02, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
+- **Issue attive:** I-10 in attesa della revisione estetica G2. Chiuse: **I-01**, **I-02** (senza misura della latenza), **I-04**, **I-05a**, **I-11**, **I-12**. Sbloccate: I-03, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
+
+## I-02: Definition of Done (chiusa il 2026-11-11, senza la voce sulla latenza)
+
+| Voce | Stato | Evidenza |
+|---|---|---|
+| 30 avvii manuali consecutivi su un video di riferimento: pannello aperto, audio udibile, nessun doppio audio, stop ripristina l'audio | Fatto in Brave (Chromium 157); Google Chrome non eseguito | M20 del product owner il 2026-11-11: 30 cicli su 30, «tutto regolare», anche M1, M2 e M10 (registro in `tests/e2e/MANUAL_CHECKLIST.md`; esito comunicato in chat, non osservato dall'agente). Automatico: nell'E2E due avvii e due stop di seguito, un secondo click durante la cattura rifiutato con `CAPTURE_BUSY`, un solo offscreen. Che l'audio si senta una volta sola lo dice solo l'ascolto |
+| Pausa di 60 s: offscreen vivo (`chrome.runtime.getContexts`) | Fatto in Chromium (E2E) e in Brave (M3 del product owner); Google Chrome non eseguito | E2E `tab-capture.spec.ts`: 60 s di tono a guadagno 0, un contesto `OFFSCREEN_DOCUMENT` presente, campioni ancora in crescita. Controprova con il solo `AUDIO_PLAYBACK` nel bundle: offscreen chiuso, test rosso. Senza flag di autoplay |
+| Ritardo del pass-through misurato con loopback (valore, metodo, hardware), obiettivo ≤ 45 ms [H] | **Non eseguito** (decisione del product owner, 2026-11-11) | M21 tentata dal product owner con il metodo del tasto (microfono del portatile, Audacity 4.0): il tono non risultava nella forma d'onda, quindi i valori ottenuti (0,834 s e 0,098 s) non misurano il pass-through e non sono registrati come risultato. All'ascolto nessuno sfasamento segnalato (indicazione, non misura). Solo stime del browser nel Chromium di Playwright: `baseLatency` 10 ms, `outputLatency` 40 ms. Non sono la misura e non chiudono la voce |
+| Verificato se un flag di Chrome permette di automatizzare il gesto su `tabCapture`; esito in `tests/e2e/README.md` | Fatto | Nessun flag necessario: il comando CDP `Extensions.triggerAction` sul target `tab` vale come click sull'icona (pannello aperto, stream concesso). Solo nel Chromium di Playwright 1.64.0; in Chrome stabile non verificato |
+| Se l'automazione non è possibile: checklist manuale | Non necessaria per il gesto; checklist aggiornata per l'ascolto | M1, M2, M3 e M10 aggiornate; aggiunte M20 e M21 |
+
+**Scelte di I-02:**
+- Messaggi interni in `packages/contracts/src/internal.ts`, fuori da `CaptureMessage` (decisione del product owner): `OFFSCREEN_START_TAB` (stream ID, mai salvato), `OFFSCREEN_STOP`, `CAPTURE_DIAG`. Più la guardia `isCaptureStopMessage` per il messaggio di SPEC §9.
+- `chrome.storage.session` contiene solo `lastStart` (`sessionId`, `tabId`, `source`, `failure`): l'esito dell'ultimo click, non la sessione attiva. Instradamento vero in I-03.
+- Messaggi accettati solo se l'URL del mittente è nell'origine dell'estensione: le pagine dell'estensione sì, anche in una scheda; i content script no.
+- Worklet con zero uscite: conta i campioni, non arriva alle casse due volte.
+- Prima voce di `GUARD_EXCEPTIONS`: il confronto del protocollo con «https:» in `background.js`, un confronto in `isYoutubeWatchUrl`, non un endpoint.
+- Il pannello è diagnostico (stato, campioni, frequenza, latenze stimate, «Interrompi»). La UI vera arriva con I-13.
+
+**Revisione avversariale (I-02):** un passaggio, CONDITIONAL GO per un merge come lavoro parziale, NO-GO per chiudere la issue senza M20 e M21.
+- **Corretti, con test:**
+  - H-1: un avvio fallito lasciava un offscreen senza sessione, e ogni click successivo riceveva `CAPTURE_BUSY`. Ora i rami d'errore chiudono il documento.
+  - M-1: due click concorrenti chiedevano due stream ID. Ora c'è un solo avvio alla volta e il secondo riceve `CAPTURE_BUSY`.
+  - M-2: E2E senza flag di autoplay.
+  - M-3: il pannello segnala una cattura che smette di aggiornarsi (E2E con chiusura forzata dell'offscreen).
+  - L-3: la diagnostica di sessioni già chiuse è ignorata e contata.
+- **Documentati:** L-1 (lo stream ID raggiunge tutti i contesti dell'estensione, che lo ignorano), L-2 (tolleranze nel README), L-4 (VC-03 «mitigato in Chromium»).
+- **Aperti:** la verifica di ADR-0002 con il service worker dormiente (100 avvii, I-02/I-03) non è stata eseguita; resta per I-03 (scenario S8). Un secondo passaggio della revisione non è stato eseguito.
+- **Decisioni del product owner (2026-11-11):** I-02 chiusa senza M21; merge prima di I-03, nessuna build distribuita finché R8 non vale; eccezione della guardia del bundle approvata.
 
 ## I-11: Definition of Done (chiusa il 2026-11-10)
 
@@ -243,7 +276,7 @@
 ## Prossimi passi
 
 1. I-10: revisione estetica del catalogo da parte di una persona, al G2.
-2. I-11: aprire la PR di `issue/I-11-closure` (chiusura documentale e modalità `--memory`), su richiesta del product owner. Prossima issue: la prima sbloccata del BACKLOG (I-02; in alternativa I-17 o I-18).
+2. I-02: merge della PR (squash). Poi I-03 (watchdog: ripristina R8). Latenza del pass-through (VC-19): da misurare in I-06 o con un metodo nuovo per M21. Dopo: I-03 (watchdog, R8).
 3. I-05b: decidere le dipendenze VAD (libfvad compilato con Emscripten; Silero con onnxruntime-web, circa 10–12 MB di WASM; proposta: Silero solo in Node per il confronto).
 4. **Umano:** archiviare la vecchia sessione I-10 ferma su una domanda; cancellare `.agents/` e `.codex/`; completare la riga M0 con le versioni esatte di Chrome e il SO.
 5. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
@@ -281,14 +314,14 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 
 | Voce | Stato |
 |---|---|
-| Comportamento API Chrome (`sidePanel`, `tabCapture`, `offscreen`) | Verificato su documentazione il 9 nov 2026; **non** ancora in Chrome reale |
+| Comportamento API Chrome (`sidePanel`, `tabCapture`, `offscreen`) | Verificato nel Chromium 156 di Playwright (E2E di I-02); **non** in Chrome stabile né in Chrome 120 |
 | Caricamento dell'estensione | Verificato dall'agente in Chromium 156 (Playwright); in Chrome 120 e stabile dichiarato superato dal product owner (M0) |
 | CSP `connect-src 'self'` a runtime | Verificato in Chromium 156 (E2E) per Side Panel e service worker; content script non coperto (da verificare in I-03) |
 | Headless con estensione | Verificato su Windows (canale `chromium`); non su Linux |
 | `--load-extension` ignorato da Google Chrome «branded» recente | Segnalato; `needs current-doc verification` |
-| Conflitto `openPanelOnActionClick` / `onClicked` | Segnalato dalla community; da verificare in I-02 |
+| Conflitto `openPanelOnActionClick` / `onClicked` | Non provato: I-02 non usa `setPanelBehavior` (test sui sorgenti), quindi il conflitto non si presenta |
 | Microfono in offscreen dopo permesso in pagina estensione | Da verificare in I-17 |
-| Automazione del gesto per `tabCapture` in Playwright | Da verificare in I-02 |
+| Automazione del gesto per `tabCapture` in Playwright | Verificata il 2026-11-10: `Extensions.triggerAction` sul target `tab`, nessun flag (`tests/e2e/README.md`); solo Chromium di Playwright |
 | Corrispondenza fra SHA delle GitHub Actions e tag `v4` | Ottenuti con `git ls-remote` il 9 nov 2026; la run 42707392231 li ha usati con successo |
 | `pnpm/action-setup` con pnpm 12.18.0, Node 26 su `ubuntu-latest` | Verificato dalla run 42707392231 |
 | Simulazioni della revisione (affinità, cambio lati) | Eseguite su dati sintetici; da confermare su dati reali in G1 |
@@ -297,6 +330,10 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | Immagini di riferimento di `renderer-three` su Linux | Non verificato (CI non eseguita) |
 
 ## Proposte fuori perimetro
+
+- `tests/e2e/MANUAL_CHECKLIST.md`, M21: la procedura con impulsi presuppone un riferimento temporale che non c'è. Proporre un metodo praticabile senza cavo, ad esempio il click del tasto come riferimento, registrato con il telefono (non soggetto alla cancellazione d'eco del PC), e i passi per riconoscere il tono nella forma d'onda.
+
+- `CLAUDE.md` (sezione «Test in Chrome reale») dice che il click sull'icona «può non essere automatizzabile». Da I-02 lo è nel Chromium di Playwright con `Extensions.triggerAction`: aggiornare il testo e lasciare a mano solo ascolto e Chrome stabile.
 
 - Taratura estetica della vetrina prima del G2 (M19: «accettabile», «Funziona, sì, ma a metà»). Punti emersi dalle immagini di riferimento: fondo e interno molto scuri, perché la trasmissione mostra soprattutto il fondo nero; colore del corpo poco leggibile; inclusioni troppo luminose rispetto al corpo. Le costanti sono tutte [H] in `packages/renderer-three/src/pure/look.ts` e si cambiano solo con un confronto visivo registrato (R15).
 
@@ -341,3 +378,7 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-10 | Claude | I-11 | Implementata, non committata | Three.js 0.186.1; vetrina, economy, veli, ripiego SVG; revisione CONDITIONAL GO, rilievi corretti; decisioni del product owner su veli, export PNG (I-14), profilo (I-13), budget; M17–M19 e CI non eseguiti |
 | 2026-11-10 | Claude | I-11 | Mergiata | PR crystal-voice#7 unita in squash (`424bfc3`), CI verde anche su Linux |
 | 2026-11-10 | Claude | I-11 | Chiusa | M17 (Radeon RX Vega 10), M18 superato con due tornate, M19 «accettabile» e veli riconosciuti, dal product owner; bench `--memory` a fasi; documenti sul branch `issue/I-11-closure`, non committati |
+| 2026-11-10 | Claude | I-11 | Chiusura mergiata | PR crystal-voice#8 unita in squash (`25561f6`), CI verde; albero identico al branch `issue/I-11-closure` |
+| 2026-11-10 | Claude | I-02 | Implementata, aperta, non committata | Avvio da toolbar, offscreen `USER_MEDIA`+`WORKERS`, pass-through, worklet che conta, stop idempotente, pannello diagnostico; gesto automatizzato con `Extensions.triggerAction`; E2E 6/6 con finestra e headless, 341 test Node; revisione CONDITIONAL GO, H-1, M-1, M-2, M-3 e L-3 corretti; M20, M21 e l'ascolto non eseguiti |
+| 2026-11-11 | Claude | I-02 | Prove umane registrate | Product owner in Brave 1.99.56 (Chromium 157): M1, M2, M3, M10 superati, M20 30/30; M21 non eseguita: due tentativi acustici non validi (tono non registrato), decisione del product owner |
+| 2026-11-11 | Claude | I-02 | Chiusa | Decisione del product owner: chiusa senza M21 (latenza), merge prima di I-03 approvato; commit e PR |

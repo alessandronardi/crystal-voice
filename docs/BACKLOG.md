@@ -54,13 +54,14 @@
 
 - **Riferimenti:** SPEC §5; ADR-0001, ADR-0002, ADR-0003; VC-02, VC-03, VC-19.
 - **Obiettivo:** dimostrare in Chrome reale che la cattura non compromette il player.
+- **Stato:** chiusa il 2026-11-11 per decisione del product owner, senza la misura della latenza (M21 non eseguita). Prove manuali in Brave 1.99.56 (Chromium 157), non in Google Chrome. Merge prima di I-03 approvato: fino a I-03 R8 non vale, nessuna build distribuita. Evidenze in `docs/STATUS.md`.
 - **Perimetro:** `action.onClicked` con `sidePanel.open()` sincrono; `ensureOffscreen()` con `USER_MEDIA`, `WORKERS`; `getMediaStreamId`; `getUserMedia` nell'offscreen; pass-through con `latencyHint: 'interactive'`; AudioWorklet che conta i campioni ricevuti (nessun DSP); stop pulito.
 - **DoD:**
-  - [ ] 30 avvii manuali consecutivi su un video di riferimento: pannello aperto, audio udibile, nessun doppio audio, stop ripristina l'audio normale.
-  - [ ] Pausa di 60 s: offscreen vivo (verifica `chrome.runtime.getContexts`).
-  - [ ] Ritardo aggiunto dal pass-through misurato con loopback e registrato (valore, metodo, hardware); obiettivo ≤ 45 ms [H].
-  - [ ] Verificato se esiste un flag di Chrome che permette di automatizzare il gesto su `tabCapture`; esito scritto in `tests/e2e/README.md`.
-  - [ ] Se l'automazione non è possibile: `tests/e2e/MANUAL_CHECKLIST.md` con i passi e gli esiti attesi.
+  - [x] 30 avvii manuali consecutivi su un video di riferimento: pannello aperto, audio udibile, nessun doppio audio, stop ripristina l'audio normale (M20: 30/30 in Brave 1.99.56, Chromium 157).
+  - [x] Pausa di 60 s: offscreen vivo (verifica `chrome.runtime.getContexts`). E2E in Chromium 156 con controprova `AUDIO_PLAYBACK`; M3 in Brave.
+  - [ ] Ritardo aggiunto dal pass-through misurato con loopback e registrato (valore, metodo, hardware); obiettivo ≤ 45 ms [H]. **Non eseguito:** misura acustica non riuscita; issue chiusa senza questa voce per decisione del product owner (2026-11-11). VC-19 resta aperto.
+  - [x] Verificato se esiste un flag di Chrome che permette di automatizzare il gesto su `tabCapture`; esito scritto in `tests/e2e/README.md` (nessun flag: CDP `Extensions.triggerAction` sul target `tab`).
+  - [x] Se l'automazione non è possibile: `tests/e2e/MANUAL_CHECKLIST.md` con i passi e gli esiti attesi (gesto automatizzato; checklist aggiornata per l'ascolto: M1–M3, M10, M20, M21).
 - **Test:** E2E dove automatizzabile; altrimenti checklist manuale firmata nel verbale G-PoC.
 
 ### I-03 · Watchdog, ciclo di vita, macchina di cattura

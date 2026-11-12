@@ -66,6 +66,30 @@ const micExitReasons = {
   USER_STOP: 'Interrotta da te, o perché il pannello è stato chiuso.',
 } satisfies Partial<Record<CaptureExitReason, string>>;
 
+// Local-file source (I-18). Why a file was refused, by refusal reason.
+const fileRefusals = {
+  DURATION: 'Il file è troppo lungo: si accettano file fino a 30 minuti.',
+  MEMORY:
+    'Il file è troppo grande da decodificare in memoria. Prova un file più corto, oppure un WAV: di un WAV si legge solo il tratto scelto.',
+  MEMORY_WINDOW:
+    'Anche solo il tratto da analizzare è troppo grande da decodificare in memoria: la frequenza di campionamento o il numero di canali del file sono molto alti.',
+  NO_DURATION: 'Il file non si può leggere: la sua durata non è leggibile. Prova un altro formato, per esempio WAV.',
+  EMPTY: 'Il file non contiene audio.',
+  DECODE: 'Il file non si può leggere: il formato non è supportato o il file è danneggiato.',
+} as const;
+
+const filePhases = {
+  idle: 'Scegli un file audio per analizzarlo su questo dispositivo.',
+  probing: 'Lettura del file…',
+  ready: 'Scegli il punto di partenza e premi «Analizza».',
+  starting: 'Avvio dell’analisi…',
+  decoding: 'Decodifica del file…',
+  analyzing: 'Analisi in corso…',
+  done: 'Analisi completata.',
+  failed: 'Analisi non riuscita.',
+  stopped: 'Analisi interrotta.',
+} as const;
+
 export const strings = {
   appName: 'VoiceCrystal',
   pages: {
@@ -108,6 +132,32 @@ export const strings = {
     stale: 'Nessun aggiornamento dalla cattura da qualche secondo: potrebbe essersi interrotta.',
     hertz: 'Hz',
     milliseconds: 'ms',
+  },
+  file: {
+    heading: 'Da un file',
+    choose: 'File audio',
+    note: 'Si analizzano al massimo 120 secondi dal punto di partenza. Il file resta su questo dispositivo e non viene salvato.',
+    start: 'Partenza (secondi)',
+    analyze: 'Analizza',
+    stop: 'Interrompi',
+    phases: filePhases,
+    refusals: fileRefusals,
+    startPastEnd: 'Il punto di partenza è oltre la fine del file: scegline uno più basso.',
+    errors: captureErrors,
+    name: 'File',
+    duration: 'Durata del file',
+    window: 'Tratto analizzato',
+    sourceRate: 'Frequenza del file',
+    channels: 'Canali',
+    monoRule: 'Mix mono',
+    analysisSamples: 'Campioni a 16 kHz',
+    pitchFrames: 'Frame (sonori / totali)',
+    medianF0: 'f0 mediana',
+    digest: 'Impronta del segnale (SHA-256)',
+    seconds: 's',
+    hertz: 'Hz',
+    unavailable: 'non disponibile',
+    to: '–',
   },
 } as const;
 

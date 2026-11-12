@@ -133,7 +133,22 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 
 - **Riferimenti:** SPEC §7.2; VC-11; interfaccia `VadEngine` di I-05a.
 - **Perimetro:** integrazione di WebRTC VAD (libfvad, WASM compilato dal progetto) e Silero VAD (ONNX) dietro `VadEngine`; confronto sulle fixture.
-- **Prima di iniziare:** approvazione delle dipendenze (licenza, dimensione, packaging, compatibilità con CSP e offscreen) da parte del product owner.
+- **Prima di iniziare:** approvazione delle dipendenze (licenza, dimensione, packaging, compatibilità con CSP e offscreen) da parte del product owner. **Fatto il 2026-11-11 (D-L, decisa dall'agente per delega del product owner; vedi sotto).**
+- **Dipendenze approvate (D-L):**
+  - **WebRTC VAD nel bundle:** libfvad (`dpirch/libfvad`, BSD-3-Clause), sorgente fissato a un commit.
+    - Compilato in WASM dal progetto, con Emscripten fissato in un'immagine Docker `emscripten/emsdk` di versione esatta, pubblicata da almeno due settimane al momento della scelta.
+    - Script di build nel repository; il `.wasm` committato con il suo SHA-256; un job CI lo ricompila e confronta l'hash.
+    - Niente codice JS generato che usi `eval` o `new Function` (R2). La CSP ammette già `'wasm-unsafe-eval'`.
+    - Si carica nell'offscreen, o nel `dsp-worker`, dal bundle, mai da rete.
+    - Sincrono, frame da 20 ms a 16 kHz: entra nell'attuale `VadEngine` senza cambiarla. La modalità di aggressività è [H].
+    - Dimensione da misurare e riportare: attese decine di KB.
+  - **Silero VAD solo in Node, come riferimento del confronto:** `onnxruntime-node` 1.31.1 (MIT), dipendenza di sviluppo, fuori dal bundle.
+    - Modello ONNX dalla release ufficiale `snakers4/silero-vad` (MIT), con tag e SHA-256 fissati. Lo scarica uno script di sviluppo in una cache ignorata da git: mai a runtime (R2).
+    - Un adattatore porta le decisioni a 32 ms (512 campioni) sui frame da 20 ms, solo nel bench.
+    - **Motivo dell'esclusione dal bundle:** `onnxruntime-web` 1.31.1 aggiungerebbe da 14,8 a 29,5 MB di WASM, più circa 2,3 MB di modello, e un'interfaccia asincrona.
+  - **Se le misure smentiscono WebRTC** (falsi positivi su musica inaccettabili), portare Silero nel bundle è una nuova decisione del product owner: dimensione, interfaccia asincrona, eventuale ADR sulla CSP.
+  - **Limite del confronto:** le voci delle fixture sono sintetiche (sorgente-filtro). Un VAD neurale addestrato su parlato reale può rifiutarle, quindi il confronto su fixture non è rappresentativo del parlato reale. La conferma è al G1, con i dati di I-08.
+  - **Fuori da I-05b:** il resampler con stato per il percorso a blocchi del `dsp-worker` (eredità di I-05a), che serve quando il VAD entra nel worker (I-06).
 - **Eredità da I-05a:** `VadEngine` è sincrona e a 20 ms; per Silero serve un adattatore asincrono con buffering, o un'interfaccia rivista, con una suite di conformità comune. Il resampler è solo a buffer intero: il percorso a blocchi del worker ne richiede uno con stato.
 - **DoD:**
   - [ ] Tabella comparativa dei due VAD: falsi positivi su musica, falsi negativi su voce sintetica, dimensione bundle, licenza, tempo per secondo di audio.

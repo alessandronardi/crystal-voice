@@ -40,12 +40,17 @@ jobs:
       - name: bench VAD
         run: pnpm bench:vad
         timeout-minutes: 2
+      # I-06a: extractor-0-experimental on the fixtures (tables of BENCHMARK_PROTOCOL §7; fails only on error).
+      - name: bench descriptors
+        run: pnpm bench:descriptors
+        timeout-minutes: 3
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: bench-report
           path: |
             tests/benchmarks/out/latest.json
             tests/benchmarks/out/vad-latest.json
+            tests/benchmarks/out/descriptors.json
           retention-days: 30
       - run: pnpm build
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

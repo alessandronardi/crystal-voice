@@ -43,3 +43,29 @@ export {
   type WebRtcVad,
 } from './vad-fvad.ts';
 export { PITCH_TRACK_VERSION, trackPitch, type PitchFrame, type PitchTrack } from './pitch-track.ts';
+export { createRealFft, type RealFft } from './fft.ts';
+export {
+  ACOUSTIC_FRAMES_VERSION,
+  extractAcousticFrames,
+  type AcousticFrame,
+  type AcousticFrames,
+} from './acoustic-frames.ts';
+export {
+  computeDescriptors,
+  detectOnsets,
+  isIntonated,
+  isUseful,
+  type DescriptorAmounts,
+  type Descriptors,
+  type RawMeasures,
+} from './descriptors.ts';
+export { assessMusic, peakAutocorrelation, type MusicAssessment } from './music-heuristic.ts';
+export { assessSpeakers, bimodalityCoefficient, twoGroupSplit, type SpeakerAssessment } from './speaker-heuristic.ts';
+export {
+  EXTRACTOR_VERSION,
+  extractDescriptors,
+  MUSIC_EXPOSED,
+  qualitySummary,
+  type Extraction,
+  type ExtractionStatus,
+} from './extractor.ts';

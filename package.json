@@ -19,6 +19,7 @@
     "bench": "node tests/benchmarks/run.ts",
     "bench:vad": "node tests/benchmarks/vad-compare.ts",
     "bench:vad:silero": "node tests/benchmarks/vad-compare.ts --silero",
+    "bench:descriptors": "node tests/benchmarks/descriptors.ts",
     "bench:continuity": "node scripts/golden/continuity.ts",
     "catalog": "node scripts/golden/catalog.ts",
     "bench:robustness": "node scripts/golden/robustness.ts",

@@ -2,7 +2,8 @@
 // frames every 10 ms → YIN. Frame positions are in analysis-rate samples;
 // `sourceStartSample` maps a frame back to the input rate. Per-frame level and
 // clipping are measured on the analysis signal and on the source respectively.
-// The full AcousticFrame (centroid, flatness, VAD) is assembled in I-06.
+// The full AcousticFrame (centroid, flatness, VAD) is assembled in
+// acoustic-frames.ts (I-06) from the same per-frame helper.
 
 import { ANALYSIS_SAMPLE_RATE, CLIP_THRESHOLD, PITCH_FRAME_SAMPLES, PITCH_HOP_SAMPLES } from './config.ts';
 import { frameAt, frameCount } from './frames.ts';
@@ -37,29 +38,44 @@ export interface PitchTrack {
   frames: PitchFrame[];
 }
 
-export function trackPitch(channels: readonly Float32Array[], sampleRate: number): PitchTrack {
+/** Mono mix and 16 kHz analysis signal of a whole input (shared by trackPitch and the acoustic frames). */
+export interface AnalysisInput {
+  sourceLength: number;
+  mono: MonoMix;
+  analysis: Float32Array;
+}
+
+export function analysisInput(channels: readonly Float32Array[], sampleRate: number): AnalysisInput {
   const sourceLength = validateChannels(channels, sampleRate);
   const mono = mixToMono(channels, sampleRate);
   const analysis = createResampler(sampleRate, ANALYSIS_SAMPLE_RATE).process(mono.pcm);
+  return { sourceLength, mono, analysis };
+}
+
+/** Pitch frame k of the analysis signal, with level and source clipping (the I-05a definition). */
+export function pitchFrameAt(
+  input: AnalysisInput,
+  channels: readonly Float32Array[],
+  sampleRate: number,
+  k: number,
+): { pitch: PitchFrame; energy: number; frame: Float32Array } {
   const ratio = sampleRate / ANALYSIS_SAMPLE_RATE;
+  const frame = frameAt(input.analysis, k, PITCH_FRAME_SAMPLES, PITCH_HOP_SAMPLES);
+  let energy = 0;
+  for (const v of frame) energy += v * v;
+  const meanEnergy = energy / frame.length;
+  const rms = Math.sqrt(meanEnergy);
 
-  const frames: PitchFrame[] = [];
-  const count = frameCount(analysis.length, PITCH_FRAME_SAMPLES, PITCH_HOP_SAMPLES);
-  for (let k = 0; k < count; k++) {
-    const frame = frameAt(analysis, k, PITCH_FRAME_SAMPLES, PITCH_HOP_SAMPLES);
-    let energy = 0;
-    for (const v of frame) energy += v * v;
-    const rms = Math.sqrt(energy / frame.length);
+  const srcFrom = Math.floor(k * PITCH_HOP_SAMPLES * ratio);
+  const srcTo = Math.min(input.sourceLength, Math.ceil((k * PITCH_HOP_SAMPLES + PITCH_FRAME_SAMPLES) * ratio));
+  let clipped = false;
+  for (const ch of channels) {
+    for (let i = srcFrom; i < srcTo && !clipped; i++) if (Math.abs(ch[i] ?? 0) >= CLIP_THRESHOLD) clipped = true;
+  }
 
-    const srcFrom = Math.floor(k * PITCH_HOP_SAMPLES * ratio);
-    const srcTo = Math.min(sourceLength, Math.ceil((k * PITCH_HOP_SAMPLES + PITCH_FRAME_SAMPLES) * ratio));
-    let clipped = false;
-    for (const ch of channels) {
-      for (let i = srcFrom; i < srcTo && !clipped; i++) if (Math.abs(ch[i] ?? 0) >= CLIP_THRESHOLD) clipped = true;
-    }
-
-    const yin = yinFrame(frame, ANALYSIS_SAMPLE_RATE);
-    frames.push({
+  const yin = yinFrame(frame, ANALYSIS_SAMPLE_RATE);
+  return {
+    pitch: {
       frameIndex: k,
       sampleStart: k * PITCH_HOP_SAMPLES,
       sampleLength: PITCH_FRAME_SAMPLES,
@@ -69,9 +85,18 @@ export function trackPitch(channels: readonly Float32Array[], sampleRate: number
       pitchConfidence: yin.pitchConfidence,
       periodicity: yin.periodicity,
       clipped,
-    });
-  }
-  const { pcm: _pcm, ...monoInfo } = mono;
+    },
+    energy: meanEnergy,
+    frame,
+  };
+}
+
+export function trackPitch(channels: readonly Float32Array[], sampleRate: number): PitchTrack {
+  const input = analysisInput(channels, sampleRate);
+  const frames: PitchFrame[] = [];
+  const count = frameCount(input.analysis.length, PITCH_FRAME_SAMPLES, PITCH_HOP_SAMPLES);
+  for (let k = 0; k < count; k++) frames.push(pitchFrameAt(input, channels, sampleRate, k).pitch);
+  const { pcm: _pcm, ...monoInfo } = input.mono;
   return {
     version: PITCH_TRACK_VERSION,
     sourceSampleRate: sampleRate,

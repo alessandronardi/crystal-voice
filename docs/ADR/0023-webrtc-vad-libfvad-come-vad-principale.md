@@ -1,6 +1,6 @@
 # ADR-0023: WebRTC VAD (libfvad, modo 2) come VAD principale; la musica non si delega al VAD
 
-- **Stato:** Accettato (2026-11-12, dal product owner, modo 2 compreso, dopo il confronto di I-05b e la revisione avversariale). La clausola di `PATENTS` resta da accettare a parte, prima di `dist/`
+- **Stato:** Accettato (2026-11-12, dal product owner, modo 2 compreso, dopo il confronto di I-05b e la revisione avversariale). Clausola di `PATENTS` accettata dal product owner il 2026-11-12 (D-S); resta una domanda per il G0 sulla copertura dell'estratto libfvad (`docs/LEGAL_G0_CHECKLIST.md` §4-bis)
 - **Data:** 2026-11-12
 - **Decisori:** product owner
 

@@ -5,6 +5,15 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 ## [Unreleased]
 
 ### Aggiunto
+- I-06a: estrattore `extractor-0-experimental` in `dsp-core` (solo Node).
+  - **Frame acustici** (SPEC §7.3): FFT radix-2, centroide, flatness e flusso in 300–4000 Hz, decisione di libfvad modo 2, livello normalizzato per tutto il clip (D-V).
+  - **Sei descrittori** di SPEC §7.4, con p3 e p6 sui frame intonati (D-V); `null` sotto i minimi, mai 0.
+  - **Euristiche:** musica (altezza ferma, energia armonica senza altezza unica, flusso periodico) → `MIXED_AUDIO_UNCERTAIN`; più voci (bimodalità con distanza fra gruppi, salti del centroide) → `MULTI_SPEAKER_SUSPECTED` (D-T).
+  - **Confidenza** per parametro pesata dalla quota di musica (D-U), velo e `INSUFFICIENT_DATA` come ADR-0014, `qualitySummary` per SPEC §9.
+  - **Versione:** `extractorVersion = extractor-0-experimental` solo con il VAD canonico; un test fissa l'impronta di tutte le costanti.
+- I-06a: `packages/calibration` con `mapping-0-experimental.json` (ancoraggi di SPEC §7.5, generati da `scripts/calibration/build-mapping-0.ts`), mappa per quantili e seed interi half-even; `mappingVersion = mapping-0-experimental`.
+- I-06a: `pnpm bench:descriptors` (anche in CI); misure in `docs/BENCHMARK_PROTOCOL.md` §7, solo su fixture sintetiche e in-sample. Lacuna nota dalla revisione avversariale: toni a impulsi e melodie a note brevi danno un cristallo senza avvisi, tracciati come test attesi in errore.
+- ADR-0024 (accettato il 2026-11-12): parametri di `extractor-0`, normalizzazione di livello, euristiche misurate.
 - I-05b: WebRTC VAD.
   - **Build:** libfvad (`dpirch/libfvad` al commit `532ab66`, BSD-3-Clause con `PATENTS`) compilato in WASM dal progetto: `scripts/vad/build-fvad.sh` nell'immagine `emscripten/emsdk:6.0.13`, fissata per digest. Il file `packages/dsp-core/wasm/fvad.wasm` (28.424 B) è committato con il suo SHA-256; il job CI «libfvad WASM (reproducible build)» lo ricostruisce e lo confronta byte per byte.
   - **Motore:** `createWebRtcVad` in `dsp-core`, dietro `VadEngine` (binario, `probability: null`). Si istanzia solo con `instantiateFvad`: import non dichiarati rifiutati, stub WASI che lanciano un errore, modulo inutilizzabile dopo un errore interno. `FVAD_MODE` = 2 [H].
@@ -113,6 +122,8 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
   Dettagli in `docs/BENCHMARK_PROTOCOL.md` §7.
 
 ### Modificato
+- Backlog, I-06: divisa in I-06a (Node) e I-06b (estensione), decisione D-R. Clausola di `PATENTS` di WebRTC accettata dal product owner (D-S); domanda aperta per il G0 in `docs/LEGAL_G0_CHECKLIST.md` §4-bis.
+- `dsp-core`, I-06a: `trackPitch` usa un aiuto condiviso con i frame acustici; il risultato non cambia.
 - CI, I-18: il job `e2e` genera le fixture WAV (`pnpm fixtures`) prima dei test; `file.spec.ts` fallisce con un messaggio esplicito se ne manca una. I-18 mergiata (PR crystal-voice#13, `d6e1f51`).
 - Backlog, I-05b: dipendenze approvate (D-L, decisa per delega del product owner). Nel bundle solo libfvad, compilato in WASM dal progetto con Emscripten fissato. Silero VAD solo in Node (`onnxruntime-node` 1.31.1, dipendenza di sviluppo) come riferimento del confronto.
 - I-17, dopo la revisione avversariale: durante un avvio il pannello nasconde «Usa il microfono», così un doppio click non avvia due richieste. Se l'offscreen scompare senza messaggio finale, il pulsante torna disponibile. Una traccia già terminata durante la costruzione del grafo chiude la sessione. Con il permesso concesso, la scadenza dell'avvio riporta `STREAM_NOT_AVAILABLE`. L'instradamento di `CAPTURE_START` è estratto in `onCaptureStartRequest`. E2E `permission-page.spec.ts`; voce manuale M14c; nota di attuazione in ADR-0009. Emendamento di ADR-0011: l'arco `AUTHORIZING → INTERRUPTED` è accettato (decisione del product owner); i due archi da `FINALIZING` restano proposti.

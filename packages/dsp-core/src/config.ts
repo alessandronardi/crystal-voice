@@ -66,6 +66,90 @@ export type FvadMode = 0 | 1 | 2 | 3;
  */
 export const FVAD_MODE: FvadMode = 2;
 
+// --- Spectral features of the acoustic frames (SPEC §7.3, I-06) -------------
+
+/** FFT size for the 640-sample pitch frame, zero-padded (15.625 Hz bins at 16 kHz). */
+export const SPECTRAL_FFT_SIZE = 1024;
+/** Band of the spectral centroid, flatness and flux (SPEC §7.4, p5). */
+export const SPECTRAL_LOW_HZ = 300;
+export const SPECTRAL_HIGH_HZ = 4000;
+
+// --- Level normalization (D-V, ADR-0024) ------------------------------------
+
+/**
+ * One gain for the whole analysis signal brings the P95 of its 20 ms frame
+ * RMS (frames with energy) to this level, before VAD and frames. [H] —
+ * D-V: makes the descriptors independent of recording gain (BACKLOG I-06
+ * invariance ±6 dB); "−60 dBFS" of the useful frame is then relative to it.
+ */
+export const NORMALIZE_TARGET_DBFS = -20;
+/** Largest amplification, so that dither or hiss alone is not raised to speech level. [H] */
+export const NORMALIZE_MAX_GAIN_DB = 40;
+
+// --- Six descriptors EXPERIMENTAL v0 (SPEC §7.4, I-06) ---------------------
+
+/** Seconds per acoustic frame step (10 ms). */
+export const FRAME_HOP_SECONDS = PITCH_HOP_SAMPLES / ANALYSIS_SAMPLE_RATE;
+/** "Useful frame": VAD speech, not clipped, level above this. [H] */
+export const USEFUL_MIN_DBFS = -60;
+/** Minimum amounts per descriptor (SPEC §7.4). [H] */
+export const MIN_INTONATED_SECONDS = 2;
+export const MIN_USEFUL_SECONDS = 4;
+export const MIN_ONSETS = 20;
+/** Onsets: peaks of the spectral flux at least 80 ms apart (SPEC §7.4). */
+export const ONSET_MIN_DISTANCE_SECONDS = 0.08;
+/**
+ * Onset threshold on the flux divided by the median band magnitude of the
+ * useful frames (a gain-free scale). [H] — I-06a exploration on the fixtures:
+ * 22 onsets on voice-a (29 syllables), 7 on white noise, 1 on chords.
+ */
+export const ONSET_FLUX_THRESHOLD = 0.3;
+
+// --- Music heuristic (SPEC §7.2) ---------------------------------------------
+
+/** Cue 1, stable pitch: f0 within ±25 cents … [H] */
+export const MUSIC_STABLE_CENTS = 25;
+/** … over at least this many consecutive frames (21 × 10 ms: more than 200 ms). [H] */
+export const MUSIC_STABLE_MIN_FRAMES = 21;
+/** Cue 2, sustained harmonic energy without a single pitch: useful, not intonated, flatness below this … [H] */
+export const MUSIC_HARMONIC_MAX_FLATNESS = 0.05;
+/** … in runs of at least this many frames (200 ms). [H] */
+export const MUSIC_HARMONIC_MIN_FRAMES = 20;
+/** Cue 3, periodic flux: autocorrelation of the flux in windows of this length … [H] */
+export const MUSIC_FLUX_WINDOW_SECONDS = 4;
+/** … at lags in this range … [H] */
+export const MUSIC_FLUX_MIN_LAG_SECONDS = 0.3;
+export const MUSIC_FLUX_MAX_LAG_SECONDS = 2;
+/** … above this normalized value. [H] */
+export const MUSIC_FLUX_PERIODICITY = 0.5;
+/** MIXED_AUDIO_UNCERTAIN above this share of useful frames with a music cue (SPEC §7.2). [H] */
+export const MUSIC_SHARE_THRESHOLD = 0.2;
+
+// --- Several-voices heuristic (SPEC §7.2, D-T) ---------------------------------
+
+/** Bimodality coefficient of log2(f0) above this … (SPEC §7.2) [H] */
+export const SPEAKER_BIMODALITY = 0.555;
+/** … on at least this much intonated voice (SPEC §7.2) [H] */
+export const SPEAKER_MIN_SECONDS = 4;
+/** … and the two pitch groups at least this far apart (D-T, ADR-0024). [H] */
+export const SPEAKER_MIN_GAP_SEMITONES = 6;
+/** … with the smaller group holding at least this share (D-T). [H] */
+export const SPEAKER_MIN_GROUP_SHARE = 0.2;
+/** Centroid criterion: blocks of this much useful voice … (SPEC §7.2) */
+export const SPEAKER_BLOCK_SECONDS = 1;
+/** … a jump is a change of the block median centroid above this, in octaves … [H] */
+export const SPEAKER_CENTROID_JUMP_OCTAVES = 0.3;
+/** … "repeated" = at least this share of block transitions, with at least SPEAKER_MIN_TRANSITIONS. [H] */
+export const SPEAKER_MIN_JUMP_SHARE = 0.6;
+export const SPEAKER_MIN_TRANSITIONS = 4;
+
+// --- Confidence per parameter (SPEC §7.2 D3, ADR-0014, D-U) ------------------
+
+/** Below this a trait is veiled (ADR-0014). [H] */
+export const VEIL_CONFIDENCE = 0.5;
+/** INSUFFICIENT_DATA if more than this many traits are veiled (ADR-0014). */
+export const MAX_VEILED_PARAMETERS = 2;
+
 // --- Band-energy pre-filter (diagnostic only, SPEC §7.2) ---------------------
 
 export const PREFILTER_LOW_HZ = 85;

@@ -2,5 +2,10 @@
 # (I-04): keep LF on every checkout, whatever core.autocrlf says.
 tests/fixtures/*.json text eol=lf
 *.wav binary
+# libfvad WASM (I-05b): compared byte for byte with a fresh CI build; the hash
+# file is read by `sha256sum -c` and the build scripts run in Linux containers.
+*.wasm binary
+*.wasm.sha256 text eol=lf
+*.sh text eol=lf
 tests/fixtures/seeds/*.json text eol=lf
 tests/fixtures/plates/*.json text eol=lf

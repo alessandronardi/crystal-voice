@@ -1,0 +1,55 @@
+{
+  "name": "music-chords-v2",
+  "fixturesVersion": "fixtures-1",
+  "family": "music",
+  "description": "Solo accordi sintetici sostenuti, senza voce, a -24 dBFS attivi (variante 2).",
+  "sampleRate": 48000,
+  "channelCount": 1,
+  "lengthSamples": 576000,
+  "durationSeconds": 12,
+  "seed": 3302,
+  "params": {
+    "seconds": 12,
+    "chordSeconds": 2,
+    "levelDbfs": -24
+  },
+  "expected": {
+    "voiceExpected": false,
+    "crystalExpected": false,
+    "musicPresent": true,
+    "chordProgressionMidi": [
+      [
+        54,
+        58,
+        61,
+        65
+      ],
+      [
+        50,
+        54,
+        57
+      ],
+      [
+        51,
+        54,
+        58
+      ],
+      [
+        56,
+        59,
+        63
+      ],
+      [
+        49,
+        52,
+        56
+      ],
+      [
+        58,
+        62,
+        65,
+        69
+      ]
+    ]
+  }
+}

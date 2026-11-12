@@ -22,6 +22,7 @@ export type FixtureFamily =
   | 'antiphase'
   | 'compressed'
   | 'voice-music'
+  | 'music'
   | 'alternating-ab'
   | 'a-then-b';
 
@@ -145,6 +146,31 @@ function voiceWithMusic(levelDb: number, variant: number, seed: number): Fixture
           expectedWarning: 'MIXED_AUDIO_UNCERTAIN',
           chordProgressionMidi: music.truth.progression,
         },
+      };
+    },
+  };
+}
+
+/**
+ * Music without voice (I-05b): the same synthetic chords as voice-music, at the
+ * voice's active level. Every frame is "not speech": VAD false positives on
+ * music are measured here (SPEC §7.2, VC-11).
+ */
+function musicOnly(variant: number, seed: number): FixtureSpec {
+  const seconds = 12;
+  const chordSeconds = [1.5, 2, 3][(variant - 1) % 3] ?? 2;
+  return {
+    name: `music-chords-v${variant}`,
+    family: 'music',
+    description: `Solo accordi sintetici sostenuti, senza voce, a ${VOICE_A.levelDbfs} dBFS attivi (variante ${variant}).`,
+    sampleRate: SR,
+    seed,
+    params: { seconds, chordSeconds, levelDbfs: VOICE_A.levelDbfs },
+    render() {
+      const music = chords(seconds, SR, chordSeconds, createPrng(seed));
+      return {
+        channels: [normalizeTo(music.signal, VOICE_A.levelDbfs)],
+        expected: { ...NO_VOICE, musicPresent: true, chordProgressionMidi: music.truth.progression },
       };
     },
   };
@@ -360,6 +386,7 @@ function buildCatalog(): FixtureSpec[] {
     ...[1, 2].map((v) => voiceWithMusic(-6, v, 3000 + v)),
     ...[1, 2, 3, 4, 5].map((v) => voiceWithMusic(-12, v, 3100 + v)),
     ...[1, 2].map((v) => voiceWithMusic(-18, v, 3200 + v)),
+    ...[1, 2, 3].map((v) => musicOnly(v, 3300 + v)),
     ...[1, 2, 3].map((v) => alternatingAB(v, 4000 + v, 4100 + v)),
     {
       name: 'a-then-b',

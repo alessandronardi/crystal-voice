@@ -14,7 +14,7 @@
 | I-02 | 1 | PoC cattura scheda + pass-through + avvio | I-01 | M | G-PoC |
 | I-03 | 1 | Watchdog, ciclo di vita, macchina di cattura | I-02 | M | G-PoC |
 | I-17 | 1 | Sorgente microfono e pagina di permesso | I-01 | M | G-PoC |
-| I-18 | 1 | Sorgente file locale | I-01, I-04 | S | G-PoC |
+| I-18 | 1 | Sorgente file locale | I-01, I-04 | S (effettiva M) | G-PoC |
 | I-04 | 2 | Fixture sintetiche + harness offline | I-01 | M | G1 |
 | I-05a | 2 | Mix mono, resampling, pitch YIN, interfaccia VAD | I-04 | M | G1 |
 | I-05b | 2 | Motori VAD a confronto (libfvad, Silero) | I-05a | M | G1 |
@@ -89,7 +89,18 @@
 
 ### I-18 · Sorgente file locale
 
-- **Riferimenti:** SPEC §5, §9; ADR-0009.
+- **Riferimenti:** SPEC §5, §9; ADR-0009, ADR-0022.
+- **Stato:** implementata il 2026-11-12 sul branch `issue/I-18-file-source`, non chiusa. Taglia effettiva M, non S: è la prima issue che fa girare `dsp-core` nell'estensione. Evidenze in `docs/STATUS.md`.
+- **Decisioni del product owner (2026-11-12):**
+  - D1: DSP in un worker del pannello (ADR-0022);
+  - D2: il file è una sessione per `CAPTURE_BUSY`;
+  - D3: WAV a finestra, altri formati decodificati interi con un budget di memoria [H];
+  - D4: per ora il confronto con l'harness si fa su segnale, `signalSummary` e traccia di pitch; il seed in I-07.
+- **Decisioni D-M…D-P (2026-11-12, in `docs/STATUS.md`; D-N…D-P per delega del product owner):**
+  - D-M (del product owner): ADR-0022 accettato;
+  - D-N: cancello sul seed in I-07 per VC-24;
+  - D-O: budget di memoria come stima più ricontrollo;
+  - D-P: rifiuto dei file senza durata.
 - **Obiettivo:** analizzare un file scelto dall'utente con lo stesso DSP.
 - **Perimetro:** `<input type="file">` nel pannello; `decodeAudioData`; scelta del punto di partenza; primi 120 s; PCM al `dsp-worker`; errori `FILE_DECODE_FAILED`, `FILE_TOO_LONG`.
 - **DoD:**
@@ -175,6 +186,7 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
   - [ ] Fixture A+B: nessun `CONVERGED` a cavallo del cambio di voce.
   - [ ] Tutti i motivi d'uscita prodotti dalle fixture appropriate.
   - [ ] Timeout (45 s attivi, 120 s assoluti): semantica definita qui e verificata con sequenze sintetiche di descrittori e tempi; WAV dedicati solo se una sequenza non basta. Controllo positivo per `CONVERGED` e `MAX_VALID_SPEECH`: fixture `voice-a-long` (decisione del product owner, 2026-11-10).
+  - [ ] **Eredità da I-18 (D4, 2026-11-12):** le fixture di I-04 caricate come file nel pannello danno lo stesso seed dell'harness Node, o una differenza spiegata e documentata. L'E2E di I-18 (`tests/e2e/file.spec.ts`) confronta oggi segnale a 16 kHz, `signalSummary` e traccia di pitch: va esteso al seed. Due differenze sono già note e misurate in I-18: la regola int16 → float del decoder di Chromium, e `Math.log10`, `sin` e `cos` non identici fra le versioni di V8 (`docs/BENCHMARK_PROTOCOL.md` §7). Il seed è quantizzato: va verificato se differenze di 1–2 ULP possono spostarlo di una casella. **Cancello (D-N):** se anche un solo seed differisce fra Node e pannello, prima di proseguire serve un ADR che porti in `dsp-core` implementazioni proprie di `log10`, `log2`, `sin`, `cos`, `sinh` (come ADR-0010).
 - **Test:** unit su fixture e su sequenze sintetiche di descrittori.
 
 ### I-08 · Dataset umano + report G1
@@ -255,6 +267,7 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
   - [ ] `QuotaExceededError` simulato: nessun record esistente perso.
   - [ ] 1.000 record sotto 50 MB [H]; `geometryHash` verificato all'apertura.
   - [ ] Avviso dati personali all'export se presenti `speakerLabel`.
+  - [ ] **Eredità da I-18:** il record di un'analisi da file contiene solo l'`AnalysisSource` di tipo `file` (`fileName`, `durationSeconds`, `offsetStartSeconds`, `offsetEndSeconds`): nessun contenuto del file, nessun digest del segnale. Il nome è testo non fidato, da validare in scrittura e in import (R17). Test sul record salvato.
   - [ ] `exportCrystalPng(handle, 1024)` in `renderer-three` (SPEC §10, ADR-0012): PNG 1024×1024 con camera ortografica e preset fissi, `dispose` verificato anche sul render target dell'export. Nessuna promessa di PNG identici fra GPU: l'export canonico resta la tavola SVG (ADR-0013). Assegnato a I-14 dal product owner il 2026-11-10.
   - [ ] Geometrie da record importati passano dal controllo di budget di `renderer-three` (`checkBudget`, errore `BUDGET_EXCEEDED`).
 - **Test:** unit con `fake-indexeddb`; E2E export/import.

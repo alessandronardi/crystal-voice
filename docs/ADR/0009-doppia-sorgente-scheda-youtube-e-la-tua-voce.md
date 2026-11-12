@@ -34,6 +34,12 @@ Stessi test DSP su sorgente file; E2E microfono con dispositivo finto di Chrome 
 
 Nessun ADR di spostamento della cattura nella pagina visibile è servito.
 
+**Nota di attuazione (I-18, 2026-11-12).** I file si decodificano nel pannello con `decodeAudioData`, come deciso qui.
+- **Dove gira il DSP:** in un `dsp-worker` dedicato del pannello, non in quello dell'offscreen ([ADR-0022](0022-analisi-dei-file-locali-in-un-dsp-worker-del-pannello.md)).
+- **WAV:** si decodifica solo la finestra di 120 s, alla frequenza del file.
+- **Altri formati:** si decodificano interi a 48 kHz, con un budget di memoria [H].
+- **«Stessi test DSP su sorgente file»:** `tests/e2e/file.spec.ts`. Con gli stessi campioni decodificati, la parte aritmetica dell'analisi coincide bit per bit con Node su tutte le fixture. Il decoder di Chromium converte però int16 diversamente dall'harness, e alcune funzioni di `Math` differiscono di 1–2 ULP (VC-24).
+
 ## Riferimenti
 
 SPEC §2, §3, §5

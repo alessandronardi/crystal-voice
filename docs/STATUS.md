@@ -2,8 +2,22 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-11 — I-05b sbloccata: dipendenze VAD decise per delega del product owner (D-L), implementazione non iniziata (branch `issue/I-05b-vad-dependencies`, solo documenti, non committati); I-17 mergiata (PR crystal-voice#11, squash `cd3924e`; CI su `main` verde dopo il merge) e non chiusa; I-03 mergiata (PR crystal-voice#10, squash `63ff4aa`) ma non chiusa: M3–M11 su YouTube reale non eseguite, decisioni del product owner aperte; I-02 chiusa senza la misura della latenza (decisione del product owner; PR crystal-voice#9, `18cb21e`); I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale in PR crystal-voice#8, `25561f6`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
+**Ultimo aggiornamento:** 2026-11-12 — I-18 implementata, non committata e non chiusa (branch `issue/I-18-file-source` da `origin/main` `0b47e89`); ADR-0022 accettato dal product owner (D-M), decisioni D-N…D-P prese per delega. Prima: I-05b sbloccata: dipendenze VAD decise per delega del product owner (D-L), implementazione non iniziata (branch `issue/I-05b-vad-dependencies`, solo documenti, non committati); I-17 mergiata (PR crystal-voice#11, squash `cd3924e`; CI su `main` verde dopo il merge) e non chiusa; I-03 mergiata (PR crystal-voice#10, squash `63ff4aa`) ma non chiusa: M3–M11 su YouTube reale non eseguite, decisioni del product owner aperte; I-02 chiusa senza la misura della latenza (decisione del product owner; PR crystal-voice#9, `18cb21e`); I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale in PR crystal-voice#8, `25561f6`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
 
+> **I-18 implementata il 2026-11-12, non committata, non chiusa.**
+> - **Verifiche iniziali:** PR #12 (`0b47e89`) su `main`, CI su `main` verde (corsa `43163561428`, quattro job).
+> - **Verificati dall'agente sul codice finale:** typecheck, lint, 455 test Node, `fixtures --check`, build; E2E intera **46/46 con finestra e 46/46 headless** nel Chromium 156 di Playwright, con `file.spec.ts` 17/17.
+> - **Non eseguiti:** le prove manuali M15 e M24–M28 in Brave; Google Chrome; MP3 o M4A veri; file multicanale; la verifica che il worker venga terminato.
+> - **Revisione avversariale:** CONDITIONAL GO, rilievi corretti; le domande del revisore sono decise per delega (D-N…D-P); ADR-0022 accettato dal product owner (D-M).
+> - **Risultato da sapere:** le funzioni trascendenti di `Math` non sono identiche fra Node e Chromium (1–2 ULP). Smentisce «`dsp-core` identica in Node e nel worker»: rischio VC-24, con il cancello di D-N sul seed in I-07.
+> - **Mezzo cambiato rispetto al piano:** `MessageSender.documentId` non esiste per il pannello, quindi la sessione file usa un ping (ADR-0022).
+>
+> **Decise per delega (D-N…D-P, 2026-11-12):** VC-24 con cancello sul seed in I-07; budget come stima più ricontrollo; rifiuto dei file senza durata. **D-M:** ADR-0022 accettato dal product owner.
+>
+> **Prove manuali M15 e M24–M28: TO DO, non bloccanti per lo sviluppo** (decisione del product owner del 2026-11-12: lavora da remoto e non può eseguirle ora). La programmazione prosegue; I-18 resta non chiusa finché non sono eseguite e registrate.
+>
+> **In attesa del product owner:** la richiesta di commit e PR.
+>
 > **D-L, dipendenze di I-05b (2026-11-11), decise dall'agente per delega del product owner** («Risolvi I-05b con la tua migliore proposta»). Dettaglio nella tabella «Decisioni del product owner su I-05» e in `docs/BACKLOG.md` (I-05b, «Prima di iniziare»). In sintesi:
 > - **nel bundle solo WebRTC VAD:** libfvad (BSD-3-Clause), compilato in WASM dal progetto con Emscripten fissato in un'immagine Docker;
 > - **Silero VAD solo come riferimento offline in Node:** `onnxruntime-node` 1.31.1 (MIT), dipendenza di sviluppo, modello ufficiale con hash fissato. Nel bundle costerebbe almeno 14,8 MB di WASM di `onnxruntime-web` 1.31.1, più circa 2,3 MB di modello.
@@ -42,8 +56,57 @@
 
 - **Fase corrente:** 1 (PoC Chrome) e, in parallelo, 2–3 sul nucleo puro.
 - **Gate:** G0 non avviato · G-PoC, G1, G2 non raggiunti.
-- **Issue attive:** I-17 implementata, in PR (dettagli delle prove manuali da registrare); I-03 mergiata, non chiusa (prove manuali M3–M11 e decisioni aperte); I-10 in attesa della revisione estetica G2. Chiuse: **I-01**, **I-02** (senza misura della latenza), **I-04**, **I-05a**, **I-11**, **I-12**. Sbloccate: I-03, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
+- **Issue attive:** I-18 implementata, non committata (prove manuali aperte); I-17 mergiata, non chiusa (dettagli delle prove manuali da registrare); I-03 mergiata, non chiusa (prove manuali M3–M11 e decisioni aperte); I-10 in attesa della revisione estetica G2. Chiuse: **I-01**, **I-02** (senza misura della latenza), **I-04**, **I-05a**, **I-11**, **I-12**. Sbloccate: I-03, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
+
+## I-18: Definition of Done (implementata, non chiusa)
+
+| Voce | Stato | Evidenza |
+|---|---|---|
+| Le fixture sintetiche di I-04 caricate come file producono lo stesso seed dell'harness Node (bit per bit, o differenza spiegata dal resampling e documentata) | **Fatto nella forma decisa (D4):** il seed non esiste ancora (I-06, I-07). Confronto su segnale a 16 kHz, `signalSummary` e traccia di pitch. Il confronto sul seed passa a I-07 (riga nel backlog) | `tests/e2e/file.spec.ts`, 32 fixture su 32, Chromium 156, con finestra e headless. **Con gli stessi campioni decodificati**, tutto ciò che è aritmetica è identico bit per bit a Node: segnale mono a 16 kHz (SHA-256), picchi, campioni saturati, regola mono, f0, confidenza, periodicità, frame sonori, f0 mediana. **Due differenze, spiegate e misurate:** (1) il decoder di Chromium converte int16 come n/32768 (negativi) e float32(n) × float32(1/32767) (positivi), l'harness come n/32768: contro l'harness così com'è, f0 mediana entro 9·10⁻⁵ cent e livello entro 0,000265 dB; (2) `Math.log10` (e `log`, `exp`, `sin`, `cos`, `sinh`, `atan`, `log2`) non sono identici fra Node 26.13 (V8 14.6) e Chromium 156: 1–2 ULP sull'1–6% degli ingressi, quindi i livelli in dB differiscono fino a 2 ULP. Registro in `docs/BENCHMARK_PROTOCOL.md` §7 |
+| Il contenuto del file non viene mai persistito; nel record resta solo il nome | **Fatto per la parte verificabile oggi;** il record non esiste ancora (vault, I-14: riga aggiunta nel backlog) | Il pannello costruisce l'`AnalysisSource` `file` del contratto (nome, durata, finestra) e lo tiene solo in memoria. E2E: dopo un'analisi `storage.session` contiene solo `lastStart` senza nome, `storage.local` è vuoto, nessun database IndexedDB, `activeSession` di un file = `{ sessionId, source }`. Memoria del pannello dopo 120 s stereo e una GC: heap +0,13 MB, `backingStorageSize` +0,06 MB (controprova: 46 MB tenuti in vita → +43,9 MiB). Il nome si mostra solo con `textContent` (E2E con `a&lt;b&gt;'&amp;_i_.wav`). Il PCM va solo al worker del pannello, per trasferimento |
+
+**Decisioni del product owner all'avvio (2026-11-12):** D1 DSP dei file in un worker del pannello (ADR-0022, accettato il 2026-11-12); D2 il file conta per `CAPTURE_BUSY` nei due versi; D3 WAV a finestra, altri formati decodificati interi con budget [H] di 256 MB; D4 confronto su segnale, `signalSummary` e pitch, seed in I-07.
+
+**Cambiato durante l'implementazione, da confermare:** D2 prevedeva di legare la sessione al `documentId` del pannello. Misurato in Chromium 156: `MessageSender.documentId` **non** è valorizzato per un messaggio dal pannello laterale. La sessione file resta quindi viva finché il suo pannello risponde a `FILE_SESSION_PING` (timeout 1 s [H]); nessun timer di sessione, nessuna globale del service worker. ADR-0022 aggiornato.
+
+**Risultato che smentisce un'ipotesi del progetto:** `packages/dsp-core/CLAUDE.md` chiede che `dsp-core` giri «identica in Node e nel DSP worker». Non è vero bit per bit per le funzioni trascendenti di `Math` (misura sopra). Oggi l'effetto è al livello dell'ultima cifra; per il seed, che è quantizzato, va verificato in I-07 se una differenza di 1–2 ULP può spostare una casella. Possibile rimedio, fuori perimetro: funzioni proprie in `dsp-core`, come `crystal-core` con ADR-0010 (vedi «Proposte»).
+
+**Revisione avversariale (I-18):** un passaggio, CONDITIONAL GO (0 BLOCKING, 3 HIGH, 6 MEDIUM, 10 LOW).
+- **Corretti, con test:**
+  - H1: un'eccezione imprevista lasciava il pannello bloccato in una fase «occupata» e un worker vivo se l'invio falliva. Ora c'è un `catch` che porta a `INTERNAL_ERROR`, e l'invio è protetto. E2E con `copyFromChannel` che lancia;
+  - H2: la memoria si ricontrolla dopo la decodifica con canali e lunghezza reali, prima della copia (unit); promessa ridotta nei documenti: il budget è una stima, non un tetto (VC-25);
+  - M1: un doppio click reale fermava l'analisi appena avviata, perché il secondo click cadeva su «Interrompi». Ora «Interrompi» ignora i click per 500 ms [H]. E2E con due eventi del mouse CDP a 100 ms; controprova senza ritardo: test rosso;
+  - M2: lo stop non aveva effetto fino a fine decodifica. Ora è immediato (15–20 ms): fine del ping, `FILE_SESSION_END`, risultati tardivi ignorati;
+  - M3: il percorso a file intero ora è richiesto con MP4; nuovo test su un fallimento dopo la sessione concessa (WAV float con NaN → `DECODE`, sessione rilasciata);
+  - M4: `onmessageerror` e tempo massimo di 60 s [H] per il worker;
+  - M5: la misura di `Math` è un test della spec (riproducibile);
+  - L1: si conserva solo il chunk `fmt `;
+  - L2: partenza oltre la fine rifiutata senza chiedere una sessione (E2E);
+  - L3: motivo distinto `MEMORY_WINDOW` per un WAV, commento corretto;
+  - L4: un WAV a una frequenza che il resampler non converte passa al percorso intero;
+  - L5: il pannello delle catture ignora gli esiti dei file;
+  - L8: numeri riallineati;
+  - L10: E2E dello stop dallo stesso pannello (il `CAPTURE_STOP` del pannello torna tramite l'`OFFSCREEN_STOP` del service worker).
+- **Documentati:** H3 (STATUS, CHANGELOG, RISK_REGISTER VC-24 e VC-25, nota in ADR-0001; al momento della revisione non erano ancora scritti); L6 (`FILE_SESSION_*` senza `seq`, come `OFFSCREEN_STOP`: messaggi interni, risposta a un solo destinatario); L7 (su Windows il nome del file non può contenere `<` e `>`: il test usa le entità); L9 (`.agents/`, `.codex/` e `.claude/prompts/` fuori dal commit).
+- **Aperti:** M4, la terminazione del worker non è verificata dall'E2E.
+- **Decisi per delega:** le tre domande del revisore (D-N, D-O, D-P, tabella sotto). M6 chiuso: ADR-0022 accettato dal product owner (D-M).
+- Un secondo passaggio della revisione non è stato eseguito.
+
+**Decisioni D-M…D-P su I-18 (2026-11-12): D-M del product owner; D-N…D-P prese dall'agente per delega del product owner** («Preferisci soluzioni agili e sicure per l'integrità del codice»). Si possono rivedere.
+
+| ID | Decisione | Applicazione |
+|---|---|---|
+| D-M | **Decisa dal product owner** il 2026-11-12 («Sì, accetto»), su raccomandazione dell'agente: ADR-0022 accettato (DSP dei file in un worker del pannello, sessione file viva finché il pannello risponde al ping) | ADR-0022 `Accettato`; nota di attuazione in ADR-0009. SPEC §5 (punti 3 e 7, «Una cattura globale») da allineare, sola documentazione (prossimi passi) |
+| D-N | VC-24 (`Math` non identica fra motori): **nessuna libreria matematica propria adesso**, ma un cancello prima di congelare il seed. In I-07 le fixture caricate come file devono dare lo stesso seed in Node e nel pannello. Se anche un solo seed differisce, prima di proseguire serve un ADR che porti in `dsp-core` implementazioni proprie delle funzioni usate (`log10`, `log2`, `sin`, `cos`, `sinh`), come ADR-0010 per `crystal-core`. Il test `Math` di `file.spec.ts` resta come sentinella | VC-24 aggiornato; voce in I-07 (BACKLOG). La frase di `packages/dsp-core/CLAUDE.md` resta invariata (file di regole): correzione fra le «Proposte» |
+| D-O | Budget di memoria di 256 MB [H] come stima prima della decodifica, più il ricontrollo dopo la decodifica con canali e lunghezza reali (com'è dopo la revisione). Nessun tetto più rigido: richiederebbe una decodifica a blocchi, che `decodeAudioData` non offre | VC-25 invariato; il valore resta da misurare (R15) |
+| D-P | File senza durata leggibile (WebM di `MediaRecorder`): **rifiuto** con `NO_DURATION`, com'è. Un ripiego «decodifica e misura» decodificherebbe per intero un file di dimensione ignota: meno sicuro | Nessuna modifica al codice |
+
+**Altre scelte:**
+- Il `dsp-worker` ora esegue `dsp-core` (`extension/src/shared/pcm-analysis.ts`, `pcm-analysis-0`); restituisce statistiche e digest, mai campioni. Il percorso a blocchi per scheda e microfono resta a I-06.
+- Rifiuto alla scelta del file (troppo lungo, troppo grande, durata illeggibile): nessuna sessione chiesta, «Analizza» non offerto.
+- `extension` dipende ora da `@voicecrystal/dsp-core` (workspace, nessuna dipendenza esterna nuova). Bundle `dsp-worker.js` 9,9 KB.
+- `file-probe.ts` del piano è confluito in `file-decode.ts`.
 
 ## I-17: Definition of Done (implementata, non chiusa)
 
@@ -347,11 +410,16 @@
 1. I-10: revisione estetica del catalogo da parte di una persona, al G2.
 2. I-17 (mergiata, `cd3924e`; CI su `main` verde): **umano** (decisi: Brave basta, arco `AUTHORIZING → INTERRUPTED` accettato) — annotare dove compare l'indicatore di registrazione e l'esito di M13b; eseguire M14c; ripetere M13–M14 sulla build finale.
 3. I-03 (mergiata, `63ff4aa`): **umano** — M3–M11 su youtube.com reale (Brave o Google Chrome), M8 con un annuncio vero; decidere l'emendamento di ADR-0011 e confermare il metodo di misura della memoria (dati sopra). Latenza del pass-through (VC-19): da misurare in I-06 o con un metodo nuovo per M21.
-4. I-05b: sbloccata, dipendenze decise (D-L): libfvad compilato dal progetto nel bundle, Silero solo in Node per il confronto. Da iniziare in plan mode. I-18 (sorgente file), sbloccata: la DoD «stesso seed dell'harness Node» non è verificabile prima di I-06/I-07; proposta da decidere all'avvio: confronto su PCM mono a 16 kHz, `signalSummary` e traccia di f0.
-5. **Umano:** archiviare la vecchia sessione I-10 ferma su una domanda; cancellare `.agents/` e `.codex/`; completare la riga M0 con le versioni esatte di Chrome e il SO.
-6. Aggiornare SPEC §5 e §14 secondo ADR-0015 (modifica di sola documentazione).
-7. **Umano:** attivare la protezione di `main` descritta in CONTRIBUTING.md (CI obbligatoria, nessun push diretto).
-8. In parallelo, azioni umane: avviare G0 (`docs/LEGAL_G0_CHECKLIST.md`) e preparare moduli di consenso e reclutamento per il dataset (I-08).
+4. I-18 (branch `issue/I-18-file-source`, non committato):
+   - **umano, TO DO non bloccante:** eseguire M15 e M24–M28 in Brave quando possibile (fino ad allora I-18 resta non chiusa, ma le issue successive possono partire);
+   - chiedere commit e PR.
+
+   Poi CI, con particolare attenzione all'E2E su Linux, dove `file.spec.ts` non è mai girato.
+5. I-05b: sbloccata, dipendenze decise (D-L): libfvad compilato dal progetto nel bundle, Silero solo in Node per il confronto. Da iniziare in plan mode. Prima del seed (I-06/I-07): cancello di D-N su VC-24.
+6. **Umano:** archiviare la vecchia sessione I-10 ferma su una domanda; cancellare `.agents/` e `.codex/`; completare la riga M0 con le versioni esatte di Chrome e il SO.
+7. Aggiornare SPEC §5 e §14 secondo ADR-0015, e SPEC §5 (punti 3 e 7, «Una cattura globale») secondo ADR-0022 (modifiche di sola documentazione).
+8. **Umano:** attivare la protezione di `main` descritta in CONTRIBUTING.md (CI obbligatoria, nessun push diretto).
+9. In parallelo, azioni umane: avviare G0 (`docs/LEGAL_G0_CHECKLIST.md`) e preparare moduli di consenso e reclutamento per il dataset (I-08).
 
 ## Blocchi
 
@@ -400,6 +468,13 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | Immagini di riferimento di `renderer-three` su Linux | Non verificato (CI non eseguita) |
 
 ## Proposte fuori perimetro
+
+- **Da I-18, determinismo di `dsp-core` fra motori JS.** `Math.log10`, `log`, `exp`, `sin`, `cos`, `atan` e `log2` danno 1–2 ULP di differenza fra Node 26.13 e Chromium 156 (`docs/BENCHMARK_PROTOCOL.md` §7). Due strade, da decidere prima del seed (I-06/I-07):
+  - funzioni proprie e deterministiche in `dsp-core`, come in `crystal-core` (ADR-0010), con regola di lint;
+  - oppure dimostrare che il seed quantizzato non ne risente, con una proprietà di margine dai confini delle caselle.
+
+  Serve un ADR. Va corretta anche la frase di `packages/dsp-core/CLAUDE.md` «Deve girare identica in Node e nel DSP worker», che oggi non è vera bit per bit.
+- **Da I-18, `scripts/fixtures/wav.ts`:** il decoder dell'harness divide int16 per 32768; quello di Chromium usa 32767 per i positivi. Si potrebbe allineare l'harness alla regola del browser, così che bench e pannello partano dagli stessi campioni. Cambia i numeri di `pnpm bench` di circa 0,0001 dB: va fatto con una riga in BENCHMARK_PROTOCOL.
 
 - `tests/e2e/MANUAL_CHECKLIST.md`, M21: la procedura con impulsi presuppone un riferimento temporale che non c'è. Proporre un metodo praticabile senza cavo, ad esempio il click del tasto come riferimento, registrato con il telefono (non soggetto alla cancellazione d'eco del PC), e i passi per riconoscere il tono nella forma d'onda.
 

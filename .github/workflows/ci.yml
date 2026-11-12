@@ -62,6 +62,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm build
+      # I-18: file.spec.ts loads the WAV fixtures, which are generated, not committed (R16).
+      - run: pnpm fixtures
+        timeout-minutes: 5
       # Headed under a virtual display: headless support is documented in tests/e2e/README.md.
       - run: xvfb-run --auto-servernum pnpm test:e2e
 

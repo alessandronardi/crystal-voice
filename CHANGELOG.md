@@ -67,6 +67,41 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 - I-03: E2E `lifecycle.spec.ts` e `cycles.spec.ts`, con helper condivisi in `tests/e2e/harness.ts`: scenari S2, S3, S6 sintetico, S7, S8, cambio video, navigazione SPA, chiusura della scheda, due schede, 45 s, 120 s, 100 cicli con misura della memoria. Checklist manuale M3–M11 aggiornata.
 - I-02 chiusa il 2026-11-11 senza la misura della latenza del pass-through (decisione del product owner); prove manuali M1–M3, M10 e M20 (30/30) in Brave.
 - I-02: E2E `tab-capture.spec.ts`. Il click sull'icona è simulato con il comando CDP `Extensions.triggerAction` sul target `tab`, su una finta pagina `/watch` con tono sintetico; il test copre la pausa di 60 s e lo stop dal pannello. Voci manuali M20 (30 avvii) e M21 (latenza con loopback).
+- I-18: sorgente file locale nel pannello, sezione «Da un file». Si scelgono il file e il punto di partenza, poi «Analizza».
+  - **WAV:** intestazione letta senza fidarsi; si decodifica solo la finestra di 120 s, alla frequenza del file.
+  - **Altri formati:** durata dai metadati di `<audio>`, decodifica intera a 48 kHz con budget di memoria [H] di 256 MB.
+  - **Errori:** `FILE_TOO_LONG` oltre 30 minuti o oltre il budget, `FILE_DECODE_FAILED`.
+- I-18: il `dsp-worker` ora esegue `dsp-core`. Il pannello ne avvia uno per analisi (ADR-0022, Accettato), gli trasferisce i campioni e riceve solo statistiche e digest (`pcm-analysis-0`); il PCM non lascia il pannello.
+- I-18: un'analisi da file è una sessione per `CAPTURE_BUSY`, nei due versi. Messaggi interni `FILE_SESSION_END`, `FILE_SESSION_PING` e `FILE_SESSION_PONG` in `packages/contracts`. Il service worker riconosce una sessione file orfana (pannello chiuso) dal ping senza risposta.
+- I-18: E2E `file.spec.ts`, 17 test. Il file entra con CDP `DOM.setFileInputFiles` (`harness.setPanelFile`); il doppio click è reale, con eventi del mouse CDP (`harness.mouseClicksInSidePanel`).
+  - Misure: le 32 fixture confrontate con Node, la regola int16 → float del decoder di Chromium, `Math` in Node e nel pannello, la memoria del pannello con una controprova.
+  - Unit: intestazione WAV (con property test), limiti, analisi, instradamento.
+  - Voci manuali: M15 aggiornata, M24–M28; non ancora eseguite (TO DO non bloccante per decisione del product owner del 2026-11-12).
+- I-18, dopo la revisione avversariale (CONDITIONAL GO):
+  - un'eccezione imprevista non blocca più il pannello;
+  - il worker viene terminato anche se l'invio fallisce o non risponde entro 60 s [H];
+  - lo stop è immediato anche durante la decodifica;
+  - «Interrompi» ignora i click per 500 ms [H], così il secondo click di un doppio click non ferma l'analisi (con controprova);
+  - memoria ricontrollata dopo la decodifica con canali e lunghezza reali;
+  - partenza oltre la fine rifiutata senza chiedere una sessione;
+  - frequenze WAV che il resampler non converte passano al percorso a file intero;
+  - fra un'analisi e l'altra si conserva solo il chunk `fmt `, non i primi byte del file;
+  - il pannello delle catture ignora gli esiti dei file.
+- Registro dei rischi: VC-24 (`dsp-core` non identico bit per bit fra motori JS), VC-25 (memoria dei file non WAV). Note di attuazione in ADR-0001 e ADR-0009.
+- Decisioni su I-18 prese dall'agente per delega del product owner («soluzioni agili e sicure»):
+  - D-N: VC-24 con cancello sul seed in I-07;
+  - D-O: budget di memoria come stima più ricontrollo;
+  - D-P: rifiuto dei file senza durata.
+
+  ADR-0022 accettato dal product owner (D-M).
+
+### Misurato
+- I-18 (Chromium 156 contro Node 26.13, Windows 11):
+  - il decoder di Chromium converte int16 come n / 32768 per i negativi e float32(n) × float32(1/32767) per i positivi; l'harness divide tutto per 32768;
+  - `Math.log10`, `log`, `log2`, `exp`, `sin`, `cos`, `sinh` e `atan` danno risultati diversi di 1–2 ULP fra V8 14.6 e Chromium 156, sullo 0,2–6% degli ingressi; `sqrt`, `pow` e `hypot` sono identici;
+  - con gli stessi campioni, la parte aritmetica dell'analisi coincide bit per bit con Node su 32 fixture su 32.
+
+  Dettagli in `docs/BENCHMARK_PROTOCOL.md` §7.
 
 ### Modificato
 - Backlog, I-05b: dipendenze approvate (D-L, decisa per delega del product owner). Nel bundle solo libfvad, compilato in WASM dal progetto con Emscripten fissato. Silero VAD solo in Node (`onnxruntime-node` 1.31.1, dipendenza di sviluppo) come riferimento del confronto.

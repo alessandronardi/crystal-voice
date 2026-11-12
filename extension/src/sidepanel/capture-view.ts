@@ -343,7 +343,10 @@ export function mountCaptureView(root: HTMLElement): void {
   };
 
   const onLastStart = (value: unknown): void => {
-    if (!isLastStart(value)) return;
+    // A file start belongs to the file view, which shows its own outcome: here
+    // it would wipe a capture's explanation (e.g. NOT_YOUTUBE_WATCH) or show
+    // a file's CAPTURE_BUSY twice (I-18, review L5).
+    if (!isLastStart(value) || value.source === 'file') return;
     if (value.source === 'mic') state.micSessions.add(value.sessionId);
     // Only a refusal answers a pending start: an accepted one is answered by
     // its first diagnostic, and until then the button stays hidden.

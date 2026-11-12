@@ -27,6 +27,12 @@ Architettura ufficialmente documentata; DSP testabile offline. Costo: messaggist
 
 E2E avvio/stop (I-02); test unit del worker su fixture (I-04).
 
+**Nota di attuazione (I-18, 2026-11-12).**
+- **Dove gira il worker:** per i file locali il `dsp-worker` gira anche nel pannello, in un'istanza dedicata (ADR-0022, Accettato).
+- **«Identico a Node» vale per il codice, non bit per bit per ogni risultato.** Misurato fra Node 26.13 (V8 14.6) e Chromium 156: `Math.log10`, `log`, `log2`, `exp`, `sin`, `cos`, `sinh` e `atan` danno doppi diversi di 1–2 ULP sull'1–6% degli ingressi; `sqrt`, `pow` e `hypot` coincidono.
+- **Effetto osservato sull'analisi delle 32 fixture:** solo i livelli in dB, al massimo 2 ULP.
+- **Rischio:** VC-24, da decidere prima del seed (`docs/BENCHMARK_PROTOCOL.md` §7).
+
 ## Riferimenti
 
 SPEC §5; [tabCapture](https://developer.chrome.com/docs/extensions/reference/api/tabCapture)

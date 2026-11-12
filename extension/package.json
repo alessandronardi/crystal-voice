@@ -13,6 +13,7 @@
     "@types/chrome": "0.3.7",
     "@types/node": "26.6.6",
     "@voicecrystal/contracts": "workspace:*",
+    "@voicecrystal/dsp-core": "workspace:*",
     "tailwindcss": "4.3.3",
     "vite": "8.3.5"
   }

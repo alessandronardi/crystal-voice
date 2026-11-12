@@ -68,6 +68,28 @@ jobs:
       # Headed under a virtual display: headless support is documented in tests/e2e/README.md.
       - run: xvfb-run --auto-servernum pnpm test:e2e
 
+  fvad-wasm:
+    # I-05b (D-L): libfvad is compiled by the project in a pinned Emscripten
+    # image; the committed module must be byte-identical to a fresh build.
+    name: libfvad WASM (reproducible build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: build in emscripten/emsdk (pinned by digest)
+        run: bash scripts/vad/build-fvad-docker.sh "$RUNNER_TEMP/fvad"
+        timeout-minutes: 10
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: fvad-wasm
+          path: ${{ runner.temp }}/fvad/
+          retention-days: 7
+      - name: compare with the committed module
+        run: |
+          cat "$RUNNER_TEMP/fvad/fvad.wasm.sha256"
+          cmp "$RUNNER_TEMP/fvad/fvad.wasm" packages/dsp-core/wasm/fvad.wasm
+          (cd packages/dsp-core/wasm && sha256sum -c fvad.wasm.sha256)
+
   golden-browsers:
     name: golden hashes (Chromium, Firefox)
     runs-on: ubuntu-latest

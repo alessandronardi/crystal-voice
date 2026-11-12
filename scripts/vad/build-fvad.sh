@@ -69,8 +69,15 @@ if [ ! -f "$DLMALLOC" ]; then
   echo "notice not found: $DLMALLOC" >&2
   exit 1
 fi
-# The public-domain dedication is the file's leading comment, up to its first "*/".
-sed -n '1,/\*\//p' "$DLMALLOC" > "$NOTICES/dlmalloc-NOTICE.txt"
+# The public-domain dedication: from "This is a version (aka dlmalloc)" to the
+# end of that paragraph block ("Check before installing!"). Fail if either
+# marker is missing, so a changed header is noticed instead of shipped empty.
+sed -n '/This is a version (aka dlmalloc)/,/Check before installing/p' "$DLMALLOC" > "$NOTICES/dlmalloc-NOTICE.txt"
+if ! grep -q 'public domain' "$NOTICES/dlmalloc-NOTICE.txt" || ! grep -q 'Check before installing' "$NOTICES/dlmalloc-NOTICE.txt"; then
+  echo "dlmalloc dedication not found in $DLMALLOC" >&2
+  sed -n '1,60p' "$DLMALLOC" >&2
+  exit 1
+fi
 ( cd "$NOTICES" && sha256sum ./*.txt )
 ( cd "$OUT_DIR" && sha256sum fvad.wasm | tee fvad.wasm.sha256 )
 echo "size: $(stat -c %s "$OUT_DIR/fvad.wasm") bytes"

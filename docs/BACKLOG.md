@@ -162,8 +162,9 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
   - **Fuori da I-05b:** il resampler con stato per il percorso a blocchi del `dsp-worker` (eredità di I-05a), che serve quando il VAD entra nel worker (I-06).
 - **Eredità da I-05a:** `VadEngine` è sincrona e a 20 ms; per Silero serve un adattatore asincrono con buffering, o un'interfaccia rivista, con una suite di conformità comune. Il resampler è solo a buffer intero: il percorso a blocchi del worker ne richiede uno con stato.
 - **DoD:**
-  - [ ] Tabella comparativa dei due VAD: falsi positivi su musica, falsi negativi su voce sintetica, dimensione bundle, licenza, tempo per secondo di audio.
-  - [ ] ADR con la scelta del VAD.
+  - [x] Tabella comparativa dei due VAD: falsi positivi su musica, falsi negativi su voce sintetica, dimensione bundle, licenza, tempo per secondo di audio. In ADR-0023 e in `docs/BENCHMARK_PROTOCOL.md` §7 (`pnpm bench:vad:silero`, 2026-11-12), solo su fixture sintetiche.
+  - [ ] ADR con la scelta del VAD. ADR-0023 scritto, `Proposto`: serve l'accettazione del product owner.
+- **Stato:** implementata il 2026-11-12 sul branch `issue/I-05b-vad-engines`, non chiusa. Evidenze in `docs/STATUS.md`.
 - **Test:** unit su fixture; benchmark registrato.
 
 ### I-06 · Sei descrittori, confidenza, euristiche musica e più voci

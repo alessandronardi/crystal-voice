@@ -5,6 +5,15 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 ## [Unreleased]
 
 ### Aggiunto
+- I-05b: WebRTC VAD.
+  - **Build:** libfvad (`dpirch/libfvad` al commit `532ab66`, BSD-3-Clause con `PATENTS`) compilato in WASM dal progetto: `scripts/vad/build-fvad.sh` nell'immagine `emscripten/emsdk:6.0.13`, fissata per digest. Il file `packages/dsp-core/wasm/fvad.wasm` (28.424 B) è committato con il suo SHA-256; il job CI «libfvad WASM (reproducible build)» lo ricostruisce e lo confronta byte per byte.
+  - **Motore:** `createWebRtcVad` in `dsp-core`, dietro `VadEngine` (binario, `probability: null`). Si istanzia solo con `instantiateFvad`: import non dichiarati rifiutati, stub WASI che lanciano un errore, modulo inutilizzabile dopo un errore interno. `FVAD_MODE` = 2 [H].
+- I-05b: confronto dei VAD.
+  - **Comandi:** `pnpm bench:vad` (anche in CI) e `pnpm bench:vad:silero`.
+  - **Riferimento Silero:** Silero VAD v6.2.3, con `onnxruntime-node` 1.31.1 in `tools/silero-reference/`, fuori dal workspace pnpm; modello verificato tramite git blob e SHA-256.
+  - **Fixture nuove:** `music-chords-v1..v3` (solo musica; `FIXTURES_VERSION` invariata).
+  - **Risultato:** su fixture sintetiche libfvad chiama «voce» tutta la musica sola, mentre Silero scarta il 35% della voce sintetica.
+  - **ADR-0023** (`Proposto`): libfvad modo 2 come VAD principale; la musica non si delega al VAD.
 - Specifica v0.3 con decisioni D1–D5 e modifiche Δ1–Δ21.
 - ADR 0001–0014, backlog I-01…I-18, gate, registro dei rischi, protocollo di benchmark, checklist G0, glossario.
 - `AGENTS.md`, `CLAUDE.md` e regole locali per `extension/`, `packages/dsp-core/`, `packages/crystal-core/`.

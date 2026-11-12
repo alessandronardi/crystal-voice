@@ -232,6 +232,9 @@ importers:
       '@voicecrystal/contracts':
         specifier: workspace:*
         version: link:../packages/contracts
+      '@voicecrystal/dsp-core':
+        specifier: workspace:*
+        version: link:../packages/dsp-core
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3

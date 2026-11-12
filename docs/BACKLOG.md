@@ -164,7 +164,7 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 - **DoD:**
   - [x] Tabella comparativa dei due VAD: falsi positivi su musica, falsi negativi su voce sintetica, dimensione bundle, licenza, tempo per secondo di audio. In ADR-0023 e in `docs/BENCHMARK_PROTOCOL.md` §7 (`pnpm bench:vad:silero`, 2026-11-12), solo su fixture sintetiche.
   - [x] ADR con la scelta del VAD: ADR-0023, accettato dal product owner il 2026-11-12 (modo 2).
-- **Stato:** implementata il 2026-11-12 sul branch `issue/I-05b-vad-engines`, DoD soddisfatta, ADR-0023 accettato; si chiude con il merge della PR. La clausola di `PATENTS` va accettata prima che il `.wasm` entri in `dist/` (I-06, I-16). Evidenze in `docs/STATUS.md`.
+- **Stato:** chiusa il 2026-11-12 ([PR crystal-voice#14](https://github.com/alessandronardi/crystal-voice/pull/14), merge squash `f61c291`; CI della PR verde). ADR-0023 accettato. La clausola di `PATENTS` va accettata prima che il `.wasm` entri in `dist/` (I-06, I-16). Evidenze in `docs/STATUS.md`.
 - **Test:** unit su fixture; benchmark registrato.
 
 ### I-06 · Sei descrittori, confidenza, euristiche musica e più voci

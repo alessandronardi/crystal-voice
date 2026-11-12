@@ -1,6 +1,7 @@
-// Start of a tab capture (SPEC §5, ADR-0002) or of a microphone session
-// (I-17). The service worker coordinates only: the offscreen document owns the
-// stream and the authoritative state.
+// Start of a tab capture (SPEC §5, ADR-0002), of a microphone session (I-17)
+// or of a file analysis (I-18, ADR-0022). The service worker coordinates
+// only: the offscreen document owns the stream and the authoritative state of
+// a capture, the side panel the decoding and analysis of a file.
 import type {
   CaptureErrorCode,
   CaptureStartMessage,
@@ -9,9 +10,11 @@ import type {
   SessionBind,
   SessionId,
 } from '@voicecrystal/contracts';
+import { assertNever } from '@voicecrystal/contracts';
 import {
   ACTIVE_SESSION_KEY,
   LAST_START_KEY,
+  isFileSessionAlive,
   readActiveSession,
   type ActiveSession,
   type LastStart,
@@ -105,15 +108,78 @@ export async function startMicCapture(sessionId: SessionId): Promise<void> {
 }
 
 /**
- * A SPEC §9 CAPTURE_START from an extension page. Only the microphone starts
- * this way: the tab starts from the toolbar only (SPEC §5 [F], ADR-0002) and
- * files are decoded in the panel (I-18). Anything else is ignored.
+ * Start of a file analysis, asked by a side panel (I-18, ADR-0022). Nothing
+ * starts here: the panel decodes and analyses the file itself, and no PCM
+ * reaches this worker. The service worker only applies «one session per
+ * profile» (SPEC §5): it refuses while another session runs, and otherwise
+ * records the file session; the asking panel keeps it alive by answering
+ * FILE_SESSION_PING. The panel goes on once `activeSession` names its session.
+ */
+export async function startFileSession(sessionId: SessionId): Promise<void> {
+  const start: LastStart = { sessionId, source: 'file', failure: null };
+  const fail = (failure: CaptureErrorCode): Promise<void> => recordStart({ ...start, failure });
+  if (starting !== null) {
+    await fail('CAPTURE_BUSY');
+    return;
+  }
+  starting = runFileStart(start, fail);
+  try {
+    await starting;
+  } finally {
+    starting = null;
+  }
+}
+
+/**
+ * A SPEC §9 CAPTURE_START from an extension page. The microphone and the file
+ * start this way; the tab starts from the toolbar only (SPEC §5 [F],
+ * ADR-0002), so a tab request is ignored.
  */
 export function onCaptureStartRequest(message: CaptureStartMessage): Promise<void> | null {
-  return message.source === 'mic' ? startMicCapture(message.sessionId) : null;
+  switch (message.source) {
+    case 'mic':
+      return startMicCapture(message.sessionId);
+    case 'file':
+      return startFileSession(message.sessionId);
+    case 'tab':
+      return null;
+    default:
+      return assertNever(message.source);
+  }
 }
 
 type Fail = (failure: CaptureErrorCode) => Promise<void>;
+
+/**
+ * One session per profile (SPEC §5): true when another session runs. A live
+ * offscreen means a session, because every failed start closes the document
+ * it created. A file session runs while its panel answers the ping
+ * (ADR-0022). A recorded session that is neither (the offscreen or the panel
+ * died) is stale: it is cleaned and the start goes on.
+ */
+async function anotherSessionRuns(): Promise<boolean> {
+  if (await hasOffscreen()) return true;
+  const active = await readActiveSession();
+  if (active?.source === 'file' && (await isFileSessionAlive(active.sessionId))) return true;
+  if (active !== null) await chrome.storage.session.remove(ACTIVE_SESSION_KEY);
+  return false;
+}
+
+async function runFileStart(start: LastStart & { source: 'file' }, fail: Fail): Promise<void> {
+  // Recorded before any await, as for the other sources (review M-1 of I-03).
+  const recorded = recordStart(start);
+  try {
+    await recorded;
+    if (await anotherSessionRuns()) {
+      await fail('CAPTURE_BUSY');
+      return;
+    }
+    const active: ActiveSession = { sessionId: start.sessionId, source: 'file' };
+    await chrome.storage.session.set({ [ACTIVE_SESSION_KEY]: active });
+  } catch {
+    await fail('INTERNAL_ERROR');
+  }
+}
 
 /** Records the start and creates the offscreen; false (outcome recorded) when the start cannot go on. */
 async function prepareOffscreen(start: LastStart, fail: Fail): Promise<boolean> {
@@ -122,15 +188,11 @@ async function prepareOffscreen(start: LastStart, fail: Fail): Promise<boolean> 
   const recorded = recordStart(start);
   try {
     await recorded;
-    // One capture per profile (SPEC §5). A live offscreen means a session,
-    // because every failed start below closes the document it created; the
-    // side panel offers to stop it. A recorded session without an offscreen
-    // is stale (the document died): clean it and go on.
-    if (await hasOffscreen()) {
+    // The side panel offers to stop the running session.
+    if (await anotherSessionRuns()) {
       await fail('CAPTURE_BUSY');
       return false;
     }
-    if ((await readActiveSession()) !== null) await chrome.storage.session.remove(ACTIVE_SESSION_KEY);
     await ensureOffscreen();
     return true;
   } catch {

@@ -5,6 +5,7 @@
 import {
   isTerminalCaptureState,
   type CaptureDiag,
+  type FileSessionEnd,
   type OffscreenStop,
   type OffscreenStopReason,
   type SessionId,
@@ -52,6 +53,14 @@ export function onTabUpdated(
 /** tabCapture.onStatusChanged: a stopped or failed capture ends the session. */
 export function onCaptureStatus(tabId: number, status: string): void {
   if (status === 'stopped' || status === 'error') void stopIfTab(tabId, 'STREAM_ENDED');
+}
+
+/** A side panel's file analysis is over: clear its routing state, and only its own (ADR-0022). */
+export async function onFileSessionEnd(message: FileSessionEnd): Promise<void> {
+  const active = await readActiveSession();
+  if (active?.source === 'file' && active.sessionId === message.sessionId) {
+    await chrome.storage.session.remove(ACTIVE_SESSION_KEY);
+  }
 }
 
 /** The offscreen's final message clears the routing state of its session. */

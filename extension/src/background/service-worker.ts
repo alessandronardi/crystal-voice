@@ -7,11 +7,12 @@ import {
   isCaptureDiag,
   isCaptureStartMessage,
   isCaptureStopMessage,
+  isFileSessionEnd,
   isPingMessage,
   makePong,
 } from '@voicecrystal/contracts';
 import { isOwnExtensionContext } from '../shared/sender.ts';
-import { onCaptureStatus, onDiag, onTabRemoved, onTabUpdated, stopActiveSession } from './routing.ts';
+import { onCaptureStatus, onDiag, onFileSessionEnd, onTabRemoved, onTabUpdated, stopActiveSession } from './routing.ts';
 import { isYoutubeWatchUrl, onActionClicked, onCaptureStartRequest } from './start-capture.ts';
 
 chrome.action.onClicked.addListener(onActionClicked);
@@ -36,9 +37,13 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   } else if (isCaptureStartMessage(message)) {
     void onCaptureStartRequest(message);
   } else if (isCaptureStopMessage(message)) {
+    // Reaches the offscreen; a file session's panel receives the same
+    // broadcast and stops its own analysis (ADR-0022).
     void stopActiveSession(message.sessionId, 'USER_STOP');
   } else if (isCaptureDiag(message)) {
     void onDiag(message);
+  } else if (isFileSessionEnd(message)) {
+    void onFileSessionEnd(message);
   }
   return false;
 });

@@ -10,6 +10,8 @@ type Calls = string[];
 interface ChromeMock {
   calls: Calls;
   contexts: unknown[];
+  /** File sessions whose side panel answers FILE_SESSION_PING. */
+  livePanels: Set<string>;
   stored: Record<string, unknown>[];
   /** Current content of chrome.storage.session. */
   store: Map<string, unknown>;
@@ -25,6 +27,7 @@ function installChrome(): ChromeMock {
   const mock: ChromeMock = {
     calls: [],
     contexts: [],
+    livePanels: new Set(),
     stored: [],
     store: new Map(),
     sent: [],
@@ -35,6 +38,13 @@ function installChrome(): ChromeMock {
     closeDocument: vi.fn<() => Promise<void>>(),
   };
   mock.sendMessage.mockImplementation((message: unknown) => {
+    const m = message as { type?: unknown; sessionId?: unknown };
+    // FILE_SESSION_PING (ADR-0022): only a live panel answers; pings are not counted as sent.
+    if (m.type === 'FILE_SESSION_PING') {
+      mock.calls.push('ping');
+      const id = String(m.sessionId);
+      return Promise.resolve(mock.livePanels.has(id) ? { v: 1, type: 'FILE_SESSION_PONG', sessionId: id } : undefined);
+    }
     mock.calls.push('sendMessage');
     mock.sent.push(message);
     return Promise.resolve(undefined);
@@ -415,11 +425,10 @@ describe('microphone start (I-17)', () => {
     expect(lastStart()).toMatchObject({ source: 'mic', failure: 'OFFSCREEN_FAILED' });
   });
 
-  it('a CAPTURE_START from a page starts the microphone only; tab and file requests are ignored', async () => {
+  it('a CAPTURE_START from a page starts the microphone or a file; a tab request is ignored', async () => {
     const { onCaptureStartRequest } = await load();
     const base = { v: 1 as const, type: 'CAPTURE_START' as const, sessionId: PANEL_SESSION, seq: 0 };
     expect(onCaptureStartRequest({ ...base, source: 'tab', tabId: 7 })).toBeNull();
-    expect(onCaptureStartRequest({ ...base, source: 'file', tabId: null })).toBeNull();
     await settle();
     expect(mock.createDocument).not.toHaveBeenCalled();
     expect(mock.getMediaStreamId).not.toHaveBeenCalled();
@@ -439,16 +448,154 @@ describe('microphone start (I-17)', () => {
     expect(mock.sent).toEqual([]);
   });
 
-  it('routing records: a mic record has no tab id, a tab record needs one', async () => {
+  it('routing records: mic and file records have no tab id, a tab record needs one', async () => {
     vi.resetModules();
     const { isActiveSession, isLastStart } = await import('../src/shared/session-storage.ts');
     expect(isActiveSession({ sessionId: PANEL_SESSION, source: 'mic' })).toBe(true);
     expect(isActiveSession({ sessionId: PANEL_SESSION, source: 'mic', tabId: 7 })).toBe(false);
     expect(isActiveSession({ sessionId: PANEL_SESSION, source: 'tab' })).toBe(false);
-    expect(isActiveSession({ sessionId: PANEL_SESSION, source: 'file' })).toBe(false);
+    expect(isActiveSession({ sessionId: PANEL_SESSION, source: 'file' })).toBe(true);
+    expect(isActiveSession({ sessionId: PANEL_SESSION, source: 'file', tabId: 1 })).toBe(false);
+    expect(isActiveSession({ sessionId: PANEL_SESSION, source: 'disk' })).toBe(false);
+    expect(isLastStart({ sessionId: PANEL_SESSION, source: 'file', failure: null })).toBe(true);
     expect(isLastStart({ sessionId: PANEL_SESSION, source: 'mic', failure: 'MIC_PERMISSION_REQUIRED' })).toBe(true);
     expect(isLastStart({ sessionId: PANEL_SESSION, source: 'mic', tabId: null, failure: null })).toBe(false);
     expect(isLastStart({ sessionId: PANEL_SESSION, source: 'tab', tabId: 3, failure: 'NOPE' })).toBe(false);
+  });
+});
+
+describe('file session (I-18, ADR-0022)', () => {
+  const FILE_SESSION = '7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d';
+  const OTHER = '0b9a8c7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d';
+  const fileActive = (sessionId = FILE_SESSION) => ({ sessionId, source: 'file' });
+
+  it('records the session; no offscreen, no message, no audio', async () => {
+    const { startFileSession } = await load();
+    await startFileSession(FILE_SESSION);
+    expect(mock.store.get('activeSession')).toEqual(fileActive());
+    expect(lastStart()).toEqual({ sessionId: FILE_SESSION, source: 'file', failure: null });
+    expect(mock.createDocument).not.toHaveBeenCalled();
+    expect(mock.sent).toEqual([]);
+  });
+
+  it('is refused with CAPTURE_BUSY while a capture runs (offscreen alive)', async () => {
+    mock.contexts.push({ contextType: 'OFFSCREEN_DOCUMENT' });
+    mock.store.set('activeSession', { sessionId: OTHER, source: 'mic' });
+    const { startFileSession } = await load();
+    await startFileSession(FILE_SESSION);
+    expect(lastStart()).toMatchObject({ source: 'file', failure: 'CAPTURE_BUSY' });
+    expect(mock.store.get('activeSession')).toEqual({ sessionId: OTHER, source: 'mic' });
+  });
+
+  it('is refused with CAPTURE_BUSY while another panel analyses a file (it answers the ping)', async () => {
+    mock.livePanels.add(FILE_SESSION);
+    mock.store.set('activeSession', fileActive());
+    const { startFileSession } = await load();
+    await startFileSession(OTHER);
+    expect(lastStart()).toMatchObject({ sessionId: OTHER, failure: 'CAPTURE_BUSY' });
+    expect(mock.store.get('activeSession')).toEqual(fileActive());
+    expect(mock.calls).toContain('ping');
+  });
+
+  it('a file session whose panel does not answer is stale: cleaned, and the new start goes on', async () => {
+    mock.store.set('activeSession', fileActive());
+    const { startFileSession } = await load();
+    await startFileSession(OTHER);
+    expect(lastStart()).toMatchObject({ sessionId: OTHER, failure: null });
+    expect(mock.store.get('activeSession')).toEqual(fileActive(OTHER));
+  });
+
+  it('a pong for another session does not keep a session alive', async () => {
+    mock.store.set('activeSession', fileActive());
+    mock.sendMessage.mockImplementationOnce(() => Promise.resolve({ v: 1, type: 'FILE_SESSION_PONG', sessionId: OTHER }));
+    const { startFileSession } = await load();
+    await startFileSession(OTHER);
+    expect(lastStart()).toMatchObject({ sessionId: OTHER, failure: null });
+  });
+
+  it('the toolbar and the microphone are refused while a file is analysed, and go on once its panel is gone', async () => {
+    mock.livePanels.add(FILE_SESSION);
+    mock.store.set('activeSession', fileActive());
+    const { onActionClicked, startMicCapture } = await load();
+    onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
+    await settle();
+    expect(lastStart()).toMatchObject({ source: 'tab', failure: 'CAPTURE_BUSY' });
+    await startMicCapture(OTHER);
+    expect(lastStart()).toMatchObject({ source: 'mic', failure: 'CAPTURE_BUSY' });
+    expect(mock.createDocument).not.toHaveBeenCalled();
+    expect(mock.getMediaStreamId).not.toHaveBeenCalled();
+    mock.livePanels.delete(FILE_SESSION); // the panel was closed mid-analysis
+    await startMicCapture(OTHER);
+    expect(lastStart()).toMatchObject({ source: 'mic', failure: null });
+    expect(mock.store.get('activeSession')).toEqual({ sessionId: OTHER, source: 'mic' });
+  });
+
+  it('a ping with no receiver, or one that never answers, does not leave every later start refused', async () => {
+    mock.store.set('activeSession', fileActive());
+    mock.sendMessage.mockImplementationOnce(() => Promise.reject(new Error('Could not establish connection')));
+    const { startMicCapture } = await load();
+    await startMicCapture(OTHER);
+    expect(lastStart()).toMatchObject({ source: 'mic', failure: null });
+
+    vi.useFakeTimers();
+    try {
+      mock.store.set('activeSession', fileActive());
+      mock.contexts.length = 0;
+      mock.sendMessage.mockImplementationOnce(() => new Promise(() => undefined));
+      const { startFileSession } = await load();
+      const started = startFileSession(OTHER);
+      await vi.advanceTimersByTimeAsync(999);
+      expect(mock.store.get('activeSession')).toEqual(fileActive());
+      await vi.advanceTimersByTimeAsync(1);
+      await started;
+      expect(mock.store.get('activeSession')).toEqual(fileActive(OTHER));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shares the one-start-at-a-time guard with the other sources', async () => {
+    const { onActionClicked, startFileSession } = await load();
+    onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
+    await startFileSession(FILE_SESSION);
+    await settle();
+    expect(lastStart()).toMatchObject({ source: 'file', failure: 'CAPTURE_BUSY' });
+    expect(mock.store.get('activeSession')).toMatchObject({ source: 'tab' });
+  });
+
+  it('FILE_SESSION_END clears its own file session only', async () => {
+    vi.resetModules();
+    const routing = await import('../src/background/routing.ts');
+    const end = (sessionId: string) => ({ v: 1 as const, type: 'FILE_SESSION_END' as const, sessionId });
+    mock.store.set('activeSession', fileActive());
+    await routing.onFileSessionEnd(end(OTHER));
+    expect(mock.store.get('activeSession')).toEqual(fileActive());
+    // A capture with the same id is not a file session: untouched.
+    mock.store.set('activeSession', { sessionId: FILE_SESSION, source: 'mic' });
+    await routing.onFileSessionEnd(end(FILE_SESSION));
+    expect(mock.store.has('activeSession')).toBe(true);
+    mock.store.set('activeSession', fileActive());
+    await routing.onFileSessionEnd(end(FILE_SESSION));
+    expect(mock.store.has('activeSession')).toBe(false);
+  });
+
+  it('tab signals never stop a file session', async () => {
+    mock.store.set('activeSession', fileActive());
+    vi.resetModules();
+    const routing = await import('../src/background/routing.ts');
+    const { isYoutubeWatchUrl } = await import('../src/background/start-capture.ts');
+    routing.onTabRemoved(7);
+    routing.onTabUpdated(7, { status: 'loading' }, isYoutubeWatchUrl);
+    routing.onCaptureStatus(7, 'stopped');
+    await settle();
+    expect(mock.sent).toEqual([]);
+  });
+
+  it('a CAPTURE_START for a file starts a file session', async () => {
+    const { onCaptureStartRequest } = await load();
+    const message = { v: 1 as const, type: 'CAPTURE_START' as const, sessionId: FILE_SESSION, seq: 0, source: 'file' as const, tabId: null };
+    await onCaptureStartRequest(message);
+    expect(mock.store.get('activeSession')).toEqual(fileActive());
   });
 });
 

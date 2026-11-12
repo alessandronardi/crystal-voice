@@ -7,7 +7,7 @@
 // to the offline harness (BACKLOG I-18, decision D4). Large and malformed
 // files are synthetic and written to a temporary directory, never to the
 // repository (AGENTS.md R16). Requires `pnpm build` and `pnpm fixtures`.
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
@@ -147,6 +147,9 @@ async function stopFromProbe(sessionId: string): Promise<void> {
 }
 
 test.beforeAll(async () => {
+  // The WAV fixtures are generated, not committed (R16): fail with the cause, not a probe error.
+  const missing = fixtureNames().filter((name) => !existsSync(join(FIXTURES, `${name}.wav`)));
+  if (missing.length > 0) throw new Error(`missing fixtures (run \`pnpm fixtures\`): ${missing.join(', ')}`);
   tmp = mkdtempSync(join(tmpdir(), 'voicecrystal-files-'));
   await h.launch({
     args: ['--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${FAKE_MIC_WAV}`],

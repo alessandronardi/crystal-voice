@@ -2,10 +2,11 @@
 //
 // libfvad is compiled by the project to a standalone WASM module
 // (scripts/vad/build-fvad.sh; committed as packages/dsp-core/wasm/fvad.wasm).
-// This file stays pure (R10): it never loads or compiles WASM. The caller
-// instantiates the module (Node: from the file; the dsp-worker: from the
-// bundle, I-06) and passes its exports. libfvad is fixed-point C, so its
-// decisions do not depend on the JS engine's Math (VC-24).
+// This file stays pure (R10): it never reads files or the network. The caller
+// reads the bytes (Node: from the file; the dsp-worker: from the bundle, I-06),
+// checks their hash and passes them, with the global `WebAssembly`, to
+// `instantiateFvad`. libfvad is fixed-point C, so its decisions do not depend
+// on the JS engine's Math (VC-24); the resampler upstream does.
 //
 // libfvad gives a binary decision: probability stays null (SPEC §7.2).
 
@@ -73,7 +74,15 @@ export function fvadImportObject(): Record<string, Record<string, () => never>> 
 
 export class FvadError extends Error {
   override readonly name = 'FvadError';
-  readonly code: 'BAD_EXPORTS' | 'ALLOC_FAILED' | 'BAD_MODE' | 'PROCESS_FAILED' | 'DISPOSED' | 'UNEXPECTED_IMPORT_CALL';
+  readonly code:
+    | 'BAD_IMPORTS'
+    | 'BAD_EXPORTS'
+    | 'ALLOC_FAILED'
+    | 'BAD_MODE'
+    | 'PROCESS_FAILED'
+    | 'MODULE_BROKEN'
+    | 'DISPOSED'
+    | 'UNEXPECTED_IMPORT_CALL';
   constructor(code: FvadError['code'], message: string) {
     super(message);
     this.code = code;
@@ -105,6 +114,57 @@ export function toInt16(x: number): number {
   return n > 32767 ? 32767 : n < -32768 ? -32768 : n === 0 ? 0 : n;
 }
 
+/** An import declared by a WASM module (shape of WebAssembly.Module.imports). */
+export interface WasmImportDescriptor {
+  readonly module: string;
+  readonly name: string;
+}
+
+/**
+ * The part of the JS `WebAssembly` namespace used here. The caller passes the
+ * global `WebAssembly` (an ECMAScript-embedding API, not DOM or chrome.*): dsp-core
+ * stays without DOM types and without I/O (R10).
+ */
+export interface WasmRuntime<M> {
+  readonly Module: {
+    new (bytes: Uint8Array<ArrayBuffer>): M;
+    imports(module: M): readonly WasmImportDescriptor[];
+  };
+  readonly Instance: new (module: M, imports: Record<string, Record<string, () => never>>) => { readonly exports: object };
+}
+
+/** An instantiated fvad.wasm. Every engine on it is refused once it is broken. */
+export interface FvadModule {
+  readonly exports: FvadExports;
+  /** True after an error inside the module: its memory may be inconsistent. */
+  readonly broken: boolean;
+}
+
+interface MutableFvadModule extends FvadModule {
+  broken: boolean;
+}
+
+/**
+ * The only way to obtain an FvadModule (Node bench, tests, and the dsp-worker
+ * in I-06). Fail closed:
+ *  - the module may import nothing beyond FVAD_IMPORTS;
+ *  - every import is a stub that throws;
+ *  - the exports are checked; `_initialize` runs once.
+ * The caller checks the bytes against fvad.wasm.sha256 before calling this.
+ */
+export function instantiateFvad<M>(wasm: WasmRuntime<M>, bytes: Uint8Array<ArrayBuffer>): FvadModule {
+  const module = new wasm.Module(bytes);
+  const unexpected = wasm.Module.imports(module)
+    .map((i) => `${i.module}.${i.name}`)
+    .filter((n) => !FVAD_IMPORTS.includes(n));
+  if (unexpected.length > 0) throw new FvadError('BAD_IMPORTS', `fvad.wasm imports ${unexpected.join(', ')}`);
+  const instance = new wasm.Instance(module, fvadImportObject());
+  const exports = asFvadExports(instance.exports as Readonly<Record<string, unknown>>);
+  exports._initialize?.();
+  const handle: MutableFvadModule = { exports, broken: false };
+  return handle;
+}
+
 export interface WebRtcVad extends VadEngine {
   readonly mode: FvadMode;
   /** Frees the libfvad instance and its frame buffer. The engine is unusable afterwards. */
@@ -113,10 +173,27 @@ export interface WebRtcVad extends VadEngine {
 
 /**
  * One libfvad instance on an instantiated fvad.wasm. Several engines may share
- * the same exports: each owns its instance and frame buffer. The caller runs
- * `_initialize` once, right after instantiation (no module-level state here).
+ * the same module: each owns its libfvad instance and frame buffer. An error
+ * inside the module (a trap, or a stub that throws) marks the whole module
+ * broken: every engine on it then refuses to work.
  */
-export function createWebRtcVad(exports: FvadExports, mode: FvadMode = FVAD_MODE): WebRtcVad {
+export function createWebRtcVad(fvad: FvadModule, mode: FvadMode = FVAD_MODE): WebRtcVad {
+  const handle = fvad as MutableFvadModule;
+  const exports = fvad.exports;
+  const guarded = <T>(what: string, run: () => T): T => {
+    if (handle.broken) throw new FvadError('MODULE_BROKEN', 'fvad.wasm failed earlier: create a new module');
+    try {
+      return run();
+    } catch (error) {
+      if (error instanceof FvadError && error.code !== 'UNEXPECTED_IMPORT_CALL') throw error;
+      handle.broken = true;
+      throw new FvadError('PROCESS_FAILED', `${what} failed inside fvad.wasm: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+  return guarded('create', () => createEngine(exports, mode, guarded));
+}
+
+function createEngine(exports: FvadExports, mode: FvadMode, guarded: <T>(what: string, run: () => T) => T): WebRtcVad {
   const inst = exports.fvad_new();
   if (inst === 0) throw new FvadError('ALLOC_FAILED', 'fvad_new returned NULL');
   const buf = exports.malloc(VAD_FRAME_SAMPLES * 2);
@@ -155,23 +232,29 @@ export function createWebRtcVad(exports: FvadExports, mode: FvadMode = FVAD_MODE
       // Convert first, so a bad sample leaves the engine state untouched.
       const pcm = new Int16Array(VAD_FRAME_SAMPLES);
       for (let i = 0; i < VAD_FRAME_SAMPLES; i++) pcm[i] = toInt16(frame[i] as number);
-      // The memory cannot grow (ALLOW_MEMORY_GROWTH=0), but a fresh view costs nothing.
-      new Int16Array(exports.memory.buffer, buf, VAD_FRAME_SAMPLES).set(pcm);
-      const r = exports.fvad_process(inst, buf, VAD_FRAME_SAMPLES);
-      if (r !== 0 && r !== 1) throw new FvadError('PROCESS_FAILED', `fvad_process returned ${r}`);
-      return { speech: r === 1, probability: null };
+      return guarded('fvad_process', () => {
+        // The memory cannot grow (ALLOW_MEMORY_GROWTH=0), but a fresh view costs nothing.
+        new Int16Array(exports.memory.buffer, buf, VAD_FRAME_SAMPLES).set(pcm);
+        const r = exports.fvad_process(inst, buf, VAD_FRAME_SAMPLES);
+        if (r !== 0 && r !== 1) throw new Error(`fvad_process returned ${r}`);
+        return { speech: r === 1, probability: null };
+      });
     },
     reset() {
       alive();
-      // fvad_reset restores the defaults (mode 0, 8 kHz): configure again.
-      exports.fvad_reset(inst);
-      configure();
+      guarded('fvad_reset', () => {
+        // fvad_reset restores the defaults (mode 0, 8 kHz): configure again.
+        exports.fvad_reset(inst);
+        configure();
+      });
     },
     dispose() {
       if (disposed) return;
       disposed = true;
-      exports.free(buf);
-      exports.fvad_free(inst);
+      guarded('dispose', () => {
+        exports.free(buf);
+        exports.fvad_free(inst);
+      });
     },
   };
 }

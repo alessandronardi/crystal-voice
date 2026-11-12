@@ -58,11 +58,13 @@ export const INTONATED_MIN_CONFIDENCE = 0.8;
 /** libfvad aggressiveness: 0 = quality … 3 = very aggressive. */
 export type FvadMode = 0 | 1 | 2 | 3;
 /**
- * Mode used by default. [H] — mode 3 has the fewest false positives on music
- * and noise for +0.5 points of false negatives (`pnpm bench:vad`, 2026-11-12,
- * BENCHMARK_PROTOCOL §7); proposed in ADR-0023.
+ * Mode used by default. [H] — proposed in ADR-0023 from `pnpm bench:vad`
+ * (2026-11-12, BENCHMARK_PROTOCOL §7). Every mode calls 100% of music-only
+ * frames speech; mode 3 only shortens the hangover next to a voice and loses
+ * 6.6% of voice frames under music (mode 2: 0.0%). Music is not the VAD's job
+ * (ADR-0023): mode 2 keeps the voice. To be revised at G1 on real data.
  */
-export const FVAD_MODE: FvadMode = 3;
+export const FVAD_MODE: FvadMode = 2;
 
 // --- Band-energy pre-filter (diagnostic only, SPEC §7.2) ---------------------
 

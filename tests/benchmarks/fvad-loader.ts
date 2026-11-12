@@ -1,19 +1,19 @@
 // Loads the committed fvad.wasm in Node (I-05b): checks its SHA-256 against
-// fvad.wasm.sha256, compiles it, checks that it imports nothing beyond what
-// dsp-core provides, and instantiates it. The dsp-worker will do the same
-// from the bundle (I-06).
+// fvad.wasm.sha256, then instantiates it through dsp-core's instantiateFvad,
+// the same fail-closed path the dsp-worker will use (I-06).
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { asFvadExports, fvadImportObject, FVAD_IMPORTS, type FvadExports } from '@voicecrystal/dsp-core';
+import { instantiateFvad, type FvadModule } from '@voicecrystal/dsp-core';
 
 export const FVAD_DIR = resolve(import.meta.dirname, '../../packages/dsp-core/wasm');
 
 export interface LoadedFvad {
-  exports: FvadExports;
+  fvad: FvadModule;
   bytes: number;
   sha256: string;
+  /** Compiled separately, for inspecting the import and export sections. */
   module: WebAssembly.Module;
 }
 
@@ -34,11 +34,5 @@ export function importNames(module: WebAssembly.Module): string[] {
 
 export function loadFvad(dir = FVAD_DIR): LoadedFvad {
   const { bytes, sha256 } = readFvadBytes(dir);
-  const module = new WebAssembly.Module(bytes);
-  const unexpected = importNames(module).filter((n) => !FVAD_IMPORTS.includes(n));
-  if (unexpected.length > 0) throw new Error(`fvad.wasm imports ${unexpected.join(', ')}: not provided by dsp-core`);
-  const instance = new WebAssembly.Instance(module, fvadImportObject());
-  const exports = asFvadExports(instance.exports);
-  exports._initialize?.();
-  return { exports, bytes: bytes.length, sha256, module };
+  return { fvad: instantiateFvad(WebAssembly, bytes), bytes: bytes.length, sha256, module: new WebAssembly.Module(bytes) };
 }

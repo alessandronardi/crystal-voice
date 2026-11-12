@@ -57,8 +57,12 @@ export const INTONATED_MIN_CONFIDENCE = 0.8;
 
 /** libfvad aggressiveness: 0 = quality … 3 = very aggressive. */
 export type FvadMode = 0 | 1 | 2 | 3;
-/** Mode used by default. [H] — chosen in the VAD ADR from `pnpm bench:vad`. */
-export const FVAD_MODE: FvadMode = 2;
+/**
+ * Mode used by default. [H] — mode 3 has the fewest false positives on music
+ * and noise for +0.5 points of false negatives (`pnpm bench:vad`, 2026-11-12,
+ * BENCHMARK_PROTOCOL §7); proposed in ADR-0023.
+ */
+export const FVAD_MODE: FvadMode = 3;
 
 // --- Band-energy pre-filter (diagnostic only, SPEC §7.2) ---------------------
 

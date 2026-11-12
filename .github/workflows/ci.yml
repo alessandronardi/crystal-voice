@@ -36,10 +36,16 @@ jobs:
         run: pnpm bench
         # DoD I-04: under 2 minutes [H] (today with the signal-summary-0 analyzer only).
         timeout-minutes: 2
+      # I-05b: libfvad modes and the pre-filter on the fixtures (Silero runs only locally, ADR-0023).
+      - name: bench VAD
+        run: pnpm bench:vad
+        timeout-minutes: 2
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: bench-report
-          path: tests/benchmarks/out/latest.json
+          path: |
+            tests/benchmarks/out/latest.json
+            tests/benchmarks/out/vad-latest.json
           retention-days: 30
       - run: pnpm build
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

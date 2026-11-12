@@ -1,0 +1,6 @@
+packages: []
+# Own root, outside the main workspace (I-05b, D-L).
+# onnxruntime-node install script only downloads non-bundled extras (CUDA EP);
+# the CPU binaries ship in the package. Kept off on purpose.
+allowBuilds:
+  onnxruntime-node: false

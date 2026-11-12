@@ -18,9 +18,10 @@
 | I-04 | 2 | Fixture sintetiche + harness offline | I-01 | M | G1 |
 | I-05a | 2 | Mix mono, resampling, pitch YIN, interfaccia VAD | I-04 | M | G1 |
 | I-05b | 2 | Motori VAD a confronto (libfvad, Silero) | I-05a | M | G1 |
-| I-06 | 2 | Sei descrittori, confidenza, euristiche musica e più voci | I-05a, I-05b | L | G1 |
-| I-07 | 2 | Arresto split-half | I-06 | S | G1 |
-| I-08 | 2 | Dataset umano + report G1 | I-06, I-17 | L | G1 |
+| I-06a | 2 | Descrittori, confidenza, euristiche e seed in Node | I-05a, I-05b | M | G1 |
+| I-06b | 2 | Estrazione nell'estensione (VAD nel `dsp-worker`, Node contro pannello) | I-06a, I-18 | M | G1 |
+| I-07 | 2 | Arresto split-half | I-06a, I-06b | S | G1 |
+| I-08 | 2 | Dataset umano + report G1 | I-06a, I-17 | L | G1 |
 | I-09 | 2 | Tabelle quantili `mapping-1` e tabella G del comparator | I-08 | S | G1 |
 | I-10 | 3 | crystal-core a semispazi | I-01 | L | G2 |
 | I-11 | 3 | renderer-three «vetrina» | I-10 | L | G2 |
@@ -164,20 +165,48 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
 - **DoD:**
   - [x] Tabella comparativa dei due VAD: falsi positivi su musica, falsi negativi su voce sintetica, dimensione bundle, licenza, tempo per secondo di audio. In ADR-0023 e in `docs/BENCHMARK_PROTOCOL.md` §7 (`pnpm bench:vad:silero`, 2026-11-12), solo su fixture sintetiche.
   - [x] ADR con la scelta del VAD: ADR-0023, accettato dal product owner il 2026-11-12 (modo 2).
-- **Stato:** implementata il 2026-11-12 sul branch `issue/I-05b-vad-engines`, DoD soddisfatta, ADR-0023 accettato; si chiude con il merge della PR. La clausola di `PATENTS` va accettata prima che il `.wasm` entri in `dist/` (I-06, I-16). Evidenze in `docs/STATUS.md`.
+- **Stato:** chiusa il 2026-11-12 ([PR crystal-voice#14](https://github.com/alessandronardi/crystal-voice/pull/14), merge squash `f61c291`; CI della PR verde). ADR-0023 accettato. La clausola di `PATENTS` va accettata prima che il `.wasm` entri in `dist/` (I-06, I-16). Evidenze in `docs/STATUS.md`.
 - **Test:** unit su fixture; benchmark registrato.
 
 ### I-06 · Sei descrittori, confidenza, euristiche musica e più voci
 
-- **Riferimenti:** SPEC §7.2, §7.4, §7.5; ADR-0006, ADR-0014; VC-10–VC-13.
-- **Perimetro:** formule `EXPERIMENTAL v0`; confidenza per parametro; warning `MIXED_AUDIO_UNCERTAIN`, `MULTI_SPEAKER_SUSPECTED`; `mapping-0-experimental`; seed interi half-even; `extractor-0-experimental`.
+Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** tutta in Node, **I-06b** nell'estensione. Riferimenti comuni: SPEC §7.2–§7.5; ADR-0006, ADR-0014, ADR-0016, ADR-0017, ADR-0022, ADR-0023, ADR-0024 (accettato); VC-10–VC-13, VC-24.
+
+#### I-06a · Descrittori, confidenza, euristiche e seed in Node
+
+- **Perimetro:**
+  - frame acustici (SPEC §7.3) con libfvad modo 2;
+  - formule `EXPERIMENTAL v0`, con le modifiche di ADR-0024 (D-V): livello normalizzato, p3 e p6 sui frame intonati;
+  - confidenza per parametro (D-U);
+  - warning `MIXED_AUDIO_UNCERTAIN` e `MULTI_SPEAKER_SUSPECTED` (D-T);
+  - `mapping-0-experimental` in `packages/calibration`, seed interi half-even;
+  - `extractor-0-experimental`;
+  - `pnpm bench:descriptors`.
+- **DoD** (misure del 2026-11-12, `docs/BENCHMARK_PROTOCOL.md` §7):
+  - [x] Invarianza: ±6 dB e 44,1/48 kHz → Δ ≤ 1 punto per parametro. Misurato: al massimo 0,09 punti, grazie alla normalizzazione di livello (D-V, ADR-0024). Con le formule alla lettera erano fino a 7 punti.
+  - [x] Silenzio, toni, rumore → nessun cristallo. Misurato su 19 casi su 19: 12 fixture, compresi sweep, impulsi e accordi, più 7 segnali lunghi da 30–40 s generati in memoria. **Vale per toni stazionari e accordi.** Lacuna trovata dalla revisione (H-1): toni a impulsi e melodie a note brevi (80–190 ms) danno un cristallo senza avvisi, 5 casi su 5. Sono tracciati come «lacuna nota» (`it.fails`) in `tests/unit/descriptors-fixtures.test.ts`.
+  - [x] Voce + musica a −12 dB → `MIXED_AUDIO_UNCERTAIN` in almeno il 90% delle varianti [H]. Misurato: 5 su 5.
+  - **Nota (revisione H-2):** le soglie [H] nuove sono state fissate guardando queste stesse fixture. Le cifre di questa DoD sono quindi **tarate e valutate sullo stesso set (in-sample)**: non dicono come va su audio nuovo. La prova fuori campione è al G1, con I-08.
+  - [ ] Alternanza A/B → `MULTI_SPEAKER_SUSPECTED` in almeno il 90% delle varianti [H], o valore misurato. **Misurato: 2 su 3 (67%), sotto l'obiettivo**; la v2 non viene rilevata. Valore riportato come ammette la DoD.
+  - [x] Voce compressa 4:1 → Δp3 misurato e riportato (VC-10): −8,5 dB, −28,9 punti.
+- **Test:** property test (nessun `NaN`, range, interi); fixture; impronta della versione.
+- **Stato:** implementata sul branch `issue/I-06-descriptors`, non committata. ADR-0024 accettato dal product owner il 2026-11-12.
+
+#### I-06b · Estrazione nell'estensione
+
+- **Dipende da:** I-06a.
+- **Perimetro:**
+  - resampler con stato ed estrazione a blocchi in `dsp-core`, con il test «blocchi concatenati = buffer intero»;
+  - guadagno di normalizzazione (D-V) per l'audio che arriva a blocchi;
+  - `fvad.wasm` in `dist/` e caricato nel `dsp-worker` sotto la CSP, solo tramite `instantiateFvad`;
+  - percorso file del pannello fino al seed;
+  - collegamento di scheda e microfono, da decidere nel piano;
+  - nel pacchetto: `THIRD_PARTY/libfvad/LICENSE`, `PATENTS` e le note di musl, dlmalloc e compiler-rt (ADR-0023). La clausola di `PATENTS` è accettata dal product owner (D-S).
 - **DoD:**
-  - [ ] Invarianza: ±6 dB e 44,1/48 kHz → Δ ≤ 1 punto per parametro.
-  - [ ] Silenzio, toni, rumore → nessun cristallo.
-  - [ ] Voce + musica a −12 dB → `MIXED_AUDIO_UNCERTAIN` in almeno il 90% delle varianti [H], o valore misurato riportato.
-  - [ ] Alternanza A/B → `MULTI_SPEAKER_SUSPECTED` in almeno il 90% delle varianti [H], o valore misurato.
-  - [ ] Voce compressa 4:1 → Δp3 misurato e riportato (VC-10).
-- **Test:** property test (nessun `NaN`, range, interi); fixture.
+  - [ ] `fvad.wasm` caricato nel `dsp-worker` sotto la CSP attuale, E2E con finestra e headless.
+  - [ ] Decisioni del VAD e seed delle fixture caricate come file: uguali fra Node e pannello, o differenza spiegata. È la misura anticipata del cancello D-N (VC-24); il cancello resta in I-07.
+  - [ ] Estrazione a blocchi = estrazione a buffer intero, o differenza misurata e dichiarata.
+- **Test:** unit sui blocchi; E2E Node contro pannello.
 
 ### I-07 · Arresto split-half
 

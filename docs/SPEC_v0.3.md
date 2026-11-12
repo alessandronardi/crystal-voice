@@ -302,6 +302,8 @@ COLLECTION ─ select A,B ─▶ COMPARING ─▶ COLLECTION
 
 ### 7.2 VAD e qualità [F]
 
+> **Modificato da ADR-0024 (accettato il 2026-11-12):** il criterio «più voci» richiede anche una distanza minima fra i due gruppi di altezze; la quota di musica riduce la confidenza dei tratti esposti. Dove questa sezione e l'ADR differiscono, prevale l'ADR.
+
 - VAD locale a frame di 20 ms a 16 kHz, preferibilmente un'implementazione WebRTC con licenza e packaging verificati; il filtro `RMS + 85–3400 Hz` è ammesso **solo** come pre-filtro e diagnostica, non come VAD principale.
 - Il VAD identifica probabilmente il parlato, **non** certifica l'assenza di musica né l'identità del parlante.
 - Scartare dal seed frame muti, clip con clipping grave, frame con qualità insufficiente e intervalli non coerenti con il segmento video.
@@ -338,6 +340,8 @@ interface AcousticFrame {
 I `null` significano **non misurabile** e non vengono trasformati implicitamente in zero. Non usare stime fisiche senza controllo su range e confidenza.
 
 ### 7.4 Sei descrittori `EXPERIMENTAL v0` [F per la definizione; H per soglie e calibrazione] (Δ10)
+
+> **Modificato da ADR-0024 (accettato il 2026-11-12):** il segnale si normalizza a un livello di riferimento prima dell'analisi; p3 e p6 si calcolano sui frame intonati, con i minimi dell'ADR. Dove questa sezione e l'ADR differiscono, prevale l'ADR.
 
 I nomi descrivono **cosa si misura**, non come si disegna (Δ21); la resa visiva è nel §10. Definizioni:
 

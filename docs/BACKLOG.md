@@ -90,7 +90,7 @@
 ### I-18 · Sorgente file locale
 
 - **Riferimenti:** SPEC §5, §9; ADR-0009, ADR-0022.
-- **Stato:** implementata il 2026-11-12 sul branch `issue/I-18-file-source`, non chiusa. Taglia effettiva M, non S: è la prima issue che fa girare `dsp-core` nell'estensione. Evidenze in `docs/STATUS.md`.
+- **Stato:** mergiata il 2026-11-12 ([PR crystal-voice#13](https://github.com/alessandronardi/crystal-voice/pull/13), `d6e1f51`), non chiusa: prove manuali M15 e M24–M28 TO DO, non bloccanti per le issue successive (decisione del product owner). Taglia effettiva M, non S: è la prima issue che fa girare `dsp-core` nell'estensione. Evidenze in `docs/STATUS.md`.
 - **Decisioni del product owner (2026-11-12):**
   - D1: DSP in un worker del pannello (ADR-0022);
   - D2: il file è una sessione per `CAPTURE_BUSY`;

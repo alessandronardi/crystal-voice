@@ -2,9 +2,9 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-12 — I-06 divisa in I-06a e I-06b (D-R). **I-06a implementata sul branch `issue/I-06-descriptors`, non committata**; ADR-0024 accettato; clausola di `PATENTS` accettata (D-S). Prima: I-05b chiusa (PR crystal-voice#14, squash `f61c291`; CI della PR verde), ADR-0023 accettato (modo 2, D-Q). Prima: I-05b implementata sul branch `issue/I-05b-vad-engines`. Prima: I-18 mergiata (PR crystal-voice#13, squash `d6e1f51`; CI della PR verde su `8ab8ebf`) e non chiusa: prove manuali M15 e M24–M28 TO DO non bloccante; ADR-0022 accettato dal product owner (D-M), decisioni D-N…D-P prese per delega. Prima: I-05b sbloccata: dipendenze VAD decise per delega del product owner (D-L), implementazione non iniziata (branch `issue/I-05b-vad-dependencies`, solo documenti, non committati); I-17 mergiata (PR crystal-voice#11, squash `cd3924e`; CI su `main` verde dopo il merge) e non chiusa; I-03 mergiata (PR crystal-voice#10, squash `63ff4aa`) ma non chiusa: M3–M11 su YouTube reale non eseguite, decisioni del product owner aperte; I-02 chiusa senza la misura della latenza (decisione del product owner; PR crystal-voice#9, `18cb21e`); I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale in PR crystal-voice#8, `25561f6`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
+**Ultimo aggiornamento:** 2026-11-12 — **I-06a chiusa** (PR crystal-voice#15, squash `fe0c58e`; CI della PR verde, CI su `main` in corso al momento della registrazione). I-06b sbloccata, non iniziata (branch `issue/I-06b-extension` da `fe0c58e`). Prima: I-06 divisa in I-06a e I-06b (D-R); ADR-0024 accettato; clausola di `PATENTS` accettata (D-S). Prima: I-05b chiusa (PR crystal-voice#14, squash `f61c291`; CI della PR verde), ADR-0023 accettato (modo 2, D-Q). Prima: I-05b implementata sul branch `issue/I-05b-vad-engines`. Prima: I-18 mergiata (PR crystal-voice#13, squash `d6e1f51`; CI della PR verde su `8ab8ebf`) e non chiusa: prove manuali M15 e M24–M28 TO DO non bloccante; ADR-0022 accettato dal product owner (D-M), decisioni D-N…D-P prese per delega. Prima: I-05b sbloccata: dipendenze VAD decise per delega del product owner (D-L), implementazione non iniziata (branch `issue/I-05b-vad-dependencies`, solo documenti, non committati); I-17 mergiata (PR crystal-voice#11, squash `cd3924e`; CI su `main` verde dopo il merge) e non chiusa; I-03 mergiata (PR crystal-voice#10, squash `63ff4aa`) ma non chiusa: M3–M11 su YouTube reale non eseguite, decisioni del product owner aperte; I-02 chiusa senza la misura della latenza (decisione del product owner; PR crystal-voice#9, `18cb21e`); I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale in PR crystal-voice#8, `25561f6`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
 
-> **I-06a implementata il 2026-11-12, non committata** (branch `issue/I-06-descriptors` da `f61c291`; nessun commit, nessuna PR). Tutto in Node: nessuna parte nell'estensione.
+> **I-06a chiusa il 2026-11-12** ([PR crystal-voice#15](https://github.com/alessandronardi/crystal-voice/pull/15), merge squash `fe0c58e`; CI della PR verde in tutti i job, E2E Linux compreso). Tutto in Node: nessuna parte nell'estensione.
 > - **Fatto:**
 >   - `dsp-core`: FFT, frame acustici di SPEC §7.3 con libfvad modo 2, normalizzazione di livello, sei descrittori, onset, euristiche musica e più voci, confidenza, `INSUFFICIENT_DATA`, `qualitySummary`; `extractorVersion = extractor-0-experimental`, con impronta delle costanti in un test;
 >   - `calibration`: `mapping-0-experimental.json` (generato da `scripts/calibration/build-mapping-0.ts`), mappa per quantili, seed half-even;
@@ -34,7 +34,7 @@
 > - **In attesa del product owner:**
 >   - ~~accettare ADR-0024~~: **accettato dal product owner il 2026-11-12**. SPEC §7.2 e §7.4 portano una nota che rimanda all'ADR; la riscrittura completa resta fra le «Proposte»;
 >   - note brevi (revisione H-1): resta la lacuna tracciata fino al G1 (raccomandazione A), salvo diversa decisione;
->   - la richiesta di commit e PR. Il primo commit porterà la chiusura documentale di I-05b (diff già presente su STATUS e BACKLOG).
+>   - ~~la richiesta di commit e PR~~: PR #15 unita in squash (`fe0c58e`), con la chiusura documentale di I-05b.
 >
 > **I-05b chiusa il 2026-11-12** ([PR crystal-voice#14](https://github.com/alessandronardi/crystal-voice/pull/14), merge squash `f61c291`, CI della PR verde).
 > - **Fatto:**
@@ -102,7 +102,7 @@
 
 - **Fase corrente:** 1 (PoC Chrome) e, in parallelo, 2–3 sul nucleo puro.
 - **Gate:** G0 non avviato · G-PoC, G1, G2 non raggiunti.
-- **Issue attive:** I-18 mergiata (`d6e1f51`), non chiusa (prove manuali M15, M24–M28 TO DO non bloccante); I-17 mergiata, non chiusa (dettagli delle prove manuali da registrare); I-03 mergiata, non chiusa (prove manuali M3–M11 e decisioni aperte); I-10 in attesa della revisione estetica G2; **I-06a implementata, non committata** (ADR-0024 accettato); I-06b da pianificare dopo I-06a. Chiuse: **I-01**, **I-02** (senza misura della latenza), **I-04**, **I-05a**, **I-05b**, **I-11**, **I-12**. 
+- **Issue attive:** I-18 mergiata (`d6e1f51`), non chiusa (prove manuali M15, M24–M28 TO DO non bloccante); I-17 mergiata, non chiusa (dettagli delle prove manuali da registrare); I-03 mergiata, non chiusa (prove manuali M3–M11 e decisioni aperte); I-10 in attesa della revisione estetica G2; **I-06b** sbloccata, non iniziata. Chiusa da poco: **I-06a** (`fe0c58e`). Chiuse: **I-01**, **I-02** (senza misura della latenza), **I-04**, **I-05a**, **I-05b**, **I-11**, **I-12**. 
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
 
 ## I-18: Definition of Done (implementata, non chiusa)
@@ -457,7 +457,7 @@
 2. I-17 (mergiata, `cd3924e`; CI su `main` verde): **umano** (decisi: Brave basta, arco `AUTHORIZING → INTERRUPTED` accettato) — annotare dove compare l'indicatore di registrazione e l'esito di M13b; eseguire M14c; ripetere M13–M14 sulla build finale.
 3. I-03 (mergiata, `63ff4aa`): **umano** — M3–M11 su youtube.com reale (Brave o Google Chrome), M8 con un annuncio vero; decidere l'emendamento di ADR-0011 e confermare il metodo di misura della memoria (dati sopra). Latenza del pass-through (VC-19): da misurare in I-06 o con un metodo nuovo per M21.
 4. I-18 (mergiata, `d6e1f51`): **umano, TO DO non bloccante** — eseguire M15 e M24–M28 in Brave quando possibile; fino ad allora I-18 resta non chiusa, ma le issue successive possono partire.
-5. **I-06a** (branch `issue/I-06-descriptors`, non committata; ADR-0024 accettato). **Umano:** chiedere commit e PR. Poi **I-06b**, con piano proprio:
+5. **I-06b** (branch `issue/I-06b-extension` da `fe0c58e`; I-06a chiusa). Piano proprio da presentare:
    - per prima cosa, `fvad.wasm` nel `dsp-worker` sotto la CSP, passando da `instantiateFvad`, con un E2E Node contro pannello sulle decisioni e sul seed (misura anticipata del cancello D-N, VC-24);
    - il guadagno di normalizzazione (D-V) per l'audio a blocchi di scheda e microfono: stima in corsa, oppure ricalcolo sul buffer a 16 kHz in RAM;
    - le note di licenza di libfvad in `THIRD_PARTY/` e nel pacchetto (D-S).
@@ -587,3 +587,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-12 | Claude | I-05b | Implementata, pushata, senza PR | libfvad in WASM costruito in CI (emsdk 6.0.13 fissato per digest, riproducibile); `createWebRtcVad` e `instantiateFvad`; fixture di sola musica; `bench:vad` e riferimento Silero fuori dal workspace; libfvad chiama voce tutta la musica sola, Silero scarta il 35% della voce sintetica; revisione CONDITIONAL GO, rilievi corretti o dichiarati; ADR-0023 (modo 2) accettato dal product owner (D-Q) |
 | 2026-11-12 | Claude | I-05b | Chiusa | ADR-0023 accettato dal product owner (D-Q); PR crystal-voice#14 unita in squash (`f61c291`), CI della PR verde; I-06 sbloccata |
 | 2026-11-12 | Claude | I-06a | Implementata, non committata | I-06 divisa (D-R); PATENTS accettata (D-S); frame acustici, sei descrittori, euristiche musica e più voci (D-T), confidenza (D-U), livello normalizzato e p3/p6 sui frame intonati (D-V), mapping-0 e seed half-even; ADR-0024 accettato; `pnpm bench:descriptors`; DoD su fixture sintetiche soddisfatta salvo A/B 2/3 (riportato) |
+| 2026-11-12 | Claude | I-06a | Chiusa | ADR-0024 accettato; PR crystal-voice#15 unita in squash (`fe0c58e`), CI della PR verde; Auto-fix attivo durante la PR; branch `issue/I-06b-extension` creato da `fe0c58e` |

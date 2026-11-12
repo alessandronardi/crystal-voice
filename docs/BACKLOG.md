@@ -187,10 +187,10 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
   - [x] Silenzio, toni, rumore → nessun cristallo. Misurato su 19 casi su 19: 12 fixture, compresi sweep, impulsi e accordi, più 7 segnali lunghi da 30–40 s generati in memoria. **Vale per toni stazionari e accordi.** Lacuna trovata dalla revisione (H-1): toni a impulsi e melodie a note brevi (80–190 ms) danno un cristallo senza avvisi, 5 casi su 5. Sono tracciati come «lacuna nota» (`it.fails`) in `tests/unit/descriptors-fixtures.test.ts`.
   - [x] Voce + musica a −12 dB → `MIXED_AUDIO_UNCERTAIN` in almeno il 90% delle varianti [H]. Misurato: 5 su 5.
   - **Nota (revisione H-2):** le soglie [H] nuove sono state fissate guardando queste stesse fixture. Le cifre di questa DoD sono quindi **tarate e valutate sullo stesso set (in-sample)**: non dicono come va su audio nuovo. La prova fuori campione è al G1, con I-08.
-  - [ ] Alternanza A/B → `MULTI_SPEAKER_SUSPECTED` in almeno il 90% delle varianti [H], o valore misurato. **Misurato: 2 su 3 (67%), sotto l'obiettivo**; la v2 non viene rilevata. Valore riportato come ammette la DoD.
+  - [x] Alternanza A/B → `MULTI_SPEAKER_SUSPECTED` in almeno il 90% delle varianti [H], o valore misurato. **Misurato: 2 su 3 (67%), sotto l'obiettivo**; la v2 non viene rilevata. Valore riportato come ammette la DoD.
   - [x] Voce compressa 4:1 → Δp3 misurato e riportato (VC-10): −8,5 dB, −28,9 punti.
 - **Test:** property test (nessun `NaN`, range, interi); fixture; impronta della versione.
-- **Stato:** implementata sul branch `issue/I-06-descriptors`, non committata. ADR-0024 accettato dal product owner il 2026-11-12.
+- **Stato:** chiusa il 2026-11-12 ([PR crystal-voice#15](https://github.com/alessandronardi/crystal-voice/pull/15), merge squash `fe0c58e`; CI della PR verde). ADR-0024 accettato. La voce A/B è chiusa con il valore misurato, come ammette la DoD; lacuna nota delle note brevi tracciata con `it.fails`.
 
 #### I-06b · Estrazione nell'estensione
 

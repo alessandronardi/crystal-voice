@@ -53,6 +53,13 @@ export const F0_RANGE_TOLERANCE = 0.005;
 /** Pitch confidence for an "intonated" frame (SPEC §7.4). [H] */
 export const INTONATED_MIN_CONFIDENCE = 0.8;
 
+// --- WebRTC VAD (libfvad, I-05b) --------------------------------------------
+
+/** libfvad aggressiveness: 0 = quality … 3 = very aggressive. */
+export type FvadMode = 0 | 1 | 2 | 3;
+/** Mode used by default. [H] — chosen in the VAD ADR from `pnpm bench:vad`. */
+export const FVAD_MODE: FvadMode = 2;
+
 // --- Band-energy pre-filter (diagnostic only, SPEC §7.2) ---------------------
 
 export const PREFILTER_LOW_HZ = 85;

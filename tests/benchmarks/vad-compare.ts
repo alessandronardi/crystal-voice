@@ -27,7 +27,7 @@ import {
 import { decodeWav } from '../../scripts/fixtures/wav.ts';
 import { describeEnvironment, readManifest } from './harness.ts';
 import { loadFvad } from './fvad-loader.ts';
-import { addDecisions, emptyTallies, frameTruths, rates, type CategoryTallies, type FrameTruth, type VadRates } from './vad-metrics.ts';
+import { addDecisions, CATEGORIES, emptyTallies, frameTruths, GUARD_FRAMES, rates, type CategoryTallies, type FrameTruth, type VadRates } from './vad-metrics.ts';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const FRAME_SECONDS = VAD_FRAME_SAMPLES / ANALYSIS_SAMPLE_RATE;
@@ -154,7 +154,7 @@ async function main(argv: readonly string[]): Promise<number> {
   const fvad = loadFvad();
   const engines: EngineResult[] = [];
   for (const mode of [0, 1, 2, 3] as const satisfies readonly FvadMode[]) {
-    const r = runSync(() => createWebRtcVad(fvad.exports, mode), data);
+    const r = runSync(() => createWebRtcVad(fvad.fvad, mode), data);
     engines.push({ ...r, id: `${r.id}-mode${mode}` });
   }
   engines.push(runSync(createBandEnergyPrefilter, data));
@@ -165,7 +165,8 @@ async function main(argv: readonly string[]): Promise<number> {
     silero = { modelSha256: s.modelSha256 };
   }
   const report = {
-    version: 1,
+    version: 2,
+    guardFrames: GUARD_FRAMES,
     environment: describeEnvironment(now),
     fvad: { bytes: fvad.bytes, gzipBytes: gzipSync(readFileSync(join(ROOT, 'packages/dsp-core/wasm/fvad.wasm')), { level: 9 }).length, sha256: fvad.sha256 },
     silero,
@@ -178,15 +179,28 @@ async function main(argv: readonly string[]): Promise<number> {
   writeFileSync(join(outDir, `vad-${now.toISOString().replace(/[:.]/g, '-')}.json`), text);
   writeFileSync(join(outDir, 'vad-latest.json'), text);
   const pct = (v: number | null): string => (v === null ? 'n/d' : `${(v * 100).toFixed(1)}%`);
-  console.log(`fvad.wasm ${report.fvad.bytes} B (gzip ${report.fvad.gzipBytes} B), ${data.length} fixture, ${report.audioSeconds.toFixed(0)} s`);
-  console.log('motore                         FN voce  FN voce+mus  FP musica  FP pause  FP non-voce  ms/s audio');
+  console.log(
+    `fvad.wasm ${report.fvad.bytes} B (gzip ${report.fvad.gzipBytes} B); ${data.length} fixture, ${report.audioSeconds.toFixed(0)} s analizzati ` +
+      `(i ms per s di audio contano tutto l'audio analizzato, anche quello escluso dalle cifre)`,
+  );
+  const first = engines[0];
+  if (first) {
+    console.log(`frame contati per categoria (banda di guardia ±${GUARD_FRAMES} frame): ${CATEGORIES.map((c) => `${c} ${first.tallies[c].frames}`).join(', ')}`);
+  }
+  const head = ['FN voce', 'FN voce+mus', 'FP mus. sola', 'FP mus. pause', 'FP pause', 'FP silenzio', 'FP toni/rum.', 'ms/s audio'];
+  console.log(`${'motore'.padEnd(30)}${head.map((h) => h.padStart(14)).join('')}`);
   for (const e of engines) {
     const r = e.rates;
-    console.log(
-      `${e.id.padEnd(30)} ${pct(r.falseNegativeVoice).padStart(7)}  ${pct(r.falseNegativeVoiceWithMusic).padStart(11)}  ` +
-        `${pct(r.falsePositiveMusic).padStart(9)}  ${pct(r.falsePositivePause).padStart(8)}  ${pct(r.falsePositiveNonSpeech).padStart(11)}  ` +
-        e.msPerAudioSecond.toFixed(3).padStart(10),
-    );
+    const cells = [
+      r.falseNegativeVoice,
+      r.falseNegativeVoiceWithMusic,
+      r.falsePositiveMusicOnly,
+      r.falsePositiveMusicInPause,
+      r.falsePositivePause,
+      r.falsePositiveSilence,
+      r.falsePositiveTonesNoise,
+    ].map((v) => pct(v).padStart(14));
+    console.log(`${e.id.padEnd(30)}${cells.join('')}${e.msPerAudioSecond.toFixed(3).padStart(14)}`);
   }
   return 0;
 }

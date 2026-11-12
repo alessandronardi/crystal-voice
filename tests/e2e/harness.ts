@@ -273,6 +273,69 @@ export class ExtensionHarness {
     return last;
   }
 
+  /** The side panel documents (each listed twice, as `page` and `tab`: only the page counts). */
+  async sidePanels(): Promise<TargetInfo[]> {
+    const panelUrl = `chrome-extension://${this.extensionId}/sidepanel.html`;
+    return (await this.targets()).filter((t) => t.type === 'page' && t.url === panelUrl);
+  }
+
+  /**
+   * Runs CDP commands in the one open side panel (the file tests keep a single
+   * panel). `run` gets a sender for that panel's session.
+   */
+  async withSidePanel<T>(run: (send: (method: string, params: Record<string, unknown>) => Promise<unknown>) => Promise<T>): Promise<T> {
+    const panels = await this.sidePanels();
+    if (panels.length !== 1) throw new Error(`expected one side panel, found ${String(panels.length)}`);
+    const panel = panels[0] as TargetInfo;
+    const { sessionId } = await this.browserSession.send('Target.attachToTarget', { targetId: panel.targetId, flatten: false });
+    try {
+      return await run((method, params) => this.relayCommand(sessionId, method, params));
+    } finally {
+      await this.browserSession.send('Target.detachFromTarget', { sessionId }).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Puts a file into the panel's <input type="file"> as a user's choice would
+   * (CDP DOM.setFileInputFiles on the element, which fires `input` and
+   * `change`). The side panel is not a Playwright Page, so setInputFiles is
+   * not available (I-18).
+   */
+  async setPanelFile(testId: string, path: string): Promise<void> {
+    await this.withSidePanel(async (send) => {
+      const found = (await send('Runtime.evaluate', {
+        expression: `document.querySelector('[data-testid="${testId}"]')`,
+        returnByValue: false,
+      })) as { result?: { objectId?: string } };
+      const objectId = found.result?.objectId;
+      if (objectId === undefined) throw new Error(`no element ${testId} in the side panel`);
+      await send('DOM.setFileInputFiles', { files: [path], objectId });
+    });
+  }
+
+  /**
+   * Real mouse clicks (CDP Input.dispatchMouseEvent) at the centre of an
+   * element of the one open side panel, `gapMs` apart: unlike element.click()
+   * the second click lands on whatever is at that spot by then, as a person's
+   * double click does.
+   */
+  async mouseClicksInSidePanel(testId: string, count: number, gapMs: number): Promise<void> {
+    await this.withSidePanel(async (send) => {
+      const found = (await send('Runtime.evaluate', {
+        expression: `(() => { const el = document.querySelector('[data-testid="${testId}"]'); el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: innerWidth, h: innerHeight }; })()`,
+        returnByValue: true,
+      })) as { result?: { value?: { x: number; y: number } } };
+      const at = found.result?.value;
+      if (at === undefined) throw new Error(`no element ${testId} in the side panel`);
+      for (let i = 0; i < count; i++) {
+        if (i > 0) await new Promise((r) => setTimeout(r, gapMs));
+        for (const type of ['mousePressed', 'mouseReleased']) {
+          await send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: i + 1 });
+        }
+      }
+    });
+  }
+
   /**
    * Grants the microphone to the extension's origin, as a «Consenti» on the
    * prompt of permission.html would (CDP Browser.grantPermissions). The

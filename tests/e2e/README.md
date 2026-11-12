@@ -138,6 +138,58 @@ Lancio dedicato con `--use-fake-device-for-media-stream --use-file-for-fake-audi
 
 **Cosa non provano:** che il prompt vero di `permission.html` lasci all'offscreen un permesso utilizzabile (M13, punto chiave: riportato superato in Brave dal product owner), il permesso «solo questa volta» (M13b), l'indicatore di registrazione, la revoca o lo scollegamento durante l'ascolto (M14c), un microfono reale, l'assenza di pass-through (solo all'ascolto), Google Chrome. Il conteggio dei campioni sotto i 48.000/s viene dalla misura sull'arrivo dei messaggi, non da una verifica del flusso: non è stato indagato oltre.
 
+## File locali (I-18, `file.spec.ts`)
+
+Il file entra nel `<input type="file">` del pannello con il comando CDP `DOM.setFileInputFiles` sull'elemento: si ottiene l'`objectId` con `Runtime.evaluate` e si manda il comando attraverso lo stesso inoltro di `inSidePanel` (`harness.setPanelFile`). Il comando fa partire gli eventi `input` e `change`. Il pannello non è una `Page` di Playwright, quindi `setInputFiles` non si può usare. I file grandi o malformati sono sintetici, scritti in una cartella temporanea e mai nel repository (R16).
+
+**Riferimento:** lo stesso calcolo fatto in Node. Le fixture si leggono con `scripts/fixtures/wav.ts` e passano per `extension/src/shared/pcm-analysis.ts`, lo stesso codice del `dsp-worker`.
+
+**Misurato in Chromium 156 (Windows 11):**
+
+- **`decodeAudioData` in un `OfflineAudioContext` alla frequenza del file non ricampiona:** stessa lunghezza, stessi campioni. A un'altra frequenza ricampiona: `voice-a-44k.wav` in un contesto a 48 kHz dà 576.000 campioni invece di 529.200. Per questo il pannello decodifica i WAV alla loro frequenza e lascia il passaggio a 16 kHz al resampler di `dsp-core`.
+- **Regola int16 → float del decoder di Chromium.** I valori negativi diventano n / 32768; i positivi float32(n) × float32(1/32767), in aritmetica float32. La regola vale per tutti i 529.200 campioni di `voice-a-44k.wav`. L'harness offline divide invece tutto per 32768, e coincide con il decoder su 379.367 campioni. Con i positivi divisi per 32767 in doppia precisione le coincidenze salgono a 515.712, non a tutti.
+- **`Math` non è identico fra Node 26.13 (V8 14.6) e Chromium 156.** Su 200.000 ingressi casuali, risultati diversi (al massimo 2 ULP) per:
+  - `log10`: 5,7%;
+  - `exp`: 5,0%;
+  - `sinh`: 4,7%;
+  - `log`: 2,6%;
+  - `sin` e `cos`: 2%;
+  - `atan`: 1,2%;
+  - `log2`: 0,2%.
+
+  `sqrt`, `pow` e `hypot` sono identici. La misura è un test della spec (seed fisso, risultato in `test-results/i18-math-node-vs-panel.json`). Dettagli in `docs/BENCHMARK_PROTOCOL.md` §7; rischio VC-24.
+- **`MessageSender.documentId` non è valorizzato per un pannello laterale**, mentre `runtime.getContexts` elenca il pannello con un `documentId`. Per questo una sessione file resta viva finché il suo pannello risponde a `FILE_SESSION_PING` (ADR-0022).
+- **I dedicated worker non compaiono fra i target CDP di primo livello** (0 anche durante un'analisi). Che il worker venga terminato non è quindi verificato dall'E2E; lo dice il codice: `terminate()` in ogni uscita di `runWorker`, cioè risposta, errore, risposta illeggibile, invio fallito, stop, e 60 s senza risposta.
+- **`Target.closeTarget` sul pannello** risponde prima che il documento sparisca: il target scompare dopo circa 415 ms. Un avvio mandato subito dopo riceve ancora `CAPTURE_BUSY`, perché il pannello risponde al ping. Dopo, l'orfano viene riconosciuto e pulito.
+
+| Scenario | Esito atteso |
+|---|---|
+| Le 32 fixture di I-04 come file, partenza 0 | Con gli stessi campioni decodificati (regola di Chromium), tutto ciò che è solo aritmetica è identico bit per bit a Node: segnale mono a 16 kHz (SHA-256), picchi, campioni saturati, regola mono, f0, confidenza, periodicità, frame sonori, f0 mediana. I valori che passano da `Math.log10` (livelli in dB) differiscono al massimo di 2 ULP e sono misurati, non richiesti uguali. Contro l'harness così com'è (int16/32768): f0 mediana entro 9·10⁻⁵ cent, livello entro 0,000265 dB. `AnalysisSource` con nome, durata e finestra esatti |
+| `voice-a-long` da 10 s | Finestra 10–42 s, analisi uguale a quella di Node sulla stessa finestra |
+| WAV sintetico di 1801 s | `FILE_TOO_LONG` alla scelta, nessuna sessione chiesta, «Analizza» non offerto; 1800 s da 1700 s analizzati |
+| Byte casuali `.wav`, testo `.mp3`, WAV troncato | `FILE_DECODE_FAILED` |
+| File compresso registrato nel browser (`MediaRecorder`, `audio/mp4;codecs=opus`) | Percorso a file intero, 48 kHz, durata letta dai metadati, f0 di 220 Hz ritrovata |
+| Doppio click reale su «Analizza» (due eventi del mouse CDP a 100 ms, file di 120 s stereo) | Una sola analisi, conclusa, un solo `FILE_SESSION_END`. Controprova: senza il ritardo di 500 ms di «Interrompi» il secondo click ferma l'analisi e il test fallisce |
+| Eccezione durante la decodifica (`copyFromChannel` che lancia) | `INTERNAL_ERROR`, «Analizza» di nuovo disponibile, routing pulito; l'analisi successiva riesce |
+| WAV float con campioni NaN | Sessione concessa, `dsp-core` rifiuta nel worker: `FILE_DECODE_FAILED / DECODE`, `FILE_SESSION_END` inviato, routing pulito |
+| Partenza oltre la fine | Messaggio, nessuna sessione chiesta |
+| Nome `a&lt;b&gt;'&amp;_i_.wav` | Mostrato letterale, nessun elemento figlio (R17) |
+| Microfono in corso → «Analizza» | `CAPTURE_BUSY`; la sessione del microfono resta intatta |
+| Analisi di 120 s stereo in corso → avvio del microfono | `CAPTURE_BUSY`, nessun offscreen; `CAPTURE_STOP` con l'id del file → analisi interrotta in 15 ms, anche durante la decodifica; routing pulito |
+| «Interrompi la cattura in corso» nello stesso pannello (avvio del microfono rifiutato) | Il `CAPTURE_STOP` del pannello non raggiunge il pannello stesso: lo stop torna dall'`OFFSCREEN_STOP` del service worker; analisi interrotta in 20 ms, durante la decodifica |
+| `Math` in Node e nel pannello, 200.000 ingressi | Riportato (vedi sopra); richiesto uguale solo `sqrt` |
+| Pannello chiuso durante la decodifica | Routing orfano; il successivo avvio del microfono parte (`LISTENING`) |
+| Dopo un'analisi | `storage.session` contiene solo `lastStart` (senza nome del file); `storage.local` vuoto; nessun database IndexedDB |
+| Memoria del pannello dopo un'analisi di 120 s stereo e una GC | Heap +0,13 MB e `backingStorageSize` +0,06 MB, poi +0,005 MB e −0,00002 MB dopo le correzioni della revisione. Controprova: un `Float32Array` di 46 MB tenuto in vita fa salire `backingStorageSize` di 43,9 MiB |
+
+| Data | Ambiente | Modalità | Esito |
+|---|---|---|---|
+| 2026-11-12 | Windows 11 Home 10.0.26300, Node 26.13.0, `@playwright/test` 1.64.0, Chromium 156; branch `issue/I-18-file-source`, non committato, prima della revisione | con finestra e headless | Suite intera **41/41** in entrambe le modalità (8,0 e 7,6 min); `file.spec.ts` 12/12 |
+| 2026-11-12 | idem, codice finale dopo la revisione | con finestra | Suite intera **46/46** (7,7 min); `file.spec.ts` 17/17 |
+| 2026-11-12 | idem, codice finale dopo la revisione | headless | Suite intera **46/46** (7,6 min); `file.spec.ts` 17/17 |
+
+**Cosa non provano:** MP3 o M4A veri (solo l'MP4/Opus prodotto dal browser), un file compresso più grande del budget di memoria o multicanale, Brave e Google Chrome (M24–M28 della checklist), la terminazione effettiva del worker (vedi sopra).
+
 ## Non verificato
 
 - **Chrome 120** (`minimum_chrome_version`): non eseguito, nessuna build 120 disponibile in questo ambiente. Va caricato a mano (voce M0 della checklist manuale).

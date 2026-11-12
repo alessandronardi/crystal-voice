@@ -5,6 +5,9 @@ import {
   isCaptureDiag,
   isCaptureStartMessage,
   isOffscreenStartMic,
+  isFileSessionEnd,
+  isFileSessionPing,
+  isFileSessionPong,
   panelPortSessionId,
   isCaptureErrorCode,
   isCaptureExitReason,
@@ -95,6 +98,29 @@ describe('OFFSCREEN_START_MIC and the panel port', () => {
     expect(panelPortSessionId(`${PANEL_PORT_PREFIX}nope`)).toBeNull();
     expect(panelPortSessionId(SESSION)).toBeNull();
     expect(panelPortSessionId('')).toBeNull();
+  });
+});
+
+describe('FILE_SESSION_END (I-18, ADR-0022)', () => {
+  it('accepts a well-formed end and nothing else', () => {
+    expect(isFileSessionEnd({ v: 1, type: 'FILE_SESSION_END', sessionId: SESSION })).toBe(true);
+    expect(isFileSessionEnd({ v: 1, type: 'FILE_SESSION_END', sessionId: 'x' })).toBe(false);
+    expect(isFileSessionEnd({ v: 2, type: 'FILE_SESSION_END', sessionId: SESSION })).toBe(false);
+    expect(isFileSessionEnd({ v: 1, type: 'OFFSCREEN_STOP', sessionId: SESSION })).toBe(false);
+    expect(isFileSessionEnd([{ v: 1, type: 'FILE_SESSION_END', sessionId: SESSION }])).toBe(false);
+    expect(isFileSessionEnd(null)).toBe(false);
+  });
+
+  it('ping and pong are distinct well-formed messages', () => {
+    const ping = { v: 1, type: 'FILE_SESSION_PING', sessionId: SESSION };
+    const pong = { v: 1, type: 'FILE_SESSION_PONG', sessionId: SESSION };
+    expect(isFileSessionPing(ping)).toBe(true);
+    expect(isFileSessionPong(pong)).toBe(true);
+    expect(isFileSessionPing(pong)).toBe(false);
+    expect(isFileSessionPong(ping)).toBe(false);
+    expect(isFileSessionPong({ ...pong, sessionId: 'x' })).toBe(false);
+    expect(isFileSessionPong(undefined)).toBe(false);
+    expect(isFileSessionPong(true)).toBe(false);
   });
 });
 

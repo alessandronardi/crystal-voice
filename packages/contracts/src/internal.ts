@@ -1,5 +1,5 @@
 // Internal messages between the service worker, the offscreen document, the
-// content script and the side panel (I-02, I-03, I-17). NOT part of SPEC §9
+// content script and the side panel (I-02, I-03, I-17, I-18). NOT part of SPEC §9
 // `CaptureMessage`: like PING/PONG they are plumbing until the DSP exists, and
 // carry no audio. `CAPTURE_DIAG` stands in for CAPTURE_PROGRESS / CAPTURE_RESULT
 // / CAPTURE_FAILED until then (product owner decision, 2026-11-11).
@@ -44,6 +44,38 @@ export interface OffscreenStartMic {
  * document, and the session stops with it (BACKLOG I-17).
  */
 export const PANEL_PORT_PREFIX = 'vc-panel:';
+
+/**
+ * Side panel → service worker: the file analysis this panel started is over,
+ * however it ended (I-18, ADR-0022). The service worker then clears the
+ * routing state of that session. A file session never touches the offscreen:
+ * its decoding and DSP run in the panel, and no PCM leaves it.
+ */
+export interface FileSessionEnd {
+  v: 1;
+  type: 'FILE_SESSION_END';
+  sessionId: SessionId;
+}
+
+/**
+ * Service worker → side panels: is this file session still running? Only the
+ * panel running it answers, with FileSessionPong. No answer means its panel
+ * is gone (closed mid-analysis) and the routing state is stale (ADR-0022).
+ * Measured in Chromium 156: `MessageSender.documentId` is not set for a side
+ * panel, so the session cannot be tied to its document.
+ */
+export interface FileSessionPing {
+  v: 1;
+  type: 'FILE_SESSION_PING';
+  sessionId: SessionId;
+}
+
+/** The reply (sendResponse) of the panel running the session. */
+export interface FileSessionPong {
+  v: 1;
+  type: 'FILE_SESSION_PONG';
+  sessionId: SessionId;
+}
 
 /** Exit reasons the service worker may ask for. */
 export type OffscreenStopReason = Extract<CaptureExitReason, 'USER_STOP' | 'NAVIGATED_AWAY' | 'STREAM_ENDED'>;
@@ -107,6 +139,9 @@ export interface CaptureDiag {
 export type InternalMessage =
   | OffscreenStartTab
   | OffscreenStartMic
+  | FileSessionEnd
+  | FileSessionPing
+  | FileSessionPong
   | OffscreenStop
   | SessionBind
   | PlayerEvent
@@ -237,6 +272,18 @@ export function isOffscreenStartMic(value: unknown): value is OffscreenStartMic 
   return (
     isRecord(value) && value['v'] === 1 && value['type'] === 'OFFSCREEN_START_MIC' && isSessionId(value['sessionId'])
   );
+}
+
+export function isFileSessionEnd(value: unknown): value is FileSessionEnd {
+  return isRecord(value) && value['v'] === 1 && value['type'] === 'FILE_SESSION_END' && isSessionId(value['sessionId']);
+}
+
+export function isFileSessionPing(value: unknown): value is FileSessionPing {
+  return isRecord(value) && value['v'] === 1 && value['type'] === 'FILE_SESSION_PING' && isSessionId(value['sessionId']);
+}
+
+export function isFileSessionPong(value: unknown): value is FileSessionPong {
+  return isRecord(value) && value['v'] === 1 && value['type'] === 'FILE_SESSION_PONG' && isSessionId(value['sessionId']);
 }
 
 /** The session id of a panel port name, or null when the name is not one. */

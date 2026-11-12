@@ -46,5 +46,31 @@ mkdir -p "$OUT_DIR"
 cp "$WORK/fvad.wasm" "$OUT_DIR/fvad.wasm"
 cp LICENSE "$OUT_DIR/LICENSE"
 cp PATENTS "$OUT_DIR/PATENTS"
+
+# I-06b (ADR-0023, D-X): license notices of the Emscripten parts linked into
+# fvad.wasm (musl libc, compiler-rt, dlmalloc, Emscripten's own runtime),
+# copied from this pinned image so the shipped texts match the build.
+EM_ROOT="$(dirname "$(readlink -f "$(command -v emcc)")")"
+NOTICES="$OUT_DIR/notices"
+mkdir -p "$NOTICES"
+copy_notice() { # SOURCE DEST
+  if [ ! -f "$1" ]; then
+    echo "notice not found: $1" >&2
+    find "$EM_ROOT/system/lib" -maxdepth 3 \( -iname 'COPYRIGHT*' -o -iname 'LICENSE*' \) >&2 || true
+    exit 1
+  fi
+  cp "$1" "$NOTICES/$2"
+}
+copy_notice "$EM_ROOT/LICENSE" emscripten-LICENSE.txt
+copy_notice "$EM_ROOT/system/lib/libc/musl/COPYRIGHT" musl-COPYRIGHT.txt
+copy_notice "$EM_ROOT/system/lib/compiler-rt/LICENSE.TXT" compiler-rt-LICENSE.txt
+DLMALLOC="$EM_ROOT/system/lib/dlmalloc.c"
+if [ ! -f "$DLMALLOC" ]; then
+  echo "notice not found: $DLMALLOC" >&2
+  exit 1
+fi
+# The public-domain dedication is the file's leading comment, up to its first "*/".
+sed -n '1,/\*\//p' "$DLMALLOC" > "$NOTICES/dlmalloc-NOTICE.txt"
+( cd "$NOTICES" && sha256sum ./*.txt )
 ( cd "$OUT_DIR" && sha256sum fvad.wasm | tee fvad.wasm.sha256 )
 echo "size: $(stat -c %s "$OUT_DIR/fvad.wasm") bytes"

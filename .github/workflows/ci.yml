@@ -100,6 +100,13 @@ jobs:
           cat "$RUNNER_TEMP/fvad/fvad.wasm.sha256"
           cmp "$RUNNER_TEMP/fvad/fvad.wasm" packages/dsp-core/wasm/fvad.wasm
           (cd packages/dsp-core/wasm && sha256sum -c fvad.wasm.sha256)
+      # I-06b (D-X): the license texts shipped in the bundle are the ones of this build.
+      - name: compare the license notices with THIRD_PARTY
+        run: |
+          cmp "$RUNNER_TEMP/fvad/LICENSE" THIRD_PARTY/libfvad/LICENSE
+          cmp "$RUNNER_TEMP/fvad/PATENTS" THIRD_PARTY/libfvad/PATENTS
+          for f in "$RUNNER_TEMP"/fvad/notices/*.txt; do cmp "$f" "THIRD_PARTY/emscripten/$(basename "$f")"; done
+          test "$(ls "$RUNNER_TEMP"/fvad/notices/*.txt | wc -l)" -eq "$(ls THIRD_PARTY/emscripten/*.txt | wc -l)"
 
   golden-browsers:
     name: golden hashes (Chromium, Firefox)

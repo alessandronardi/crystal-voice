@@ -197,6 +197,27 @@
       "channelCount": 1,
       "lengthSamples": 576000
     },
+    "music-chords-v1": {
+      "sha256": "c4c8b9b026d60197c8c61c9753b64ed0b4ed715f8e76d54353dd5a65ea416f7c",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "music-chords-v2": {
+      "sha256": "b46b49ad26dd467f0b92107f39a9c867f9b9a7a3bcb5dfdf4877318a22ff01e3",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
+    "music-chords-v3": {
+      "sha256": "ffdeebc5790f377a6f56638088f4c9b1699771a57d9fd77862f8cb2e187dc812",
+      "bytes": 1152044,
+      "sampleRate": 48000,
+      "channelCount": 1,
+      "lengthSamples": 576000
+    },
     "alternating-ab-v1": {
       "sha256": "d8d995a039544f3a4e493bb42ac0c3a260e4b408aec5e17cdbd33d533fb1ca28",
       "bytes": 1536044,

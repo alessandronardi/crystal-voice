@@ -5,6 +5,15 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 ## [Unreleased]
 
 ### Aggiunto
+- I-05b: WebRTC VAD.
+  - **Build:** libfvad (`dpirch/libfvad` al commit `532ab66`, BSD-3-Clause con `PATENTS`) compilato in WASM dal progetto: `scripts/vad/build-fvad.sh` nell'immagine `emscripten/emsdk:6.0.13`, fissata per digest. Il file `packages/dsp-core/wasm/fvad.wasm` (28.424 B) è committato con il suo SHA-256; il job CI «libfvad WASM (reproducible build)» lo ricostruisce e lo confronta byte per byte.
+  - **Motore:** `createWebRtcVad` in `dsp-core`, dietro `VadEngine` (binario, `probability: null`). Si istanzia solo con `instantiateFvad`: import non dichiarati rifiutati, stub WASI che lanciano un errore, modulo inutilizzabile dopo un errore interno. `FVAD_MODE` = 2 [H].
+- I-05b: confronto dei VAD.
+  - **Comandi:** `pnpm bench:vad` (anche in CI) e `pnpm bench:vad:silero`.
+  - **Riferimento Silero:** Silero VAD v6.2.3, con `onnxruntime-node` 1.31.1 in `tools/silero-reference/`, fuori dal workspace pnpm; modello verificato tramite git blob e SHA-256.
+  - **Fixture nuove:** `music-chords-v1..v3` (solo musica; `FIXTURES_VERSION` invariata).
+  - **Risultato:** su fixture sintetiche libfvad chiama «voce» tutta la musica sola, mentre Silero scarta il 35% della voce sintetica.
+  - **ADR-0023** (accettato il 2026-11-12): libfvad modo 2 come VAD principale; la musica non si delega al VAD.
 - Specifica v0.3 con decisioni D1–D5 e modifiche Δ1–Δ21.
 - ADR 0001–0014, backlog I-01…I-18, gate, registro dei rischi, protocollo di benchmark, checklist G0, glossario.
 - `AGENTS.md`, `CLAUDE.md` e regole locali per `extension/`, `packages/dsp-core/`, `packages/crystal-core/`.
@@ -104,6 +113,7 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
   Dettagli in `docs/BENCHMARK_PROTOCOL.md` §7.
 
 ### Modificato
+- CI, I-18: il job `e2e` genera le fixture WAV (`pnpm fixtures`) prima dei test; `file.spec.ts` fallisce con un messaggio esplicito se ne manca una. I-18 mergiata (PR crystal-voice#13, `d6e1f51`).
 - Backlog, I-05b: dipendenze approvate (D-L, decisa per delega del product owner). Nel bundle solo libfvad, compilato in WASM dal progetto con Emscripten fissato. Silero VAD solo in Node (`onnxruntime-node` 1.31.1, dipendenza di sviluppo) come riferimento del confronto.
 - I-17, dopo la revisione avversariale: durante un avvio il pannello nasconde «Usa il microfono», così un doppio click non avvia due richieste. Se l'offscreen scompare senza messaggio finale, il pulsante torna disponibile. Una traccia già terminata durante la costruzione del grafo chiude la sessione. Con il permesso concesso, la scadenza dell'avvio riporta `STREAM_NOT_AVAILABLE`. L'instradamento di `CAPTURE_START` è estratto in `onCaptureStartRequest`. E2E `permission-page.spec.ts`; voce manuale M14c; nota di attuazione in ADR-0009. Emendamento di ADR-0011: l'arco `AUTHORIZING → INTERRUPTED` è accettato (decisione del product owner); i due archi da `FINALIZING` restano proposti.
 - I-17: sorgente microfono nell'offscreen. Il pannello offre «Usa il microfono», controlla il permesso e, se manca, apre `permission.html`, che chiede il microfono e ferma subito le tracce. Il service worker accetta il `CAPTURE_START` di SPEC §9 solo per `mic` e invia `OFFSCREEN_START_MIC`. L'offscreen apre il microfono senza cancellazione d'eco, soppressione del rumore né AGC, e senza pass-through. La sessione resta viva finché resta aperta la porta del pannello (`vc-panel:<sessionId>`). `activeSession` e `lastStart` sono unioni discriminate su `source`; i segnali delle schede non fermano mai una sessione del microfono. E2E `mic.spec.ts` con il dispositivo finto di Chromium.

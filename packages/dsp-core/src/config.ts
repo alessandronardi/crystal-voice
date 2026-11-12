@@ -53,6 +53,19 @@ export const F0_RANGE_TOLERANCE = 0.005;
 /** Pitch confidence for an "intonated" frame (SPEC §7.4). [H] */
 export const INTONATED_MIN_CONFIDENCE = 0.8;
 
+// --- WebRTC VAD (libfvad, I-05b) --------------------------------------------
+
+/** libfvad aggressiveness: 0 = quality … 3 = very aggressive. */
+export type FvadMode = 0 | 1 | 2 | 3;
+/**
+ * Mode used by default. [H] — proposed in ADR-0023 from `pnpm bench:vad`
+ * (2026-11-12, BENCHMARK_PROTOCOL §7). Every mode calls 100% of music-only
+ * frames speech; mode 3 only shortens the hangover next to a voice and loses
+ * 6.6% of voice frames under music (mode 2: 0.0%). Music is not the VAD's job
+ * (ADR-0023): mode 2 keeps the voice. To be revised at G1 on real data.
+ */
+export const FVAD_MODE: FvadMode = 2;
+
 // --- Band-energy pre-filter (diagnostic only, SPEC §7.2) ---------------------
 
 export const PREFILTER_LOW_HZ = 85;

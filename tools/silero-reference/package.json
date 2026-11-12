@@ -1,0 +1,13 @@
+{
+  "name": "voicecrystal-silero-reference",
+  "private": true,
+  "type": "module",
+  "description": "Silero VAD as an offline reference for the I-05b comparison (decision D-L). Never bundled. Own pnpm-workspace.yaml, outside the main workspace: run `pnpm install --frozen-lockfile` in this folder.",
+  "scripts": {
+    "fetch-model": "node fetch-model.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "onnxruntime-node": "1.31.1"
+  }
+}

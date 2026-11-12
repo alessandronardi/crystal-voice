@@ -36,10 +36,16 @@ jobs:
         run: pnpm bench
         # DoD I-04: under 2 minutes [H] (today with the signal-summary-0 analyzer only).
         timeout-minutes: 2
+      # I-05b: libfvad modes and the pre-filter on the fixtures (Silero runs only locally, ADR-0023).
+      - name: bench VAD
+        run: pnpm bench:vad
+        timeout-minutes: 2
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: bench-report
-          path: tests/benchmarks/out/latest.json
+          path: |
+            tests/benchmarks/out/latest.json
+            tests/benchmarks/out/vad-latest.json
           retention-days: 30
       - run: pnpm build
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -67,6 +73,28 @@ jobs:
         timeout-minutes: 5
       # Headed under a virtual display: headless support is documented in tests/e2e/README.md.
       - run: xvfb-run --auto-servernum pnpm test:e2e
+
+  fvad-wasm:
+    # I-05b (D-L): libfvad is compiled by the project in a pinned Emscripten
+    # image; the committed module must be byte-identical to a fresh build.
+    name: libfvad WASM (reproducible build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: build in emscripten/emsdk (pinned by digest)
+        run: bash scripts/vad/build-fvad-docker.sh "$RUNNER_TEMP/fvad"
+        timeout-minutes: 10
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: fvad-wasm
+          path: ${{ runner.temp }}/fvad/
+          retention-days: 7
+      - name: compare with the committed module
+        run: |
+          cat "$RUNNER_TEMP/fvad/fvad.wasm.sha256"
+          cmp "$RUNNER_TEMP/fvad/fvad.wasm" packages/dsp-core/wasm/fvad.wasm
+          (cd packages/dsp-core/wasm && sha256sum -c fvad.wasm.sha256)
 
   golden-browsers:
     name: golden hashes (Chromium, Firefox)

@@ -2,9 +2,25 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-12 — I-18 implementata, non committata e non chiusa (branch `issue/I-18-file-source` da `origin/main` `0b47e89`); ADR-0022 accettato dal product owner (D-M), decisioni D-N…D-P prese per delega. Prima: I-05b sbloccata: dipendenze VAD decise per delega del product owner (D-L), implementazione non iniziata (branch `issue/I-05b-vad-dependencies`, solo documenti, non committati); I-17 mergiata (PR crystal-voice#11, squash `cd3924e`; CI su `main` verde dopo il merge) e non chiusa; I-03 mergiata (PR crystal-voice#10, squash `63ff4aa`) ma non chiusa: M3–M11 su YouTube reale non eseguite, decisioni del product owner aperte; I-02 chiusa senza la misura della latenza (decisione del product owner; PR crystal-voice#9, `18cb21e`); I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale in PR crystal-voice#8, `25561f6`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
+**Ultimo aggiornamento:** 2026-11-12 — I-05b implementata sul branch `issue/I-05b-vad-engines` (pushato, nessuna PR), ADR-0023 accettato dal product owner (modo 2, D-Q); clausola di `PATENTS` ancora aperta. Prima: I-18 mergiata (PR crystal-voice#13, squash `d6e1f51`; CI della PR verde su `8ab8ebf`) e non chiusa: prove manuali M15 e M24–M28 TO DO non bloccante; ADR-0022 accettato dal product owner (D-M), decisioni D-N…D-P prese per delega. Prima: I-05b sbloccata: dipendenze VAD decise per delega del product owner (D-L), implementazione non iniziata (branch `issue/I-05b-vad-dependencies`, solo documenti, non committati); I-17 mergiata (PR crystal-voice#11, squash `cd3924e`; CI su `main` verde dopo il merge) e non chiusa; I-03 mergiata (PR crystal-voice#10, squash `63ff4aa`) ma non chiusa: M3–M11 su YouTube reale non eseguite, decisioni del product owner aperte; I-02 chiusa senza la misura della latenza (decisione del product owner; PR crystal-voice#9, `18cb21e`); I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale in PR crystal-voice#8, `25561f6`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
 
-> **I-18 implementata il 2026-11-12, non committata, non chiusa.**
+> **I-05b implementata il 2026-11-12, non chiusa** (branch `issue/I-05b-vad-engines` da `d6e1f51`, pushato su autorizzazione del piano per costruire il WASM in CI; nessuna PR).
+> - **Fatto:**
+>   - libfvad compilato in WASM nell'immagine `emscripten/emsdk:6.0.13` fissata per digest. La build è riproducibile: due corse CI danno lo stesso file, e il job `fvad-wasm` lo confronta byte per byte;
+>   - motore `createWebRtcVad` dietro `VadEngine`, con un solo ingresso `instantiateFvad` che rifiuta gli import non dichiarati;
+>   - 3 fixture di sola musica;
+>   - `pnpm bench:vad` (anche in CI) e `pnpm bench:vad:silero` (Silero in `tools/silero-reference/`, fuori dal workspace).
+> - **Verificati dall'agente:** typecheck, lint, test Node verdi; CI verde su `f4e0a51` in tutti i job, E2E compreso; bench rieseguito dopo le correzioni.
+> - **Risultato da sapere (smentisce un'attesa):** su fixture sintetiche libfvad chiama «voce» il 100% della musica sola in ogni modo e il 55–66% di toni e rumore: separa il silenzio dal resto, non la voce dalla musica. Silero rifiuta musica, toni e rumore, ma scarta il 35% della voce sintetica: qui non è valutabile. Tabella in ADR-0023 e in `docs/BENCHMARK_PROTOCOL.md` §7.
+> - **Revisione avversariale:** CONDITIONAL GO, nessun blocco. Corretti H-1, H-2, M-1, M-2, M-3, L-1, L-2, L-3, L-4; dichiarati nell'ADR M-4, L-5, L-6, L-7. Nessun secondo passaggio.
+> - **Non eseguiti:** caricamento di `fvad.wasm` nel `dsp-worker` sotto la CSP (I-06); build Docker in locale (Docker Desktop spento: il `.wasm` viene dalla CI); dati reali (G1).
+> - **In attesa del product owner:**
+>   - ~~accettare ADR-0023~~: **accettato dal product owner il 2026-11-12, modo 2 compreso (D-Q)**;
+>   - la clausola di revoca difensiva di `PATENTS` (WebRTC), da accettare prima che il `.wasm` entri in `dist/`;
+>   - la richiesta di PR.
+>
+> **I-18 mergiata il 2026-11-12 (PR crystal-voice#13, squash `d6e1f51`), non chiusa.**
+> - **CI:** la prima corsa della PR (`89857f9`) è fallita nel job `e2e`: il job non generava le fixture WAV, che non sono nel repository (R16), e `file.spec.ts` non trovava `silence.wav`. Corretto in `8ab8ebf` (`pnpm fixtures` nel job e controllo esplicito nel test, con controprova); poi CI verde in entrambe le corse, E2E su Linux compreso.
 > - **Verifiche iniziali:** PR #12 (`0b47e89`) su `main`, CI su `main` verde (corsa `43163561428`, quattro job).
 > - **Verificati dall'agente sul codice finale:** typecheck, lint, 455 test Node, `fixtures --check`, build; E2E intera **46/46 con finestra e 46/46 headless** nel Chromium 156 di Playwright, con `file.spec.ts` 17/17.
 > - **Non eseguiti:** le prove manuali M15 e M24–M28 in Brave; Google Chrome; MP3 o M4A veri; file multicanale; la verifica che il worker venga terminato.
@@ -12,17 +28,15 @@
 > - **Risultato da sapere:** le funzioni trascendenti di `Math` non sono identiche fra Node e Chromium (1–2 ULP). Smentisce «`dsp-core` identica in Node e nel worker»: rischio VC-24, con il cancello di D-N sul seed in I-07.
 > - **Mezzo cambiato rispetto al piano:** `MessageSender.documentId` non esiste per il pannello, quindi la sessione file usa un ping (ADR-0022).
 >
-> **Decise per delega (D-N…D-P, 2026-11-12):** VC-24 con cancello sul seed in I-07; budget come stima più ricontrollo; rifiuto dei file senza durata. **D-M:** ADR-0022 accettato dal product owner.
+> **Decise per delega (D-N…D-P, 2026-11-12):** VC-24 con cancello sul seed in I-07; budget come stima più ricontrollo; rifiuto dei file senza durata. **D-M:** ADR-0022 accettato dal product owner. **D-Q (2026-11-12):** ADR-0023 accettato dal product owner, libfvad modo 2.
 >
 > **Prove manuali M15 e M24–M28: TO DO, non bloccanti per lo sviluppo** (decisione del product owner del 2026-11-12: lavora da remoto e non può eseguirle ora). La programmazione prosegue; I-18 resta non chiusa finché non sono eseguite e registrate.
->
-> **In attesa del product owner:** la richiesta di commit e PR.
 >
 > **D-L, dipendenze di I-05b (2026-11-11), decise dall'agente per delega del product owner** («Risolvi I-05b con la tua migliore proposta»). Dettaglio nella tabella «Decisioni del product owner su I-05» e in `docs/BACKLOG.md` (I-05b, «Prima di iniziare»). In sintesi:
 > - **nel bundle solo WebRTC VAD:** libfvad (BSD-3-Clause), compilato in WASM dal progetto con Emscripten fissato in un'immagine Docker;
 > - **Silero VAD solo come riferimento offline in Node:** `onnxruntime-node` 1.31.1 (MIT), dipendenza di sviluppo, modello ufficiale con hash fissato. Nel bundle costerebbe almeno 14,8 MB di WASM di `onnxruntime-web` 1.31.1, più circa 2,3 MB di modello.
 >
-> La scelta finale del VAD resta l'ADR alla fine di I-05b, sulle misure. Implementazione non iniziata.
+> La scelta finale del VAD è ADR-0023, accettato il 2026-11-12 (D-Q).
 >
 > **I-17 mergiata il 2026-11-11, non chiusa.** [PR crystal-voice#11](https://github.com/alessandronardi/crystal-voice/pull/11) unita in squash (`cd3924e`) dal product owner. **CI:** al momento del merge nessuna corsa aveva un esito: le corse del branch (`43098398655`, `43098446178`) e quella su `main` (`43099672086`) erano in coda su GitHub Actions. Poi la corsa su `main` dopo il merge è finita **verde** in tutti e quattro i job: typecheck, lint, test, build; e2e (Chromium, extension loaded); golden hashes (Chromium, Firefox); renderer-three (Chromium, SwiftShader). L'esito è letto da `gh run view`; i log non li ho letti. Le due corse del branch erano ancora in coda quando l'ho controllato, sono superate dal merge. La causa dell'attesa non è stata indagata.
 >
@@ -56,7 +70,7 @@
 
 - **Fase corrente:** 1 (PoC Chrome) e, in parallelo, 2–3 sul nucleo puro.
 - **Gate:** G0 non avviato · G-PoC, G1, G2 non raggiunti.
-- **Issue attive:** I-18 implementata, non committata (prove manuali aperte); I-17 mergiata, non chiusa (dettagli delle prove manuali da registrare); I-03 mergiata, non chiusa (prove manuali M3–M11 e decisioni aperte); I-10 in attesa della revisione estetica G2. Chiuse: **I-01**, **I-02** (senza misura della latenza), **I-04**, **I-05a**, **I-11**, **I-12**. Sbloccate: I-03, I-17, I-18; I-05b dopo l'approvazione delle dipendenze.
+- **Issue attive:** I-18 mergiata (`d6e1f51`), non chiusa (prove manuali M15, M24–M28 TO DO non bloccante); I-17 mergiata, non chiusa (dettagli delle prove manuali da registrare); I-03 mergiata, non chiusa (prove manuali M3–M11 e decisioni aperte); I-10 in attesa della revisione estetica G2; I-05b implementata sul branch, ADR-0023 accettato, PR da chiedere. Chiuse: **I-01**, **I-02** (senza misura della latenza), **I-04**, **I-05a**, **I-11**, **I-12**. I-06 si sblocca con la chiusura di I-05b.
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
 
 ## I-18: Definition of Done (implementata, non chiusa)
@@ -410,12 +424,11 @@
 1. I-10: revisione estetica del catalogo da parte di una persona, al G2.
 2. I-17 (mergiata, `cd3924e`; CI su `main` verde): **umano** (decisi: Brave basta, arco `AUTHORIZING → INTERRUPTED` accettato) — annotare dove compare l'indicatore di registrazione e l'esito di M13b; eseguire M14c; ripetere M13–M14 sulla build finale.
 3. I-03 (mergiata, `63ff4aa`): **umano** — M3–M11 su youtube.com reale (Brave o Google Chrome), M8 con un annuncio vero; decidere l'emendamento di ADR-0011 e confermare il metodo di misura della memoria (dati sopra). Latenza del pass-through (VC-19): da misurare in I-06 o con un metodo nuovo per M21.
-4. I-18 (branch `issue/I-18-file-source`, non committato):
-   - **umano, TO DO non bloccante:** eseguire M15 e M24–M28 in Brave quando possibile (fino ad allora I-18 resta non chiusa, ma le issue successive possono partire);
-   - chiedere commit e PR.
-
-   Poi CI, con particolare attenzione all'E2E su Linux, dove `file.spec.ts` non è mai girato.
-5. I-05b: sbloccata, dipendenze decise (D-L): libfvad compilato dal progetto nel bundle, Silero solo in Node per il confronto. Da iniziare in plan mode. Prima del seed (I-06/I-07): cancello di D-N su VC-24.
+4. I-18 (mergiata, `d6e1f51`): **umano, TO DO non bloccante** — eseguire M15 e M24–M28 in Brave quando possibile; fino ad allora I-18 resta non chiusa, ma le issue successive possono partire.
+5. I-05b (branch `issue/I-05b-vad-engines`): **umano** — ADR-0023 accettato (D-Q); decidere la clausola di `PATENTS` prima di `dist/`; chiedere la PR. Poi I-06:
+   - per prima cosa, `fvad.wasm` nel `dsp-worker` sotto la CSP, passando da `instantiateFvad`, con un E2E Node contro pannello sulle decisioni;
+   - le euristiche musicali sono la difesa principale contro VC-11 (ADR-0023);
+   - prima del seed, il cancello di D-N su VC-24.
 6. **Umano:** archiviare la vecchia sessione I-10 ferma su una domanda; cancellare `.agents/` e `.codex/`; completare la riga M0 con le versioni esatte di Chrome e il SO.
 7. Aggiornare SPEC §5 e §14 secondo ADR-0015, e SPEC §5 (punti 3 e 7, «Una cattura globale») secondo ADR-0022 (modifiche di sola documentazione).
 8. **Umano:** attivare la protezione di `main` descritta in CONTRIBUTING.md (CI obbligatoria, nessun push diretto).
@@ -531,3 +544,5 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-11 | Claude | I-03 / I-17 | I-03 mergiata; I-17 avviata | PR crystal-voice#10 unita in squash (`63ff4aa`); CI Linux 300 cicli col metodo finale: +7,3 e +6,5 MB, stabile, E2E 20/20 in entrambe le corse; diagnostica `VC_CYCLES` tolta dalla CI; branch `issue/I-17-mic-source` |
 | 2026-11-11 | Claude | I-17 | Implementata, commit e PR | Microfono nell'offscreen, `permission.html`, porta del pannello; M13–M14 «Tutto funzionante» in Brave secondo il product owner (fase A); revisione CONDITIONAL GO, M-1, M-2, M-3, L-1, L-2, L-3, L-7 corretti; E2E 29/29 con finestra e headless; M-4 e la sufficienza di Brave in attesa di decisione |
 | 2026-11-11 | Claude | I-17 / I-05b | I-17 mergiata; D-L | PR crystal-voice#11 unita in squash (`cd3924e`), CI su `main` verde dopo il merge; dipendenze VAD di I-05b decise per delega (D-L), backlog aggiornato; prompt di I-18 preparato; documenti non committati sul branch `issue/I-05b-vad-dependencies` |
+| 2026-11-12 | Claude | I-18 | Implementata, mergiata | File locale nel pannello con `dsp-worker` dedicato (ADR-0022 accettato, D-M); D-N…D-P per delega; revisione CONDITIONAL GO, rilievi corretti salvo M4; E2E 46/46 con finestra e headless; CI: fixture mancanti nel job `e2e`, corretto in `8ab8ebf`; PR crystal-voice#13 unita in squash (`d6e1f51`); M15, M24–M28 TO DO non bloccante |
+| 2026-11-12 | Claude | I-05b | Implementata, pushata, senza PR | libfvad in WASM costruito in CI (emsdk 6.0.13 fissato per digest, riproducibile); `createWebRtcVad` e `instantiateFvad`; fixture di sola musica; `bench:vad` e riferimento Silero fuori dal workspace; libfvad chiama voce tutta la musica sola, Silero scarta il 35% della voce sintetica; revisione CONDITIONAL GO, rilievi corretti o dichiarati; ADR-0023 (modo 2) accettato dal product owner (D-Q) |

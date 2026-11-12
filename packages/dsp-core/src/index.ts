@@ -26,4 +26,20 @@ export { createResampler, resample, type Resampler } from './resample.ts';
 export { frameAt, frameCount } from './frames.ts';
 export { yinFrame, type YinResult } from './yin.ts';
 export { createBandEnergyPrefilter, PREFILTER_ID, type VadEngine, type VadFrameResult } from './vad.ts';
+export { FVAD_MODE, type FvadMode } from './config.ts';
+export {
+  asFvadExports,
+  createWebRtcVad,
+  FvadError,
+  FVAD_IMPORTS,
+  fvadImportObject,
+  instantiateFvad,
+  toInt16,
+  WEBRTC_VAD_ID,
+  type FvadExports,
+  type FvadModule,
+  type WasmImportDescriptor,
+  type WasmRuntime,
+  type WebRtcVad,
+} from './vad-fvad.ts';
 export { PITCH_TRACK_VERSION, trackPitch, type PitchFrame, type PitchTrack } from './pitch-track.ts';

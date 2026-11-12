@@ -90,7 +90,7 @@
 ### I-18 · Sorgente file locale
 
 - **Riferimenti:** SPEC §5, §9; ADR-0009, ADR-0022.
-- **Stato:** implementata il 2026-11-12 sul branch `issue/I-18-file-source`, non chiusa. Taglia effettiva M, non S: è la prima issue che fa girare `dsp-core` nell'estensione. Evidenze in `docs/STATUS.md`.
+- **Stato:** mergiata il 2026-11-12 ([PR crystal-voice#13](https://github.com/alessandronardi/crystal-voice/pull/13), `d6e1f51`), non chiusa: prove manuali M15 e M24–M28 TO DO, non bloccanti per le issue successive (decisione del product owner). Taglia effettiva M, non S: è la prima issue che fa girare `dsp-core` nell'estensione. Evidenze in `docs/STATUS.md`.
 - **Decisioni del product owner (2026-11-12):**
   - D1: DSP in un worker del pannello (ADR-0022);
   - D2: il file è una sessione per `CAPTURE_BUSY`;
@@ -162,8 +162,9 @@ Divisa il 2026-11-10 su decisione del product owner. I due VAD portano dipendenz
   - **Fuori da I-05b:** il resampler con stato per il percorso a blocchi del `dsp-worker` (eredità di I-05a), che serve quando il VAD entra nel worker (I-06).
 - **Eredità da I-05a:** `VadEngine` è sincrona e a 20 ms; per Silero serve un adattatore asincrono con buffering, o un'interfaccia rivista, con una suite di conformità comune. Il resampler è solo a buffer intero: il percorso a blocchi del worker ne richiede uno con stato.
 - **DoD:**
-  - [ ] Tabella comparativa dei due VAD: falsi positivi su musica, falsi negativi su voce sintetica, dimensione bundle, licenza, tempo per secondo di audio.
-  - [ ] ADR con la scelta del VAD.
+  - [x] Tabella comparativa dei due VAD: falsi positivi su musica, falsi negativi su voce sintetica, dimensione bundle, licenza, tempo per secondo di audio. In ADR-0023 e in `docs/BENCHMARK_PROTOCOL.md` §7 (`pnpm bench:vad:silero`, 2026-11-12), solo su fixture sintetiche.
+  - [x] ADR con la scelta del VAD: ADR-0023, accettato dal product owner il 2026-11-12 (modo 2).
+- **Stato:** implementata il 2026-11-12 sul branch `issue/I-05b-vad-engines`, DoD soddisfatta, ADR-0023 accettato; si chiude con il merge della PR. La clausola di `PATENTS` va accettata prima che il `.wasm` entri in `dist/` (I-06, I-16). Evidenze in `docs/STATUS.md`.
 - **Test:** unit su fixture; benchmark registrato.
 
 ### I-06 · Sei descrittori, confidenza, euristiche musica e più voci

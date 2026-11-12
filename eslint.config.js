@@ -18,6 +18,9 @@ export default tseslint.config(
       'tests/lint-fixtures/**',
       // Pre-existing review simulation, not part of the TypeScript build.
       'scripts/review/**',
+      // I-05b: Silero reference, outside the workspace; its dependency is
+      // usually not installed. Typechecked by its own tsconfig when it is.
+      'tools/silero-reference/**',
     ],
   },
   js.configs.recommended,

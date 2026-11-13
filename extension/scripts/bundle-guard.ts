@@ -12,6 +12,36 @@ export interface Finding {
   detail: string;
 }
 
+// ---------------------------------------------------------- pinned files
+
+/**
+ * A bundled file the scanners cannot read (binary, or inert text), allowed
+ * only at this path and with exactly this SHA-256 (I-06b): fvad.wasm, pinned
+ * by dsp-core and compared with a fresh build in CI (ADR-0023), and the
+ * third-party license texts, compared with the pinned Emscripten image in CI.
+ */
+export interface PinnedFile {
+  path: string;
+  sha256: string;
+  reason: string;
+}
+
+/** Findings for one bundled file of a type the scanners do not read. */
+export function checkUnscannedFile(file: string, sha256: string, pinned: readonly PinnedFile[]): Finding[] {
+  const entry = pinned.find((p) => p.path === file);
+  if (entry === undefined) {
+    const dot = file.lastIndexOf('.');
+    const ext = dot > file.lastIndexOf('/') ? file.slice(dot) : '(none)';
+    return [{ file, rule: 'unscanned-file-type', detail: ext }];
+  }
+  return entry.sha256 === sha256 ? [] : [{ file, rule: 'pinned-file-mismatch', detail: `${sha256} != ${entry.sha256}` }];
+}
+
+/** Pinned files that the bundle should contain and does not. */
+export function missingPinnedFiles(present: ReadonlySet<string>, pinned: readonly PinnedFile[]): Finding[] {
+  return pinned.filter((p) => !present.has(p.path)).map((p) => ({ file: p.path, rule: 'missing-required-output', detail: p.path }));
+}
+
 // ---------------------------------------------------------------- sources
 
 interface SourceRule {

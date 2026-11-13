@@ -1,5 +1,59 @@
 // Centralised Italian UI strings (AGENTS.md §8, §9). Never inline UI text.
-import type { CaptureErrorCode, CaptureExitReason, CaptureState } from '@voicecrystal/contracts';
+import type {
+  CaptureAnalysisFailure,
+  CaptureErrorCode,
+  CaptureExitReason,
+  CaptureState,
+  DescriptorKey,
+  QualityWarning,
+} from '@voicecrystal/contracts';
+
+/** Names of the six descriptors (docs/GLOSSARY.md, SPEC §7.4). */
+const descriptorNames = {
+  p1_pitch: 'Altezza',
+  p2_intonation: 'Variabilità d’intonazione',
+  p3_dynamics: 'Dinamica',
+  p4_roughness: 'Ruvidità',
+  p5_brightness: 'Brillantezza',
+  p6_rhythm: 'Ritmo',
+} satisfies Record<DescriptorKey, string>;
+
+const warningNames = {
+  MIXED_AUDIO_UNCERTAIN: 'possibile musica di sottofondo',
+  MULTI_SPEAKER_SUSPECTED: 'forse più di una voce',
+  LOW_CONFIDENCE_PARAMETER: 'alcuni tratti poco affidabili (velati)',
+  CLIPPING: 'audio saturato',
+  LOW_LEVEL: 'volume basso',
+  PLAYER_MUTED: 'player muto',
+  EXPERIMENTAL_MAPPING: 'mappatura sperimentale, non calibrata',
+  PHASE_CANCELLATION: 'canali in controfase: usato un solo canale',
+} satisfies Record<QualityWarning, string>;
+
+const analysisFailures = {
+  VAD_UNAVAILABLE: 'Il rilevatore di voce non è disponibile: analisi non eseguita.',
+  ANALYSIS_FAILED: 'L’analisi non è riuscita.',
+  ANALYSIS_TIMEOUT: 'L’analisi ha impiegato troppo tempo ed è stata interrotta.',
+} satisfies Record<CaptureAnalysisFailure, string>;
+
+/** Technical rows of the experimental analysis (I-06b), until the crystal view of I-13. */
+const analysis = {
+  heading: 'Analisi sperimentale',
+  note: 'Valori tecnici provvisori: la mappatura non è ancora calibrata (mapping-0).',
+  outcome: 'Esito',
+  outcomeOk: 'cristallo possibile',
+  outcomeInsufficient: 'dati insufficienti',
+  seed: 'Seme (sei interi 0–10000)',
+  warnings: 'Avvisi',
+  missing: 'Tratti non misurabili',
+  veiled: 'Tratti velati',
+  validSpeech: 'Voce valida',
+  analysed: 'Audio analizzato',
+  none: 'nessuno',
+  seconds: 's',
+  failures: analysisFailures,
+  descriptors: descriptorNames,
+  warningNames,
+} as const;
 
 const captureErrors = {
   NOT_YOUTUBE_WATCH:
@@ -91,6 +145,7 @@ const filePhases = {
 } as const;
 
 export const strings = {
+  analysis,
   appName: 'VoiceCrystal',
   pages: {
     sidepanel: { title: 'VoiceCrystal', heading: 'VoiceCrystal' },

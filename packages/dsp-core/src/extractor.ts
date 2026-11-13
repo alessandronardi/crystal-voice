@@ -18,6 +18,7 @@
 
 import type { DescriptorKey, QualitySummary, QualityWarning, SeedConfidence } from '@voicecrystal/contracts';
 import { extractAcousticFrames, type AcousticFrames } from './acoustic-frames.ts';
+import { DspInputError } from './errors.ts';
 import {
   FRAME_HOP_SECONDS,
   FVAD_MODE,
@@ -101,7 +102,16 @@ export function extractDescriptors(
   sampleRate: number,
   vad: VadEngine & { readonly mode?: number },
 ): Extraction {
-  const af = extractAcousticFrames(channels, sampleRate, vad);
+  return describeFrames(extractAcousticFrames(channels, sampleRate, vad), vad);
+}
+
+/**
+ * The extraction of already computed acoustic frames (I-06b: the extension
+ * digests the frames' VAD decisions without computing them twice). `vad` must
+ * be the engine that produced `af`: it gives the version check.
+ */
+export function describeFrames(af: AcousticFrames, vad: Pick<VadEngine, 'id'> & { readonly mode?: number }): Extraction {
+  if (af.vadId !== vad.id) throw new DspInputError('BAD_VAD', `frames from ${af.vadId}, engine ${vad.id}`);
   const d = computeDescriptors(af.frames);
   const music = assessMusic(af.frames);
   const speakers = assessSpeakers(af.frames);

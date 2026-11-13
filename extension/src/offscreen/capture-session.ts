@@ -3,6 +3,7 @@
 // path. No chrome.* and no WebAudio here: the clock, timers, messaging and
 // resource release are injected, so the whole lifecycle runs in Node tests.
 import type {
+  CaptureAnalysis,
   CaptureDiag,
   CaptureErrorCode,
   CaptureState,
@@ -12,6 +13,7 @@ import type {
   SessionId,
 } from '@voicecrystal/contracts';
 import {
+  CAPTURE_LIMITS,
   INITIAL_STATE,
   isTerminal,
   transition,
@@ -59,7 +61,41 @@ export interface SessionDeps {
   release(): Promise<void>;
   /** Called once the session is back to IDLE (the offscreen closes itself, ADR-0003). */
   onIdle(): void;
+  /**
+   * I-06b (ADR-0025): the analysis of the audio kept so far, asked once in
+   * FINALIZING. Must resolve, never reject; the session bounds it with
+   * ANALYSIS_TIMEOUT_MS.
+   */
+  finalize(): Promise<SessionAnalysis>;
+  /** I-06b: keep the worklet's audio for the analysis (listening states only, no pauses). */
+  setRecording(recording: boolean): void;
+  /**
+   * I-06b, review C-1 (R8, ADR-0004): FINALIZING captures nothing more. Stops
+   * the tracks and disconnects the source at once; only the analysis of what
+   * was recorded goes on. Must not throw.
+   */
+  endCapture(): void;
 }
+
+/** What the end-of-session analysis decided (I-06b). */
+export interface SessionAnalysis {
+  analysis: CaptureAnalysis;
+  /** The extraction is OK and canonical (QualitySummary.accepted). */
+  accepted: boolean;
+  validSpeechMs: number;
+}
+
+/** [H] I-06b: the end-of-session analysis must answer within this time, or the session ends in INSUFFICIENT_DATA. */
+export const ANALYSIS_TIMEOUT_MS = 15_000;
+
+const FAILED_ANALYSIS = (failure: CaptureAnalysis['failure']): SessionAnalysis => ({
+  analysis: { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure, analysedMs: null },
+  accepted: false,
+  validSpeechMs: 0,
+});
+
+/** States whose audio belongs to the analysed segment (SPEC §7.2: pauses are not). */
+const RECORDING_STATES: readonly CaptureState[] = ['LISTENING', 'WAITING_FOR_SPEECH'];
 
 /** Messages refused by the session, by cause (extension/CLAUDE.md: ignored and counted). */
 export interface IgnoredCounts {
@@ -99,6 +135,11 @@ export class CaptureSession {
   private panelDeadline: unknown = null;
   private panelAttached = false;
   private authorizingTimeoutCode: CaptureErrorCode;
+  private recording = false;
+  /** Set when FINALIZING has its analysis; carried by the terminal diagnostic (D-Y). */
+  private analysis: CaptureAnalysis | null = null;
+  private analysing = false;
+  private analysisTimer: unknown = null;
   readonly ignored: IgnoredCounts = { wrongTab: 0, wrongSession: 0, staleSeq: 0, rejectedEvent: 0 };
 
   readonly id: SessionId;
@@ -189,8 +230,10 @@ export class CaptureSession {
 
   /** Periodic: timeouts of SPEC §6 and a live diagnostic. */
   tick(): void {
-    if (!this.isLive()) return;
-    // No speech detector before I-05b/I-06: valid speech stays 0 ms.
+    // FINALIZING has no timeouts of its own: the analysis has ANALYSIS_TIMEOUT_MS.
+    if (!this.isLive() || this.machine.state === 'FINALIZING') return;
+    // Valid speech is measured at the end only (ADR-0025): 0 ms while listening,
+    // so MAX_VALID_SPEECH and the split-half stop wait for I-07.
     this.apply({ type: 'TICK', activeMs: this.activeMs(), elapsedMs: this.elapsedMs(), validSpeechMs: 0 });
     if (this.isLive()) this.emit();
   }
@@ -204,6 +247,9 @@ export class CaptureSession {
         this.apply({ type: 'INTERRUPT', reason: 'NAVIGATED_AWAY' });
         return;
       case 'STREAM_ENDED':
+        // FINALIZING ended the capture itself (review C-1): the tab capture's
+        // own "stopped" notice that follows is that, not a capture error (D-Z).
+        if (this.machine.state === 'FINALIZING') return;
         this.apply({ type: 'FAIL', reason: 'STREAM_ENDED', code: 'STREAM_NOT_AVAILABLE' });
         return;
     }
@@ -217,6 +263,8 @@ export class CaptureSession {
     const accepted = this.acceptFromContent(message.sessionId, message.seq, senderTabId);
     if (accepted === 'not-mine') return false;
     if (accepted === 'stale') return this.isLive();
+    // FINALIZING captures nothing (review C-1): no watchdog, and the content script may stop.
+    if (this.machine.state === 'FINALIZING') return false;
     this.armWatchdog();
     const videoId = watchVideoId(message.url);
     if (videoId === null) {
@@ -306,16 +354,55 @@ export class CaptureSession {
       return;
     }
     this.machine = next;
-    if (next.state === 'FINALIZING') {
-      // No analyzer before the DSP issues: quality cannot be accepted, and with
-      // 0 ms of valid speech the machine yields INSUFFICIENT_DATA anyway.
-      this.machine = transition(this.machine, { type: 'QUALITY', accepted: false, validSpeechMs: 0 }).next;
+    const recording = RECORDING_STATES.includes(this.machine.state);
+    if (recording !== this.recording) {
+      this.recording = recording;
+      this.deps.setRecording(recording);
+    }
+    if (next.state === 'FINALIZING' && !this.analysing) {
+      this.analysing = true;
+      // The capture ends here (R8): navigation, a lost heartbeat or a closed
+      // tab during the analysis find no live capture (review C-1).
+      if (this.watchdog !== null) this.deps.clearTimer(this.watchdog);
+      this.watchdog = null;
+      this.deps.endCapture();
+      void this.analyse();
     }
     if (isTerminal(this.machine.state)) {
       void this.finish();
     } else if (this.machine.state !== before) {
       this.emit();
     }
+  }
+
+  /**
+   * FINALIZING (I-06b, ADR-0025): asks for the analysis, bounded by
+   * ANALYSIS_TIMEOUT_MS, then applies the existing QUALITY event. No new arc:
+   * a failure or a timeout is `accepted: false` → INSUFFICIENT_DATA, with the
+   * reason in `analysis.failure`. A stop that ended FINALIZING first wins.
+   */
+  private async analyse(): Promise<void> {
+    const timeout = new Promise<SessionAnalysis>((resolve) => {
+      this.analysisTimer = this.deps.setTimer(() => {
+        this.analysisTimer = null;
+        resolve(FAILED_ANALYSIS('ANALYSIS_TIMEOUT'));
+      }, ANALYSIS_TIMEOUT_MS);
+    });
+    let outcome: SessionAnalysis;
+    try {
+      outcome = await Promise.race([this.deps.finalize(), timeout]);
+    } catch {
+      outcome = FAILED_ANALYSIS('ANALYSIS_FAILED');
+    } finally {
+      if (this.analysisTimer !== null) this.deps.clearTimer(this.analysisTimer);
+      this.analysisTimer = null;
+    }
+    if (this.machine.state !== 'FINALIZING' || this.finishing) return;
+    // Same rule as the machine's QUALITY row (SPEC §6.1: at least 8 s of valid
+    // speech): a refused result keeps its measures but never shows a seed.
+    const ready = outcome.accepted && outcome.validSpeechMs >= CAPTURE_LIMITS.minValidSpeechMs && outcome.analysis.seed !== null;
+    this.analysis = ready ? outcome.analysis : { ...outcome.analysis, seed: null };
+    this.apply({ type: 'QUALITY', accepted: ready, validSpeechMs: outcome.validSpeechMs });
   }
 
   /** The single exit (ADR-0004): idempotent, release in finally, final message, IDLE. */
@@ -326,6 +413,9 @@ export class CaptureSession {
     this.watchdog = null;
     this.clearAuthorizing();
     this.clearPanelDeadline();
+    // Review L-8: a stop that won over FINALIZING leaves no analysis timer behind.
+    if (this.analysisTimer !== null) this.deps.clearTimer(this.analysisTimer);
+    this.analysisTimer = null;
     try {
       // Bounded: a context.close() that hangs must not keep the session out of IDLE.
       await Promise.race([
@@ -358,6 +448,7 @@ export class CaptureSession {
       activeMs: this.activeMs(),
       baseLatency: this.audio.baseLatency,
       outputLatency: this.audio.outputLatency,
+      analysis: this.machine.state === 'RESULT_READY' || this.machine.state === 'INSUFFICIENT_DATA' ? this.analysis : null,
     });
   }
 }

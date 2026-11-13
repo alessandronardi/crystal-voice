@@ -14,6 +14,10 @@ import { expect, test, type Page } from '@playwright/test';
 import { decodeWav, encodeWav } from '../../scripts/fixtures/wav.ts';
 import { analyzePcm, float32Bytes, sha256Hex, type PcmAnalysis } from '../../extension/src/shared/pcm-analysis.ts';
 import { ExtensionHarness, OTHER_URL } from './harness.ts';
+import { loadFvad } from '../benchmarks/fvad-loader.ts';
+
+/** libfvad in Node, same committed module as the bundle (SHA-256 checked by the loader). */
+const FVAD = loadFvad().fvad;
 
 const FIXTURES = resolve(import.meta.dirname, '../fixtures');
 const FAKE_MIC_WAV = join(FIXTURES, 'voice-a.wav');
@@ -92,7 +96,7 @@ async function reference(file: string, convention: Convention, startFrame = 0, f
   const audio = decodeWav(readFileSync(file));
   const count = frameCount ?? (audio.channels[0]?.length ?? 0) - startFrame;
   const channels = audio.channels.map((c) => c.slice(startFrame, startFrame + count));
-  return analyzePcm(convention === 'chromium' ? channels.map(toChromiumConvention) : channels, audio.sampleRate);
+  return analyzePcm(convention === 'chromium' ? channels.map(toChromiumConvention) : channels, audio.sampleRate, FVAD);
 }
 
 /** Cents between two median f0 values (null when either is missing). */
@@ -184,11 +188,37 @@ function ulps(a: number | null, b: number | null): number | null {
  * Those are compared in ULP and reported.
  */
 function arithmeticPart(a: PcmAnalysis): unknown {
+  // The descriptors are compared on their own (cancello D-N, I-06b): see descriptorPart.
+  const { descriptors: _descriptors, ...rest } = a;
   return {
-    ...a,
+    ...rest,
     channels: a.channels.map(({ rmsDbfs: _rms, ...rest }) => rest),
     mono: { ...a.mono, cancellationDb: a.mono.cancellationDb === null },
     pitch: { ...a.pitch, sha256: null, medianRmsDbfs: null, fieldSha256: { ...a.pitch.fieldSha256, rmsDbfs: null } },
+  };
+}
+
+/**
+ * The D-N gate (BACKLOG I-06b, VC-24): what must be equal between the panel
+ * and Node for the crystal to be the same. Raw measures and the normalization
+ * gain go through Math.log2/log10/pow and are compared in ULP, not here.
+ */
+function descriptorPart(a: PcmAnalysis): unknown {
+  const d = a.descriptors;
+  return {
+    extractorVersion: d.extractorVersion,
+    mappingVersion: d.mappingVersion,
+    status: d.status,
+    seed: d.seed,
+    warnings: d.warnings,
+    missingFeatureKeys: d.missingFeatureKeys,
+    veiledKeys: d.veiledKeys,
+    vadDecisionsSha256: d.vadDecisionsSha256,
+    vadSpeechFrames: d.vadSpeechFrames,
+    nullPattern: d.raw.map((v) => v === null),
+    // Review L-2: arithmetic that decides veils and acceptance belongs to the gate too.
+    confidence: d.confidence,
+    quality: d.quality,
   };
 }
 
@@ -197,6 +227,10 @@ test('every I-04 fixture loaded as a file: the panel DSP equals Node bit for bit
   const differences: string[] = [];
   const logUlps: Record<string, { channelRmsDb: (number | null)[]; cancellationDb: number | null; frameRmsDigestEqual: boolean; medianFrameRmsDb: number | null }> = {};
   const vsHarness: Record<string, { fields: string[]; medianF0Cents: number | null; rmsDbDelta: number | null }> = {};
+  const seedGate: { name: string; panel: unknown; node: unknown }[] = [];
+  const vsHarnessSeeds: Record<string, { sameGate: boolean; sameSeed: boolean; maxSeedUnits: number | null; sameVad: boolean }> = {};
+  const rawUlps: Record<string, { raw: (number | null)[]; gainDb: number | null }> = {};
+  const seedOf: Record<string, boolean> = {};
   for (const name of fixtureNames()) {
     const file = join(FIXTURES, `${name}.wav`);
     expect(await choose(file), name).toBe('ready');
@@ -209,6 +243,17 @@ test('every I-04 fixture loaded as a file: the panel DSP equals Node bit for bit
     const same = await reference(file, 'chromium');
     if (JSON.stringify(arithmeticPart(panel.analysis)) !== JSON.stringify(arithmeticPart(same))) differences.push(name);
     expect(arithmeticPart(panel.analysis), name).toEqual(arithmeticPart(same));
+    // The D-N gate: same seed, status, warnings and VAD decisions. A difference
+    // is recorded, not hidden; the test fails after the loop with all of them.
+    if (JSON.stringify(descriptorPart(panel.analysis)) !== JSON.stringify(descriptorPart(same))) {
+      seedGate.push({ name, panel: descriptorPart(panel.analysis), node: descriptorPart(same) });
+    }
+    seedOf[name] = panel.analysis.descriptors.seed !== null;
+    rawUlps[name] = {
+      raw: panel.analysis.descriptors.raw.map((v, i) => ulps(v, same.descriptors.raw[i] ?? null)),
+      gainDb: ulps(panel.analysis.descriptors.gainDb, same.descriptors.gainDb),
+    };
+    if (panel.analysis.descriptors.extractorVersion === null) seedGate.push({ name, panel: 'extractorVersion null', node: null });
     logUlps[name] = {
       channelRmsDb: panel.analysis.channels.map((c, i) => ulps(c.rmsDbfs, same.channels[i]?.rmsDbfs ?? null)),
       cancellationDb: ulps(panel.analysis.mono.cancellationDb, same.mono.cancellationDb),
@@ -226,6 +271,16 @@ test('every I-04 fixture loaded as a file: the panel DSP equals Node bit for bit
       ),
       medianF0Cents: cents(panel.analysis.pitch.medianF0Hz, harness.pitch.medianF0Hz),
       rmsDbDelta: pr === null || hr === null ? null : pr - hr,
+    };
+    // Review H-3: the descriptors against the offline harness as it is (int16/32768),
+    // measured and recorded, not required equal: the decoders differ (I-18).
+    const ps = panel.analysis.descriptors.seed;
+    const hs = harness.descriptors.seed;
+    vsHarnessSeeds[name] = {
+      sameGate: JSON.stringify(descriptorPart(panel.analysis)) === JSON.stringify(descriptorPart(harness)),
+      sameSeed: JSON.stringify(ps) === JSON.stringify(hs),
+      maxSeedUnits: ps === null || hs === null ? null : Math.max(...ps.map((v, i) => Math.abs(v - (hs[i] ?? Number.NaN)))),
+      sameVad: panel.analysis.descriptors.vadDecisionsSha256 === harness.descriptors.vadDecisionsSha256,
     };
     const audio = decodeWav(readFileSync(file));
     const seconds = (audio.channels[0]?.length ?? 0) / audio.sampleRate;
@@ -258,9 +313,33 @@ test('every I-04 fixture loaded as a file: the panel DSP equals Node bit for bit
     join(resolve(import.meta.dirname, '../../test-results'), 'i18-file-vs-harness.json'),
     JSON.stringify({ differences, log10Summary, logUlps, worst, vsHarness }, null, 2),
   );
+  const rawValues = Object.values(rawUlps).flatMap((v) => [...v.raw, v.gainDb]);
+  const seedSummary = {
+    fixtures: Object.keys(rawUlps).length,
+    gateDifferences: seedGate.length,
+    // Review L-1: fixtures that have a seed (the others compare two INSUFFICIENT_DATA).
+    seeds: Object.values(seedOf).filter((v) => v).length,
+    vsHarness: {
+      seedsDiffering: Object.values(vsHarnessSeeds).filter((v) => !v.sameSeed).length,
+      gateDiffering: Object.values(vsHarnessSeeds).filter((v) => !v.sameGate).length,
+      vadDiffering: Object.values(vsHarnessSeeds).filter((v) => !v.sameVad).length,
+      maxSeedUnits: Math.max(0, ...Object.values(vsHarnessSeeds).map((v) => v.maxSeedUnits ?? 0)),
+    },
+    rawMaxUlp: Math.max(0, ...rawValues.map((u) => u ?? 0)),
+    rawNullMismatch: rawValues.filter((u) => u === null).length,
+    rawNonZero: rawValues.filter((u) => u !== null && u > 0).length,
+  };
+  test.info().annotations.push({ type: 'D-N gate (I-06b): seed, status, warnings, VAD decisions', description: JSON.stringify(seedSummary) });
+  writeFileSync(
+    join(resolve(import.meta.dirname, '../../test-results'), 'i06b-seed-gate.json'),
+    JSON.stringify({ seedSummary, seedGate, rawUlps, vsHarnessSeeds }, null, 2),
+  );
   expect(differences).toEqual([]);
   // A log10 value present on one side and null on the other would not be a rounding difference.
   expect(log10Summary.nullMismatch).toBe(0);
+  // D-N gate (BACKLOG I-06b, VC-24): one different seed stops the work for an ADR.
+  expect(seedGate).toEqual([]);
+  expect(seedSummary.rawNullMismatch).toBe(0);
 });
 
 test('a start offset analyses the chosen window: voice-a-long from 10 s', async () => {

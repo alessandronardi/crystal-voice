@@ -15,8 +15,11 @@ import type {
   CaptureExitReason,
   CaptureMessage,
   CaptureState,
+  QualitySummary,
+  QualityWarning,
   SessionId,
 } from './messages.ts';
+import { DESCRIPTOR_KEYS, isCrystalSeed, type CrystalSeed } from './seed.ts';
 
 export interface OffscreenStartTab {
   v: 1;
@@ -134,6 +137,28 @@ export interface CaptureDiag {
   baseLatency: number | null;
   /** `AudioContext.outputLatency`, seconds; null when not available. */
   outputLatency: number | null;
+  /**
+   * The analysis at the end of a tab or microphone session (I-06b, D-Y,
+   * ADR-0025): set only in RESULT_READY and INSUFFICIENT_DATA reached through
+   * FINALIZING, null otherwise. Numbers and the seed only, never audio.
+   */
+  analysis: CaptureAnalysis | null;
+}
+
+/** Why the end-of-session analysis gave no measure (I-06b). */
+export type CaptureAnalysisFailure = 'VAD_UNAVAILABLE' | 'ANALYSIS_FAILED' | 'ANALYSIS_TIMEOUT';
+
+export interface CaptureAnalysis {
+  /** Quality of the analysed audio (SPEC §9); null when the analysis failed. */
+  quality: QualitySummary | null;
+  /** mapping-0 seed; non-null exactly when the session is RESULT_READY. */
+  seed: CrystalSeed | null;
+  /** null when the run did not use the canonical extractor; such a run is never accepted. */
+  extractorVersion: string | null;
+  mappingVersion: string | null;
+  failure: CaptureAnalysisFailure | null;
+  /** Audio kept for the analysis, ms (pauses excluded); null when nothing reached the worker. */
+  analysedMs: number | null;
 }
 
 export type InternalMessage =
@@ -202,6 +227,21 @@ const CAPTURE_STATE_SET: Readonly<Record<CaptureState, true>> = {
   INSUFFICIENT_DATA: true,
   INTERRUPTED: true,
   ERROR: true,
+};
+const WARNING_SET: Readonly<Record<QualityWarning, true>> = {
+  MIXED_AUDIO_UNCERTAIN: true,
+  MULTI_SPEAKER_SUSPECTED: true,
+  LOW_CONFIDENCE_PARAMETER: true,
+  CLIPPING: true,
+  LOW_LEVEL: true,
+  PLAYER_MUTED: true,
+  EXPERIMENTAL_MAPPING: true,
+  PHASE_CANCELLATION: true,
+};
+const ANALYSIS_FAILURE_SET: Readonly<Record<CaptureAnalysisFailure, true>> = {
+  VAD_UNAVAILABLE: true,
+  ANALYSIS_FAILED: true,
+  ANALYSIS_TIMEOUT: true,
 };
 const ERROR_CODES: readonly string[] = Object.keys(ERROR_CODE_SET);
 const EXIT_REASONS: readonly string[] = Object.keys(EXIT_REASON_SET);
@@ -367,8 +407,60 @@ export function isCaptureDiag(value: unknown): value is CaptureDiag {
     isNonNegativeFinite(value['elapsedMs']) &&
     isNonNegativeFinite(value['activeMs']) &&
     isNonNegativeFiniteOrNull(value['baseLatency']) &&
-    isNonNegativeFiniteOrNull(value['outputLatency'])
+    isNonNegativeFiniteOrNull(value['outputLatency']) &&
+    isAnalysisFor(state, value['analysis'])
   );
+}
+
+const probability = (v: unknown): boolean => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
+
+/** Structural guard for SPEC §9 QualitySummary (I-06b: it now crosses contexts in CAPTURE_DIAG). */
+export function isQualitySummary(value: unknown): value is QualitySummary {
+  if (!isRecord(value)) return false;
+  const confidence = value['confidence'];
+  const missing = value['missingFeatureKeys'];
+  const warnings = value['warnings'];
+  return (
+    typeof value['accepted'] === 'boolean' &&
+    isNonNegativeFinite(value['validSpeechMs']) &&
+    isSeq(value['pitchUsableFrames']) &&
+    isSeq(value['vadSpeechFrames']) &&
+    isSeq(value['droppedFrames']) &&
+    probability(value['clippedFraction']) &&
+    Array.isArray(confidence) &&
+    confidence.length === 6 &&
+    confidence.every(probability) &&
+    Array.isArray(missing) &&
+    missing.every((k) => typeof k === 'string' && (DESCRIPTOR_KEYS as readonly string[]).includes(k)) &&
+    Array.isArray(warnings) &&
+    warnings.every((w) => typeof w === 'string' && Object.hasOwn(WARNING_SET, w))
+  );
+}
+
+/**
+ * `analysis` is present only in the two states FINALIZING can lead to with a
+ * result decision; RESULT_READY always carries a seed and no failure.
+ */
+function isAnalysisFor(state: CaptureState, value: unknown): boolean {
+  if (value === null) return state !== 'RESULT_READY';
+  if (state !== 'RESULT_READY' && state !== 'INSUFFICIENT_DATA') return false;
+  if (!isRecord(value)) return false;
+  const failure = value['failure'];
+  const seed = value['seed'];
+  const quality = value['quality'];
+  const shapeOk =
+    (quality === null || isQualitySummary(quality)) &&
+    (seed === null || isCrystalSeed(seed)) &&
+    (value['extractorVersion'] === null || typeof value['extractorVersion'] === 'string') &&
+    (value['mappingVersion'] === null || typeof value['mappingVersion'] === 'string') &&
+    (failure === null || (typeof failure === 'string' && Object.hasOwn(ANALYSIS_FAILURE_SET, failure))) &&
+    isNonNegativeFiniteOrNull(value['analysedMs']);
+  if (!shapeOk) return false;
+  if (failure !== null) return seed === null && quality === null && state === 'INSUFFICIENT_DATA';
+  // Review M-1: a measured analysis always has its quality; the seed and the acceptance follow the state.
+  if (!isQualitySummary(quality)) return false;
+  if (state === 'RESULT_READY') return seed !== null && quality.accepted && value['extractorVersion'] !== null;
+  return seed === null;
 }
 
 /**

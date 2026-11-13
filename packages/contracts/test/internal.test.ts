@@ -3,6 +3,7 @@ import {
   PANEL_PORT_PREFIX,
   TERMINAL_CAPTURE_STATES,
   isCaptureDiag,
+  isQualitySummary,
   isCaptureStartMessage,
   isOffscreenStartMic,
   isFileSessionEnd,
@@ -39,6 +40,7 @@ const diag: CaptureDiag = {
   activeMs: 1_000,
   baseLatency: 0.01,
   outputLatency: 0.02,
+  analysis: null,
 };
 
 const heartbeat = {
@@ -220,6 +222,57 @@ describe('CAPTURE_DIAG', () => {
 
   it('rejects unknown states', () => {
     expect(isCaptureDiag({ ...diag, state: 'running' })).toBe(false);
+  });
+});
+
+describe('CAPTURE_DIAG analysis (I-06b, D-Y)', () => {
+  const quality = {
+    accepted: true,
+    validSpeechMs: 9_000,
+    pitchUsableFrames: 700,
+    vadSpeechFrames: 450,
+    droppedFrames: 0,
+    clippedFraction: 0,
+    confidence: [1, 1, 0.9, 1, 1, 0.6],
+    missingFeatureKeys: [],
+    warnings: ['EXPERIMENTAL_MAPPING'],
+  };
+  const ok = { quality, seed: [1, 2, 3, 4, 5, 6], extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental', failure: null, analysedMs: 45_000 };
+  const ready = { ...diag, state: 'RESULT_READY', exitReason: 'WALL_TIMEOUT', analysis: ok };
+
+  it('accepts a result with a seed, and a refusal with its measures', () => {
+    expect(isCaptureDiag(ready)).toBe(true);
+    expect(isQualitySummary(quality)).toBe(true);
+    const refused = { ...ok, seed: null, quality: { ...quality, accepted: false, missingFeatureKeys: ['p6_rhythm'] } };
+    expect(isCaptureDiag({ ...ready, state: 'INSUFFICIENT_DATA', analysis: refused })).toBe(true);
+    const failed = { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure: 'ANALYSIS_TIMEOUT', analysedMs: null };
+    expect(isCaptureDiag({ ...ready, state: 'INSUFFICIENT_DATA', analysis: failed })).toBe(true);
+  });
+
+  it('ties the analysis to the states FINALIZING leads to', () => {
+    expect(isCaptureDiag({ ...ready, analysis: null })).toBe(false); // RESULT_READY without analysis
+    expect(isCaptureDiag({ ...diag, analysis: ok })).toBe(false); // LISTENING with analysis
+    expect(isCaptureDiag({ ...ready, state: 'INTERRUPTED', exitReason: 'USER_STOP' })).toBe(false);
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, seed: null } })).toBe(false);
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, extractorVersion: null } })).toBe(false);
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, failure: 'ANALYSIS_FAILED' } })).toBe(false);
+    // Review M-1: the guard holds the invariants the panel relies on.
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, quality: { ...quality, accepted: false } } })).toBe(false);
+    expect(isCaptureDiag({ ...ready, state: 'INSUFFICIENT_DATA', analysis: ok })).toBe(false); // a seed outside RESULT_READY
+    const empty = { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure: null, analysedMs: null };
+    expect(isCaptureDiag({ ...ready, state: 'INSUFFICIENT_DATA', analysis: empty })).toBe(false);
+  });
+
+  it('rejects malformed seeds, confidences, keys and warnings', () => {
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, seed: [1, 2, 3, 4, 5, 6.5] } })).toBe(false);
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, seed: [1, 2, 3, 4, 5, 10_001] } })).toBe(false);
+    expect(isQualitySummary({ ...quality, confidence: [1, 1, 1, 1, 1] })).toBe(false);
+    expect(isQualitySummary({ ...quality, confidence: [1, 1, 1, 1, 1, 1.5] })).toBe(false);
+    expect(isQualitySummary({ ...quality, missingFeatureKeys: ['p7'] })).toBe(false);
+    expect(isQualitySummary({ ...quality, warnings: ['LOUD'] })).toBe(false);
+    expect(isQualitySummary({ ...quality, validSpeechMs: Number.NaN })).toBe(false);
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, failure: 'OOPS' } })).toBe(false);
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, analysedMs: -1 } })).toBe(false);
   });
 });
 

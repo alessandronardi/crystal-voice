@@ -195,17 +195,16 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
 #### I-06b · Estrazione nell'estensione
 
 - **Dipende da:** I-06a.
-- **Perimetro:**
-  - resampler con stato ed estrazione a blocchi in `dsp-core`, con il test «blocchi concatenati = buffer intero»;
-  - guadagno di normalizzazione (D-V) per l'audio che arriva a blocchi;
-  - `fvad.wasm` in `dist/` e caricato nel `dsp-worker` sotto la CSP, solo tramite `instantiateFvad`;
-  - percorso file del pannello fino al seed;
-  - collegamento di scheda e microfono, da decidere nel piano;
-  - nel pacchetto: `THIRD_PARTY/libfvad/LICENSE`, `PATENTS` e le note di musl, dlmalloc e compiler-rt (ADR-0023). La clausola di `PATENTS` è accettata dal product owner (D-S).
-- **DoD:**
-  - [ ] `fvad.wasm` caricato nel `dsp-worker` sotto la CSP attuale, E2E con finestra e headless.
-  - [ ] Decisioni del VAD e seed delle fixture caricate come file: uguali fra Node e pannello, o differenza spiegata. È la misura anticipata del cancello D-N (VC-24); il cancello resta in I-07.
-  - [ ] Estrazione a blocchi = estrazione a buffer intero, o differenza misurata e dichiarata.
+- **Perimetro** (decisioni del product owner: D-W scheda e microfono inclusi; D-X licenze dalla CI; D-Y risultato in `CAPTURE_DIAG.analysis`; D-Z navigazione durante l'analisi finale non scarta, «Interrompi» sì; D-AA i file chiedono 8 s di voce valida come la cattura; D-AB riferimento del cancello D-N con la conversione di Chromium; D-AC ADR-0025 accettato):
+  - `fvad.wasm` in `dist/`, fissato per SHA-256 nella guardia del bundle, e caricato nel `dsp-worker` sotto la CSP, solo tramite `instantiateFvad` dopo il controllo dell'hash;
+  - percorso file del pannello fino al seed, con righe tecniche «sperimentali»;
+  - scheda e microfono: il worklet inoltra l'audio di ascolto al `dsp-worker` dell'offscreen; analisi a fine sessione, sul buffer intero, con la stessa funzione dei file (ADR-0025);
+  - nel pacchetto: `THIRD_PARTY/libfvad/LICENSE`, `PATENTS` e le note di musl, dlmalloc, compiler-rt ed Emscripten (ADR-0023, D-S).
+  - **Fuori, verso I-07:** resampler con stato, guadagno stimato in corsa ed estrazione incrementale: servono alla regola split-half, non all'analisi a fine sessione.
+- **DoD** (misure del 2026-11-12, `docs/BENCHMARK_PROTOCOL.md` §7):
+  - [x] `fvad.wasm` caricato nel `dsp-worker` sotto la CSP attuale, E2E con finestra e headless: pannello (file) e offscreen (scheda, microfono).
+  - [x] Decisioni del VAD e seed delle fixture caricate come file: uguali fra Node e pannello, con in Node la stessa conversione dei campioni di Chromium (D-AB). Misurato: 35 fixture su 35 con esito, avvisi, confidenza, qualità e decisioni VAD identici, e i 19 seed presenti identici; misure grezze diverse al più di 2 ULP in 8 valori. **Contro il lettore WAV dei benchmark** (int16/32768, diverso da Chromium da I-18) la differenza è misurata e dichiarata, non richiesta: vedi `docs/BENCHMARK_PROTOCOL.md` §7. Il cancello D-N resta in I-07, per la verifica finale.
+  - [x] Estrazione a blocchi = estrazione a buffer intero: per costruzione (ADR-0025), con il test unit bit per bit dell'accumulatore.
 - **Test:** unit sui blocchi; E2E Node contro pannello.
 
 ### I-07 · Arresto split-half

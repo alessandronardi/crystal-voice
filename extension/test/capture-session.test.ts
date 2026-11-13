@@ -3,13 +3,54 @@
 import { isCaptureDiag, type CaptureDiag, type HeartbeatMessage } from '@voicecrystal/contracts';
 import { describe, expect, it } from 'vitest';
 import {
+  ANALYSIS_TIMEOUT_MS,
   AUTHORIZING_TIMEOUT_MS,
   CaptureSession,
   HEARTBEAT_TIMEOUT_MS,
   PANEL_ATTACH_TIMEOUT_MS,
   RELEASE_TIMEOUT_MS,
+  type SessionAnalysis,
   type SessionBinding,
 } from '../src/offscreen/capture-session.ts';
+import type { QualitySummary } from '@voicecrystal/contracts';
+
+const NO_VOICE_QUALITY: QualitySummary = {
+  accepted: false,
+  validSpeechMs: 0,
+  pitchUsableFrames: 0,
+  vadSpeechFrames: 0,
+  droppedFrames: 0,
+  clippedFraction: 0,
+  confidence: [0, 0, 0, 0, 0, 0],
+  missingFeatureKeys: ['p1_pitch', 'p2_intonation', 'p3_dynamics', 'p4_roughness', 'p5_brightness', 'p6_rhythm'],
+  warnings: ['EXPERIMENTAL_MAPPING'],
+};
+
+/** What the fake worker answers in FINALIZING: by default the tone of the E2E pages (no crystal). */
+const NO_VOICE: SessionAnalysis = {
+  analysis: {
+    quality: NO_VOICE_QUALITY,
+    seed: null,
+    extractorVersion: 'extractor-0-experimental',
+    mappingVersion: 'mapping-0-experimental',
+    failure: null,
+    analysedMs: 45_000,
+  },
+  accepted: false,
+  validSpeechMs: 0,
+};
+
+function voice(validSpeechMs: number): SessionAnalysis {
+  return {
+    analysis: {
+      ...NO_VOICE.analysis,
+      quality: { ...NO_VOICE_QUALITY, accepted: true, validSpeechMs, missingFeatureKeys: [], confidence: [1, 1, 1, 1, 1, 0.8] },
+      seed: [4000, 5000, 3000, 0, 2500, 6000],
+    },
+    accepted: true,
+    validSpeechMs,
+  };
+}
 
 const SESSION = '3f1c2b4a-9d8e-4f7a-8b6c-5d4e3f2a1b0c';
 const OTHER = '00000000-0000-4000-8000-000000000000';
@@ -23,6 +64,11 @@ class Harness {
   idles = 0;
   releaseThrows = false;
   releaseHangs = false;
+  /** The worker's answer in FINALIZING; 'hang' never answers, 'reject' breaks the contract. */
+  analysisOutcome: SessionAnalysis | 'hang' | 'reject' = NO_VOICE;
+  finalizations = 0;
+  recording: boolean[] = [];
+  captureEnded = 0;
   private timers = new Map<number, { at: number; fn: () => void }>();
   private nextId = 1;
   readonly session: CaptureSession;
@@ -49,6 +95,19 @@ class Harness {
       },
       onIdle: () => {
         this.idles++;
+      },
+      finalize: () => {
+        this.finalizations++;
+        const o = this.analysisOutcome;
+        if (o === 'hang') return new Promise<SessionAnalysis>(() => undefined);
+        if (o === 'reject') return Promise.reject(new Error('worker gone'));
+        return Promise.resolve(o);
+      },
+      setRecording: (record) => {
+        this.recording.push(record);
+      },
+      endCapture: () => {
+        this.captureEnded++;
       },
     });
   }
@@ -455,7 +514,7 @@ describe('pause and times [H] (SPEC §6)', () => {
     expect(h.session.state).toBe('LISTENING');
   });
 
-  it('45 s of listening ends in INSUFFICIENT_DATA / WALL_TIMEOUT (no speech detector yet)', async () => {
+  it('45 s of listening without voice ends in INSUFFICIENT_DATA / WALL_TIMEOUT, with the analysis', async () => {
     const h = listening();
     for (let i = 0; i < 46 && h.session.isLive(); i++) {
       await h.advance(1_000);
@@ -464,6 +523,9 @@ describe('pause and times [H] (SPEC §6)', () => {
     expect(h.last).toMatchObject({ state: 'INSUFFICIENT_DATA', exitReason: 'WALL_TIMEOUT' });
     expect(h.last?.activeMs).toBeGreaterThanOrEqual(45_000);
     expect(h.diags.some((d) => d.state === 'RESULT_READY')).toBe(false);
+    expect(h.finalizations).toBe(1);
+    expect(h.last?.analysis?.quality?.missingFeatureKeys).toHaveLength(6);
+    expect(isCaptureDiag(h.last)).toBe(true);
   });
 
   it('paused sessions end at 120 s from the start, pauses included', async () => {
@@ -476,5 +538,125 @@ describe('pause and times [H] (SPEC §6)', () => {
     }
     expect(h.last).toMatchObject({ state: 'INSUFFICIENT_DATA', exitReason: 'ABSOLUTE_TIMEOUT' });
     expect(h.last?.elapsedMs).toBeGreaterThanOrEqual(120_000);
+  });
+});
+
+describe('FINALIZING and the end-of-session analysis (I-06b, ADR-0025)', () => {
+  async function toWallTimeout(h: Harness): Promise<void> {
+    for (let i = 0; i < 46 && h.session.isLive(); i++) {
+      await h.advance(1_000);
+      h.heartbeat();
+    }
+  }
+
+  it('a voice with at least 8 s of valid speech gives RESULT_READY with its seed', async () => {
+    const h = listening();
+    h.analysisOutcome = voice(9_000);
+    await toWallTimeout(h);
+    await h.advance(100);
+    expect(h.last).toMatchObject({ state: 'RESULT_READY', exitReason: 'WALL_TIMEOUT' });
+    expect(h.last?.analysis?.seed).toEqual([4000, 5000, 3000, 0, 2500, 6000]);
+    expect(h.diags.some((d) => d.state === 'FINALIZING' && d.analysis === null)).toBe(true);
+    for (const d of h.diags) expect(isCaptureDiag(d), d.state).toBe(true);
+    expect(h.session.state).toBe('IDLE');
+  });
+
+  it('an accepted analysis under 8 s of valid speech is INSUFFICIENT_DATA and shows no seed (SPEC §6.1)', async () => {
+    const h = listening();
+    h.analysisOutcome = voice(7_990);
+    await toWallTimeout(h);
+    await h.advance(100);
+    expect(h.last?.state).toBe('INSUFFICIENT_DATA');
+    expect(h.last?.analysis?.seed).toBeNull();
+    expect(h.last?.analysis?.quality?.validSpeechMs).toBe(7_990);
+    expect(isCaptureDiag(h.last)).toBe(true);
+  });
+
+  it('a worker that never answers ends in INSUFFICIENT_DATA after the timeout, with the reason', async () => {
+    const h = listening();
+    h.analysisOutcome = 'hang';
+    await toWallTimeout(h);
+    expect(h.session.state).toBe('FINALIZING');
+    await h.advance(ANALYSIS_TIMEOUT_MS + 200);
+    expect(h.last).toMatchObject({ state: 'INSUFFICIENT_DATA', exitReason: 'WALL_TIMEOUT' });
+    expect(h.last?.analysis).toEqual({ quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure: 'ANALYSIS_TIMEOUT', analysedMs: null });
+    expect(isCaptureDiag(h.last)).toBe(true);
+    expect(h.session.state).toBe('IDLE');
+  });
+
+  it('a finalize that rejects is ANALYSIS_FAILED, never a crash', async () => {
+    const h = listening();
+    h.analysisOutcome = 'reject';
+    await toWallTimeout(h);
+    await h.advance(100);
+    expect(h.last?.analysis?.failure).toBe('ANALYSIS_FAILED');
+    expect(h.last?.state).toBe('INSUFFICIENT_DATA');
+  });
+
+  it('a stop during FINALIZING wins: INTERRUPTED without analysis, the timeout then changes nothing', async () => {
+    const h = listening();
+    h.analysisOutcome = 'hang';
+    await toWallTimeout(h);
+    expect(h.session.state).toBe('FINALIZING');
+    h.session.stop('USER_STOP');
+    await h.advance(100);
+    expect(h.last).toMatchObject({ state: 'INTERRUPTED', exitReason: 'USER_STOP', analysis: null });
+    const count = h.diags.length;
+    await h.advance(ANALYSIS_TIMEOUT_MS + 200);
+    expect(h.diags).toHaveLength(count);
+    expect(h.diags.some((d) => d.state === 'RESULT_READY' || d.state === 'INSUFFICIENT_DATA')).toBe(false);
+  });
+
+  it('records only while listening: on at the start, off in a pause, on again, off in FINALIZING', async () => {
+    const h = listening();
+    await h.advance(1_000);
+    h.heartbeat({ paused: true });
+    await h.advance(1_000);
+    h.heartbeat({ paused: false });
+    await toWallTimeout(h);
+    expect(h.recording).toEqual([true, false, true, false]);
+  });
+});
+
+describe('FINALIZING captures nothing (review C-1, R8, ADR-0004)', () => {
+  async function finalizing(): Promise<Harness> {
+    const h = listening();
+    h.analysisOutcome = 'hang';
+    for (let i = 0; i < 46 && h.session.isLive() && h.session.state !== 'FINALIZING'; i++) {
+      await h.advance(1_000);
+      h.heartbeat();
+    }
+    expect(h.session.state).toBe('FINALIZING');
+    return h;
+  }
+
+  it('the capture ends on entering FINALIZING, before the analysis answers', async () => {
+    const h = await finalizing();
+    expect(h.captureEnded).toBe(1);
+    expect(h.finalizations).toBe(1);
+  });
+
+  it('the "stream ended" that follows its own end of capture is not an error (E2E regression, tab)', async () => {
+    const h = await finalizing();
+    h.session.stop('STREAM_ENDED');
+    h.session.stop('NAVIGATED_AWAY');
+    await h.advance(100);
+    expect(h.session.state).toBe('FINALIZING');
+    await h.advance(ANALYSIS_TIMEOUT_MS);
+    expect(h.last).toMatchObject({ state: 'INSUFFICIENT_DATA', exitReason: 'WALL_TIMEOUT' });
+  });
+
+  it('navigation away during the analysis finds no capture: the content script is told to stop, nothing is re-armed', async () => {
+    const h = await finalizing();
+    expect(h.heartbeat({ url: 'https://example.com/' })).toBe(false);
+    const ignoredBefore = h.session.ignored.rejectedEvent;
+    await h.advance(HEARTBEAT_TIMEOUT_MS + 1_000, false);
+    // No watchdog in FINALIZING: no INTERRUPT queued against the analysis.
+    expect(h.session.ignored.rejectedEvent).toBe(ignoredBefore);
+    expect(h.captureEnded).toBe(1);
+    // The analysis then decides; the timeout gives INSUFFICIENT_DATA and everything is released.
+    await h.advance(ANALYSIS_TIMEOUT_MS);
+    expect(h.last?.state).toBe('INSUFFICIENT_DATA');
+    expect(h.releases).toBe(1);
   });
 });

@@ -5,6 +5,15 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 ## [Unreleased]
 
 ### Aggiunto
+- I-06b: libfvad e il seed nell'estensione.
+  - **Bundle:** `fvad.wasm` e i testi di licenza (libfvad, `PATENTS`, musl, compiler-rt, dlmalloc, Emscripten) in `dist/extension/`, ammessi dalla guardia solo con il loro SHA-256. Il `dsp-worker` scarica il modulo dalla propria origine, ne controlla l'hash e lo istanzia con `instantiateFvad` (CSP invariata).
+  - **File locale:** il pannello calcola descrittori, avvisi e seed di `mapping-0` e li mostra in righe tecniche «sperimentali»; `pcm-analysis-1`.
+  - **Scheda e microfono:** il worklet inoltra l'audio degli stati di ascolto a un `dsp-worker` dell'offscreen, che lo tiene in RAM e lo analizza in `FINALIZING` con la stessa funzione dei file (ADR-0025); il risultato arriva al pannello in `CAPTURE_DIAG.analysis` (contratto interno, D-Y). Fino a I-07 il seed arriva solo dopo 45 s di ascolto.
+  - **Licenze:** il job CI `fvad-wasm` copia le note dall'immagine Emscripten fissata e le confronta byte per byte con `THIRD_PARTY/` (D-X).
+  - **Fine sessione:** all'ingresso in `FINALIZING` la cattura si chiude subito (R8, rilievo C-1); navigazione e chiusura della scheda durante l'analisi non scartano il risultato, «Interrompi» sì (D-Z). Anche i file chiedono 8 s di voce valida (D-AA).
+- ADR-0025 (accettato il 2026-11-13): analisi di scheda e microfono a fine sessione sull'audio tenuto in RAM.
+- ADR-0011: accettati i due archi da `FINALIZING` dell'emendamento (D-Z).
+- Prove manuali M29–M31 (file di voce, YouTube con parlato, microfono).
 - I-06a: estrattore `extractor-0-experimental` in `dsp-core` (solo Node).
   - **Frame acustici** (SPEC §7.3): FFT radix-2, centroide, flatness e flusso in 300–4000 Hz, decisione di libfvad modo 2, livello normalizzato per tutto il clip (D-V).
   - **Sei descrittori** di SPEC §7.4, con p3 e p6 sui frame intonati (D-V); `null` sotto i minimi, mai 0.
@@ -122,6 +131,7 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
   Dettagli in `docs/BENCHMARK_PROTOCOL.md` §7.
 
 ### Modificato
+- `packages/contracts`, I-06b: `CAPTURE_DIAG` ha il campo `analysis` (`CaptureAnalysis`) e la guardia `isQualitySummary`; `dsp-core` esporta `describeFrames` e `FVAD_WASM_SHA256`.
 - Backlog, I-06: divisa in I-06a (Node) e I-06b (estensione), decisione D-R. Clausola di `PATENTS` di WebRTC accettata dal product owner (D-S); domanda aperta per il G0 in `docs/LEGAL_G0_CHECKLIST.md` §4-bis.
 - `dsp-core`, I-06a: `trackPitch` usa un aiuto condiviso con i frame acustici; il risultato non cambia.
 - CI, I-18: il job `e2e` genera le fixture WAV (`pnpm fixtures`) prima dei test; `file.spec.ts` fallisce con un messaggio esplicito se ne manca una. I-18 mergiata (PR crystal-voice#13, `d6e1f51`).

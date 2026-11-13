@@ -7,6 +7,7 @@ import {
   DspInputError,
   FVAD_IMPORTS,
   FVAD_MODE,
+  FVAD_WASM_SHA256,
   FvadError,
   fvadImportObject,
   mixToMono,
@@ -34,8 +35,9 @@ const voice16k = (() => {
 })();
 
 describe('fvad.wasm', () => {
-  it('matches its committed SHA-256', () => {
+  it('matches its committed SHA-256, and the constant the extension checks (I-06b)', () => {
     expect(readFvadBytes().sha256).toBe(fvad.sha256);
+    expect(FVAD_WASM_SHA256).toBe(fvad.sha256);
   });
 
   it('imports only the declared WASI stubs and exports what the engine needs', () => {

@@ -2,8 +2,39 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento:** 2026-11-12 — **I-06a chiusa** (PR crystal-voice#15, squash `fe0c58e`; CI della PR verde, CI su `main` in corso al momento della registrazione). I-06b sbloccata, non iniziata (branch `issue/I-06b-extension` da `fe0c58e`). Prima: I-06 divisa in I-06a e I-06b (D-R); ADR-0024 accettato; clausola di `PATENTS` accettata (D-S). Prima: I-05b chiusa (PR crystal-voice#14, squash `f61c291`; CI della PR verde), ADR-0023 accettato (modo 2, D-Q). Prima: I-05b implementata sul branch `issue/I-05b-vad-engines`. Prima: I-18 mergiata (PR crystal-voice#13, squash `d6e1f51`; CI della PR verde su `8ab8ebf`) e non chiusa: prove manuali M15 e M24–M28 TO DO non bloccante; ADR-0022 accettato dal product owner (D-M), decisioni D-N…D-P prese per delega. Prima: I-05b sbloccata: dipendenze VAD decise per delega del product owner (D-L), implementazione non iniziata (branch `issue/I-05b-vad-dependencies`, solo documenti, non committati); I-17 mergiata (PR crystal-voice#11, squash `cd3924e`; CI su `main` verde dopo il merge) e non chiusa; I-03 mergiata (PR crystal-voice#10, squash `63ff4aa`) ma non chiusa: M3–M11 su YouTube reale non eseguite, decisioni del product owner aperte; I-02 chiusa senza la misura della latenza (decisione del product owner; PR crystal-voice#9, `18cb21e`); I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale in PR crystal-voice#8, `25561f6`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
+**Ultimo aggiornamento:** 2026-11-13 — **I-06b implementata sul branch `issue/I-06b-extension`, non chiusa**: 4 commit pushati (chiusura di I-06a e licenze, D-X), il resto non committato; nessuna PR. ADR-0025 accettato (D-AC), archi da `FINALIZING` di ADR-0011 accettati (D-Z). Prima: **I-06a chiusa** (PR crystal-voice#15, squash `fe0c58e`; CI della PR verde, CI su `main` in corso al momento della registrazione). I-06b sbloccata, non iniziata (branch `issue/I-06b-extension` da `fe0c58e`). Prima: I-06 divisa in I-06a e I-06b (D-R); ADR-0024 accettato; clausola di `PATENTS` accettata (D-S). Prima: I-05b chiusa (PR crystal-voice#14, squash `f61c291`; CI della PR verde), ADR-0023 accettato (modo 2, D-Q). Prima: I-05b implementata sul branch `issue/I-05b-vad-engines`. Prima: I-18 mergiata (PR crystal-voice#13, squash `d6e1f51`; CI della PR verde su `8ab8ebf`) e non chiusa: prove manuali M15 e M24–M28 TO DO non bloccante; ADR-0022 accettato dal product owner (D-M), decisioni D-N…D-P prese per delega. Prima: I-05b sbloccata: dipendenze VAD decise per delega del product owner (D-L), implementazione non iniziata (branch `issue/I-05b-vad-dependencies`, solo documenti, non committati); I-17 mergiata (PR crystal-voice#11, squash `cd3924e`; CI su `main` verde dopo il merge) e non chiusa; I-03 mergiata (PR crystal-voice#10, squash `63ff4aa`) ma non chiusa: M3–M11 su YouTube reale non eseguite, decisioni del product owner aperte; I-02 chiusa senza la misura della latenza (decisione del product owner; PR crystal-voice#9, `18cb21e`); I-11 chiusa (codice in PR crystal-voice#7, `424bfc3`; chiusura documentale in PR crystal-voice#8, `25561f6`); I-12 chiusa (PR crystal-voice#6); I-10 mergiata, aperta per il G2
 
+> **I-06b implementata il 2026-11-12/13, non chiusa** (branch `issue/I-06b-extension` da `fe0c58e`).
+> - **Git:** pushati `d83a80c` (chiusura di I-06a), `c52d51c`, `53f7ac3` e `ee51457` (licenze, D-X: push a metà lavoro autorizzato dal piano per l'artefatto CI). Il resto non è committato; nessuna PR.
+> - **Fatto:**
+>   - `fvad.wasm` e i testi di licenza nel bundle, ammessi dalla guardia solo con il loro SHA-256; il `dsp-worker` scarica il modulo da `'self'`, ne controlla l'hash (`FVAD_WASM_SHA256`) e lo istanzia con `instantiateFvad`. **CSP e manifest invariati**;
+>   - file locale: descrittori, avvisi e seed nel pannello, righe «sperimentali»; seed solo con almeno 8 s di voce valida (D-AA);
+>   - scheda e microfono: il worklet inoltra l'audio di ascolto al `dsp-worker` dell'offscreen; analisi in `FINALIZING` sul buffer intero, con la stessa funzione dei file (ADR-0025); la cattura si chiude all'ingresso in `FINALIZING` (rilievo C-1); risultato in `CAPTURE_DIAG.analysis` (D-Y);
+>   - licenze di musl, compiler-rt, dlmalloc ed Emscripten in `THIRD_PARTY/emscripten/`, prese dall'immagine fissata e confrontate in CI byte per byte (D-X); `THIRD_PARTY/** -text` in `.gitattributes`.
+> - **Misure** (`docs/BENCHMARK_PROTOCOL.md` §7):
+>   - **cancello D-N:** 35 fixture caricate come file, con in Node la conversione dei campioni di Chromium: esito, avvisi, confidenza, qualità e decisioni VAD identici, 19 seed su 19 identici; misure grezze al più 2 ULP. Contro il lettore WAV dei benchmark: 3 seed su 19 diversi di 1 unità e 2 fixture con decisioni VAD diverse, per la conversione int16 → float (misurato e dichiarato, D-AB);;
+>   - **microfono finto, 45 s:** `RESULT_READY`; Δ dal seed di Node sotto 1 punto su cinque tratti; su p6 una volta 8,71 punti (headless), poi 0,67–0,86. Audio analizzato 45,5 s contro 45,1 s di ascolto.
+>   - **analisi a fine sessione:** 1,04–1,14 s per 45 s di audio;
+>   - **scheda con un tono:** `INSUFFICIENT_DATA` con l'analisi presente (p6 mancante), 0 blocchi scartati.
+> - **Verifiche:** dopo l'ultima correzione: pnpm typecheck, pnpm lint, pnpm test e pnpm build con exit 0; pnpm test:e2e 46 su 46 headless e 46 su 46 con finestra (2026-11-13). Una corsa precedente con finestra ha avuto un fallimento unico all'avvio (VIDEO_CHANGED), non ripetuto in 15 prove isolate né in quattro corse complete. Il fallimento di due test della scheda dopo la correzione C-1 (STREAM_ENDED in FINALIZING) è stato corretto, con test unit.
+> - **Decisioni del product owner:**
+>
+>   | ID | Decisione | Effetto |
+>   |---|---|---|
+>   | D-W | Scheda e microfono nel perimetro di I-06b, non solo i file | `docs/BACKLOG.md` |
+>   | D-X | Licenze dall'immagine Emscripten tramite la CI (push a metà lavoro, artefatto scaricato con `gh`) | `THIRD_PARTY/emscripten/`, job `fvad-wasm` |
+>   | D-Y | Risultato di scheda e microfono nel messaggio interno `CAPTURE_DIAG` (campo `analysis`) | `packages/contracts/src/internal.ts` |
+>   | D-Z | Durante l'analisi finale navigazione e chiusura della scheda non scartano il risultato; «Interrompi» sì | Emendamento di ADR-0011 accettato |
+>   | D-AA | Anche i file chiedono almeno 8 s di voce valida per il seed | `file-view.ts` |
+>   | D-AB | Il riferimento del cancello D-N è Node con la conversione dei campioni di Chromium; la differenza dal lettore dei benchmark si dichiara | VC-24, «Proposte» |
+>   | D-AC | ADR-0025 accettato | `docs/ADR/0025-…` |
+>
+> - **Revisione avversariale (I-06b):** un passaggio, NO-GO per chiudere e CONDITIONAL GO per la PR (1 CRITICAL, 3 HIGH, 4 MEDIUM, 8 LOW).
+>   - **Corretti:** C-1 (cattura viva in `FINALIZING`: ora si chiude all'ingresso, test di regressione); M-1 (guardia di `CAPTURE_DIAG.analysis` più stretta); M-4 (errori del worker visti subito); H-2 in parte (test unit del worklet; durata dell'audio analizzato `analysedMs` controllata nell'E2E contro il tempo di ascolto); H-3 (descrittori contro il lettore dei benchmark misurati e dichiarati); L-1, L-2, L-4, L-5, L-7, L-8.
+>   - **Decisi dal product owner:** H-1 (D-Z, D-AC), M-2 (D-AA), H-3 (D-AB).
+>   - **Riportati, non corretti:** H-2, gli 8,71 punti su p6 in una corsa headless restano non spiegati (la fase del ciclo spiega circa 2 punti; l'audio analizzato ora si confronta col tempo di ascolto); M-3, numero di canali fissato dal primo blocco (controllato `droppedFrames = 0` negli E2E); L-3, L-6 (vedi «Proposte»).
+> - **Non eseguito:** prove manuali M29–M31 (product owner, Brave); E2E su Linux (lo farà la CI della PR).
+>
 > **I-06a chiusa il 2026-11-12** ([PR crystal-voice#15](https://github.com/alessandronardi/crystal-voice/pull/15), merge squash `fe0c58e`; CI della PR verde in tutti i job, E2E Linux compreso). Tutto in Node: nessuna parte nell'estensione.
 > - **Fatto:**
 >   - `dsp-core`: FFT, frame acustici di SPEC §7.3 con libfvad modo 2, normalizzazione di livello, sei descrittori, onset, euristiche musica e più voci, confidenza, `INSUFFICIENT_DATA`, `qualitySummary`; `extractorVersion = extractor-0-experimental`, con impronta delle costanti in un test;
@@ -102,7 +133,7 @@
 
 - **Fase corrente:** 1 (PoC Chrome) e, in parallelo, 2–3 sul nucleo puro.
 - **Gate:** G0 non avviato · G-PoC, G1, G2 non raggiunti.
-- **Issue attive:** I-18 mergiata (`d6e1f51`), non chiusa (prove manuali M15, M24–M28 TO DO non bloccante); I-17 mergiata, non chiusa (dettagli delle prove manuali da registrare); I-03 mergiata, non chiusa (prove manuali M3–M11 e decisioni aperte); I-10 in attesa della revisione estetica G2; **I-06b** sbloccata, non iniziata. Chiusa da poco: **I-06a** (`fe0c58e`). Chiuse: **I-01**, **I-02** (senza misura della latenza), **I-04**, **I-05a**, **I-05b**, **I-11**, **I-12**. 
+- **Issue attive:** I-18 mergiata (`d6e1f51`), non chiusa (prove manuali M15, M24–M28 TO DO non bloccante); I-17 mergiata, non chiusa (dettagli delle prove manuali da registrare); I-03 mergiata, non chiusa (prove manuali M3–M11 e decisioni aperte); I-10 in attesa della revisione estetica G2; **I-06b implementata, non chiusa** (branch `issue/I-06b-extension`; prove manuali M29–M31 TO DO). Chiusa da poco: **I-06a** (`fe0c58e`). Chiuse: **I-01**, **I-02** (senza misura della latenza), **I-04**, **I-05a**, **I-05b**, **I-11**, **I-12**. 
 - **Codice:** monorepo pnpm, 8 pacchetti vuoti ma tipizzati, `contracts` con i tipi di SPEC §9, estensione MV3 che si costruisce e si carica in Chromium.
 
 ## I-18: Definition of Done (implementata, non chiusa)
@@ -457,10 +488,7 @@
 2. I-17 (mergiata, `cd3924e`; CI su `main` verde): **umano** (decisi: Brave basta, arco `AUTHORIZING → INTERRUPTED` accettato) — annotare dove compare l'indicatore di registrazione e l'esito di M13b; eseguire M14c; ripetere M13–M14 sulla build finale.
 3. I-03 (mergiata, `63ff4aa`): **umano** — M3–M11 su youtube.com reale (Brave o Google Chrome), M8 con un annuncio vero; decidere l'emendamento di ADR-0011 e confermare il metodo di misura della memoria (dati sopra). Latenza del pass-through (VC-19): da misurare in I-06 o con un metodo nuovo per M21.
 4. I-18 (mergiata, `d6e1f51`): **umano, TO DO non bloccante** — eseguire M15 e M24–M28 in Brave quando possibile; fino ad allora I-18 resta non chiusa, ma le issue successive possono partire.
-5. **I-06b** (branch `issue/I-06b-extension` da `fe0c58e`; I-06a chiusa). Piano proprio da presentare:
-   - per prima cosa, `fvad.wasm` nel `dsp-worker` sotto la CSP, passando da `instantiateFvad`, con un E2E Node contro pannello sulle decisioni e sul seed (misura anticipata del cancello D-N, VC-24);
-   - il guadagno di normalizzazione (D-V) per l'audio a blocchi di scheda e microfono: stima in corsa, oppure ricalcolo sul buffer a 16 kHz in RAM;
-   - le note di licenza di libfvad in `THIRD_PARTY/` e nel pacchetto (D-S).
+5. **I-06b** (branch `issue/I-06b-extension`). **Umano:** chiedere commit e PR; eseguire M29–M31 in Brave. Poi **I-07**: regola split-half, che chiede descrittori ogni secondo, quindi un'estrazione incrementale (ADR-0025 da rivedere) e il cancello D-N formale.
 6. **Umano:** archiviare la vecchia sessione I-10 ferma su una domanda; cancellare `.agents/` e `.codex/`; completare la riga M0 con le versioni esatte di Chrome e il SO.
 7. Aggiornare SPEC §5 e §14 secondo ADR-0015, e SPEC §5 (punti 3 e 7, «Una cattura globale») secondo ADR-0022 (modifiche di sola documentazione).
 8. **Umano:** attivare la protezione di `main` descritta in CONTRIBUTING.md (CI obbligatoria, nessun push diretto).
@@ -513,6 +541,11 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | Immagini di riferimento di `renderer-three` su Linux | Non verificato (CI non eseguita) |
 
 ## Proposte fuori perimetro
+
+- **Da I-06b, D-AB:** allineare il lettore WAV dei benchmark (`scripts/fixtures/wav.ts`, int16/32768) alla conversione di Chromium, così benchmark e pannello danno lo stesso seed. Sposta le misure registrate di I-04, I-05 e I-06a: va rifatto il bench.
+- **Da I-06b, revisione M-3:** fissare il numero di canali da `STREAM_BEGIN` (traccia) invece che dal primo blocco, oppure `channelCount` esplicito sul nodo del worklet.
+- **Da I-06b, revisione L-3:** il worklet alloca un `Float32Array` ogni 4096 campioni per canale nel thread audio: misurare se causa disturbi (M30) o usare un anello di buffer riutilizzati.
+- **Da I-06b, revisione L-6:** codici d'errore più precisi: un `new Worker` che fallisce nella scheda oggi è `PLAYBACK_ROUTING_FAILED`; nel percorso file `VAD_UNAVAILABLE` diventa «Errore interno».
 
 - **Da I-06a, avvisi di qualità non ancora emessi:** `CLIPPING` (oggi i frame saturati sono solo esclusi), `LOW_LEVEL` (andrà dal guadagno di normalizzazione D-V: un guadagno alto vuol dire registrazione bassa) e `PLAYER_MUTED` (dal heartbeat, I-06b o I-13). Servono soglie [H] nuove.
 - **Da I-06a, SPEC:** ADR-0024 è accettato e SPEC §7.2 e §7.4 hanno una nota di rimando; resta da riscrivere il testo di SPEC §7.2 (criterio più voci con distanza fra gruppi; confidenza pesata dalla musica) e §7.4 (livello normalizzato; p3 e p6 sui frame intonati).
@@ -588,3 +621,4 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 | 2026-11-12 | Claude | I-05b | Chiusa | ADR-0023 accettato dal product owner (D-Q); PR crystal-voice#14 unita in squash (`f61c291`), CI della PR verde; I-06 sbloccata |
 | 2026-11-12 | Claude | I-06a | Implementata, non committata | I-06 divisa (D-R); PATENTS accettata (D-S); frame acustici, sei descrittori, euristiche musica e più voci (D-T), confidenza (D-U), livello normalizzato e p3/p6 sui frame intonati (D-V), mapping-0 e seed half-even; ADR-0024 accettato; `pnpm bench:descriptors`; DoD su fixture sintetiche soddisfatta salvo A/B 2/3 (riportato) |
 | 2026-11-12 | Claude | I-06a | Chiusa | ADR-0024 accettato; PR crystal-voice#15 unita in squash (`fe0c58e`), CI della PR verde; Auto-fix attivo durante la PR; branch `issue/I-06b-extension` creato da `fe0c58e` |
+| 2026-11-13 | Claude | I-06b | Implementata, non chiusa | fvad.wasm e licenze nel bundle (D-X), file, scheda e microfono fino al seed (D-W, ADR-0025 accettato, D-AC), `CAPTURE_DIAG.analysis` (D-Y); cancello D-N: 19/19 seed identici con la conversione di Chromium (D-AB); revisione NO-GO→ corretti C-1, M-1, M-4, H-2 in parte, H-3; D-Z, D-AA; 4 commit pushati, resto non committato |

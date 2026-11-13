@@ -6,8 +6,13 @@
 // origin, standing in for «Consenti» in permission.html; the real prompt and
 // the recording indicator are manual (tests/e2e/MANUAL_CHECKLIST.md, M13–M14).
 // Requires `pnpm build` first.
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { DESCRIPTOR_KEYS } from '@voicecrystal/contracts';
+import { decodeWav } from '../../scripts/fixtures/wav.ts';
+import { analyzeDescriptors } from '../../extension/src/shared/descriptor-analysis.ts';
+import { loadFvad } from '../benchmarks/fvad-loader.ts';
 import { ExtensionHarness, OTHER_URL } from './harness.ts';
 
 const FAKE_MIC_WAV = resolve(import.meta.dirname, '../fixtures/voice-a.wav');
@@ -265,12 +270,46 @@ test('an offscreen that disappears mid-session leaves a way out: «Usa il microf
   await expectReleased();
 });
 
-test('45 s of microphone listening ends in INSUFFICIENT_DATA / WALL_TIMEOUT (no speech detector yet)', async () => {
-  test.setTimeout(90_000);
+test('45 s of microphone listening on the synthetic voice gives RESULT_READY with a seed close to Node (I-06b)', async () => {
+  test.setTimeout(120_000);
   await openPanel();
   const mic = await micListening();
-  const end = await h.waitForEnd(mic, 60_000);
-  expect(end).toMatchObject({ state: 'INSUFFICIENT_DATA', exitReason: 'WALL_TIMEOUT' });
+  const end = await h.waitForEnd(mic, 90_000);
+  expect(end).toMatchObject({ state: 'RESULT_READY', exitReason: 'WALL_TIMEOUT' });
   expect(end.activeMs).toBeGreaterThanOrEqual(45_000);
+  const analysis = end.analysis;
+  expect(analysis?.failure).toBeNull();
+  expect(analysis?.extractorVersion).toBe('extractor-0-experimental');
+  expect(analysis?.seed).toHaveLength(6);
+  expect(analysis?.quality?.droppedFrames).toBe(0);
+  // Review H-2: the worker kept as much audio as the session listened (sample clock), within 1 s.
+  expect(Math.abs((analysis?.analysedMs ?? Number.NaN) - end.activeMs)).toBeLessThan(1_000);
+  expect(analysis?.quality?.warnings).not.toContain('MIXED_AUDIO_UNCERTAIN');
+  expect(analysis?.quality?.warnings).not.toContain('MULTI_SPEAKER_SUSPECTED');
+  // The panel shows the seed (technical rows, I-06b).
+  await expect.poll(() => h.inSidePanel(text('capture-analysis-seed'))).toBe((analysis?.seed ?? []).join(' · '));
+  // Node reference: the same WAV the fake device loops, repeated to 48 s. The
+  // browser's capture chain is not bit-exact and the loop phase is unknown:
+  // the distance is measured and recorded, not required to be zero.
+  const wav = decodeWav(readFileSync(FAKE_MIC_WAV));
+  const one = wav.channels[0] ?? new Float32Array();
+  const looped = new Float32Array(one.length * 4);
+  for (let k = 0; k < 4; k++) looped.set(one, k * one.length);
+  const node = await analyzeDescriptors([looped], wav.sampleRate, loadFvad().fvad);
+  expect(node.status).toBe('OK');
+  const panelSeed = analysis?.seed ?? null;
+  const nodeSeed = node.seed;
+  if (panelSeed === null || nodeSeed === null) throw new Error('both seeds are required here');
+  const deltas = DESCRIPTOR_KEYS.map((_key, i) => Math.abs(((panelSeed[i] ?? Number.NaN) - (nodeSeed[i] ?? Number.NaN)) / 100));
+  // Time of the end-of-session analysis in the offscreen worker: FINALIZING → final diagnostic, at the probe page.
+  const diags = (await h.diags()).filter((d) => d.sessionId === mic);
+  const finalizing = diags.find((d) => d.state === 'FINALIZING')?.at ?? null;
+  const analysisMs = finalizing === null ? null : end.at - finalizing;
+  const measured = { panelSeed: analysis?.seed, nodeSeed: node.seed, deltaPoints: deltas, validSpeechMs: analysis?.quality?.validSpeechMs, warnings: analysis?.quality?.warnings, analysisMs, analysedMs: analysis?.analysedMs ?? null, activeMs: end.activeMs };
+  test.info().annotations.push({ type: 'mic seed vs Node (points)', description: JSON.stringify(measured) });
+  writeFileSync(resolve(import.meta.dirname, '../../test-results/i06b-mic-seed.json'), JSON.stringify(measured, null, 2));
+  // p1 depends only on the voice f0 (120 Hz): it must match. The others depend on where the loop starts
+  // and on 45 s against 48 s of audio; measured on 2026-11-12 (BENCHMARK_PROTOCOL §7): 0.01–0.9 points, p6 8.7.
+  expect(deltas[0]).toBeLessThan(2);
   await expectReleased();
 });

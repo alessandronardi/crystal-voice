@@ -35,6 +35,12 @@ const t = strings.capture;
 
 /** Diagnostics arrive every 0.5 s; past this the capture may have died (ADR-0003). */
 const STALE_AFTER_MS = 3_000;
+/**
+ * [H] I-13a, review H-1: a running session silent for this long is lost (no
+ * final message will come). Above the 15 s analysis timeout of FINALIZING,
+ * which sends no diagnostics, plus the release time.
+ */
+const LOST_AFTER_MS = 20_000;
 
 /** States in which the offscreen is expected to keep reporting. */
 const RUNNING: readonly CaptureState[] = ['AUTHORIZING', 'LISTENING', 'WAITING_FOR_SPEECH', 'PAUSED', 'FINALIZING'];
@@ -79,12 +85,13 @@ interface ViewState {
 /** [H] A start not answered within this time no longer hides «Usa il microfono». */
 const START_ANSWER_TIMEOUT_MS = 15_000;
 
-function errorText(code: CaptureErrorCode, mic: boolean): string {
+/** Also used by the outcome screen (I-13a, review M-1): the microphone has its own texts (I-17). */
+export function errorText(code: CaptureErrorCode, mic: boolean): string {
   if (mic && code in t.micErrors) return t.micErrors[code as keyof typeof t.micErrors];
   return t.errors[code];
 }
 
-function exitText(reason: CaptureExitReason, mic: boolean): string {
+export function exitText(reason: CaptureExitReason, mic: boolean): string {
   if (mic && reason in t.micExitReasons) return t.micExitReasons[reason as keyof typeof t.micExitReasons];
   return t.exitReasons[reason];
 }
@@ -151,7 +158,23 @@ function stopButton(label: string, testId: string, onClick: () => void): HTMLEle
   return button;
 }
 
-export function mountCaptureView(root: HTMLElement): void {
+/** I-13a: what the view machine hears from this view, and what it may ask. */
+export interface CaptureViewHooks {
+  onDiag?: (diag: CaptureDiag, source: 'tab' | 'mic') => void;
+  /** Review H-1: the live session will send nothing more (silent too long, or its panel port lost). */
+  onLost?: (sessionId: SessionId) => void;
+  /** Review M-3: a start refused or failed (not YouTube, busy, permission), shown on the current screen; null when none. */
+  onStartFailure?: (message: string | null, busy: boolean) => void;
+}
+
+export interface CaptureViewHandle {
+  /** «Interrompi» of the live screen: stops the running session, if any (idempotent). */
+  stop(): void;
+  /** «Interrompi la cattura in corso» after CAPTURE_BUSY (review M-3). */
+  stopActive(): void;
+}
+
+export function mountCaptureView(root: HTMLElement, hooks: CaptureViewHooks = {}): CaptureViewHandle {
   const section = document.createElement('section');
   section.className = 'mt-4 space-y-3';
   root.append(section);
@@ -264,6 +287,7 @@ export function mountCaptureView(root: HTMLElement): void {
     if (failure !== null) {
       children.push(paragraph(errorText(failure, micFailure), 'capture-error', 'text-sm text-red-700', 'alert'));
     }
+    hooks.onStartFailure?.(state.startFailure === null ? null : errorText(state.startFailure, micFailure), state.startFailure === 'CAPTURE_BUSY');
     if (mic && isRunning(live)) children.push(paragraph(t.micNote, 'capture-mic-note', 'text-sm text-slate-600'));
 
     if (live !== null) {
@@ -373,6 +397,7 @@ export function mountCaptureView(root: HTMLElement): void {
     state.live = diag;
     state.liveAt = performance.now();
     attachPort(diag);
+    hooks.onDiag?.(diag, state.micSessions.has(diag.sessionId) ? 'mic' : 'tab');
     if (isTerminalCaptureState(diag.state)) {
       state.ended.add(diag.sessionId);
       if (diag.sessionId === state.ownMic) closePort();
@@ -436,10 +461,26 @@ export function mountCaptureView(root: HTMLElement): void {
   // Re-render once a second so a capture that stopped reporting shows as
   // stale, and «Usa il microfono» comes back when the routing state is orphaned.
   let was = '';
+  let lostReported: SessionId | null = null;
   setInterval(() => {
+    const live = state.live;
+    if (isRunning(live) && lostReported !== live.sessionId && (state.portLost === live.sessionId || performance.now() - state.liveAt > LOST_AFTER_MS)) {
+      lostReported = live.sessionId;
+      hooks.onLost?.(live.sessionId);
+    }
     const now = `${String(isStale())}|${String(canStartMic())}`;
     if (now !== was) render();
     was = now;
   }, 1_000);
   render();
+  return {
+    stop: () => {
+      const live = state.live;
+      if (live !== null && isRunning(live)) sendStop(live.sessionId);
+    },
+    stopActive: () => {
+      // SPEC §5: a refused start offers to stop the first session, in whatever tab it runs.
+      if (state.active !== null) sendStop(state.active.sessionId);
+    },
+  };
 }

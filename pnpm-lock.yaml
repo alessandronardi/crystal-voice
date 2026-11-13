@@ -235,9 +235,18 @@ importers:
       '@voicecrystal/contracts':
         specifier: workspace:*
         version: link:../packages/contracts
+      '@voicecrystal/crystal-core':
+        specifier: workspace:*
+        version: link:../packages/crystal-core
       '@voicecrystal/dsp-core':
         specifier: workspace:*
         version: link:../packages/dsp-core
+      '@voicecrystal/renderer-svg':
+        specifier: workspace:*
+        version: link:../packages/renderer-svg
+      '@voicecrystal/renderer-three':
+        specifier: workspace:*
+        version: link:../packages/renderer-three
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3

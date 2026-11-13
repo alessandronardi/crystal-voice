@@ -2,7 +2,7 @@
 
 18 issue in 5 fasi. Ogni issue è indipendente nel suo perimetro, ha una Definition of Done (DoD) verificabile e i test che la dimostrano. Vale sempre anche la DoD globale di `AGENTS.md` §8.
 
-**Ordine consigliato.** La fase 1 (Chrome) e le fasi 2–3 (nucleo puro) possono procedere in parallelo. Le issue di fase 4 e 5 restano bloccate fino alla chiusura di G0 (`docs/GATES.md`).
+**Ordine consigliato.** La fase 1 (Chrome) e le fasi 2–3 (nucleo puro) possono procedere in parallelo. Le issue di fase 4 e 5 si sviluppano anche prima di G0, ma nulla si distribuisce finché G0 non è chiuso (ADR-0027, decisione D-AG del 2026-11-13; `docs/GATES.md`).
 
 **Stime:** S ≤ 1 giorno, M 2–4 giorni, L 5+ giorni di lavoro di un agente con revisione umana. Sono ordini di grandezza, non impegni.
 
@@ -26,9 +26,9 @@
 | I-10 | 3 | crystal-core a semispazi | I-01 | L | G2 |
 | I-11 | 3 | renderer-three «vetrina» | I-10 | L | G2 |
 | I-12 | 3 | renderer-svg «tavola cristallografica» | I-10 | M | G2 |
-| I-13 | 4 | Side Panel: home, nucleazione, rivelazione, cartellino | I-03, I-07, I-11, I-12, **G0** | L | Release |
-| I-14 | 4 | Vault, miniature, export/import | I-10, **G0** | M | Release |
-| I-15 | 4 | Comparator a percentile, Collezione, Confronto | I-09, I-14, **G0** | M | Release |
+| I-13 | 4 | Side Panel: home, nucleazione, rivelazione, cartellino | I-03, I-07, I-11, I-12 (G0 solo per la release) | L | Release |
+| I-14 | 4 | Vault, miniature, export/import | I-10 (G0 solo per la release) | M | Release |
+| I-15 | 4 | Comparator a percentile, Collezione, Confronto | I-09, I-14 (G0 solo per la release) | M | Release |
 | I-16 | 5 | Hardening, accessibilità, SBOM, pacchetto | tutte | M | Release |
 
 ---
@@ -237,6 +237,7 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
   - [x] **Eredità da I-18 (D4, 2026-11-12):** le fixture di I-04 caricate come file nel pannello danno lo stesso seed dell'harness Node, o una differenza spiegata e documentata. L'E2E di I-18 (`tests/e2e/file.spec.ts`) confronta oggi segnale a 16 kHz, `signalSummary` e traccia di pitch: va esteso al seed. Due differenze sono già note e misurate in I-18: la regola int16 → float del decoder di Chromium, e `Math.log10`, `sin` e `cos` non identici fra le versioni di V8 (`docs/BENCHMARK_PROTOCOL.md` §7). Il seed è quantizzato: va verificato se differenze di 1–2 ULP possono spostarlo di una casella. **Cancello (D-N):** se anche un solo seed differisce fra Node e pannello, prima di proseguire serve un ADR che porti in `dsp-core` implementazioni proprie di `log10`, `log2`, `sin`, `cos`, `sinh` (come ADR-0010).
     - **Esito:** il confronto del seed è in `tests/e2e/file.spec.ts` da I-06b: 19 seed su 19 identici con la conversione di Chromium (D-AB); la differenza dal lettore dei benchmark è misurata e dichiarata. Margine dal confine di arrotondamento: al minimo 0,000354 unità, contro circa 10⁻¹² per ULP. Il cancello non scatta; va ripetuto a ogni Chrome nuovo (VC-24).
 - **Test:** unit su fixture e su sequenze sintetiche di descrittori.
+- **Stato:** mergiata il 2026-11-13 ([PR crystal-voice#17](https://github.com/alessandronardi/crystal-voice/pull/17), merge squash `032ac93`; CI della PR verde). **Non chiusa:** restano le prove manuali M32–M34 in Brave (`tests/e2e/MANUAL_CHECKLIST.md`). ADR-0026 accettato.
 
 ### I-08 · Dataset umano + report G1
 
@@ -292,12 +293,30 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
   - [x] SVG byte-identico fra esecuzioni e fra Node e browser. Node e Chromium in locale; Chromium e Firefox in CI (run 42850801115).
   - [x] SVG valido, con `<title>` e `<desc>` per l'accessibilità.
 
-## Fase 4 — Prodotto (bloccata fino a G0)
+## Fase 4 — Prodotto (sviluppabile; distribuzione bloccata fino a G0, ADR-0027)
 
 ### I-13 · Side Panel: home, nucleazione, rivelazione, cartellino
 
 - **Riferimenti:** SPEC §6.2, §13; ADR-0011, ADR-0014.
-- **DoD:**
+- **Divisa il 2026-11-13** (piano approvato dal product owner), come I-05 e I-06:
+  - **I-13a, percorso principale:**
+    - macchina della vista pura (`HOME → LIVE → REVEALED | OUTCOME → HOME`);
+    - Home con le tre sorgenti e l'avviso G0-DOC-01 (elaborazione locale, artistica, non biometrica; link alle licenze in `THIRD_PARTY/`);
+    - ascolto come nucleazione: germe «in crescita, provvisorio» e «voce utile X / 18 s»;
+    - rivelazione con la vetrina di `renderer-three` (tavola SVG senza WebGL), cartellino, «Scarta» ed export della tavola SVG;
+    - esiti espliciti;
+    - le righe tecniche di oggi in «Dettagli tecnici».
+    - «Salva» e gli ultimi esemplari sono di I-14.
+    - Branch `issue/I-13a-side-panel`.
+  - **I-13b, completamento:**
+    - legenda viva interattiva;
+    - avviso più voci con risposta (`MULTI_SPEAKER_ANSWER`);
+    - `chooseProfile`;
+    - tratti velati segnalati nel cartellino;
+    - axe-core senza violazioni serie.
+  - **Rinvii dichiarati da I-13a** (revisione del 2026-11-13): provenienza YouTube sul cartellino (in attesa dell'ADR di G0-TECH-01), font OFL da includere, avvisi di qualità sul cartellino (I-13b), «Voce non rilevata» quando la cattura emetterà `WAITING_FOR_SPEECH`.
+  - **Prescrizioni G0 che toccano I-13:** G0-DOC-01 (I-13a) e G0-DOC-02, cioè «Affinità acustica / geometrica» nei testi del confronto (I-15). G0-TECH-01 e G0-TECH-03 chiedono ADR propri (`docs/STATUS.md`).
+- **DoD** (vale per I-13a e I-13b insieme):
   - [ ] Tutte le schermate e gli stati di SPEC §13, compresi errori espliciti e avviso più voci.
   - [ ] Germe in crescita da `provisionalSeed`, etichettato «provvisorio».
   - [ ] Cartellino e legenda viva con misure grezze e percentili.

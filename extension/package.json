@@ -14,7 +14,10 @@
     "@types/node": "26.6.6",
     "@voicecrystal/calibration": "workspace:*",
     "@voicecrystal/contracts": "workspace:*",
+    "@voicecrystal/crystal-core": "workspace:*",
     "@voicecrystal/dsp-core": "workspace:*",
+    "@voicecrystal/renderer-svg": "workspace:*",
+    "@voicecrystal/renderer-three": "workspace:*",
     "tailwindcss": "4.3.3",
     "vite": "8.3.5"
   }

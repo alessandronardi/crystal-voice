@@ -53,6 +53,7 @@ export interface Diag {
     converged: boolean;
     analysisMs: number | null;
   } | null;
+  provisionalSeed: number[] | null;
   /** Arrival time at the probe page, Date.now(). */
   at: number;
 }

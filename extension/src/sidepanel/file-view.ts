@@ -28,6 +28,7 @@ import { ACTIVE_SESSION_KEY, LAST_START_KEY, isActiveSession, isLastStart } from
 import { strings } from '../ui/strings.it.ts';
 import { analysisBlock } from './analysis-rows.ts';
 import { CAPTURE_LIMITS } from '../offscreen/capture-machine.ts';
+import type { ViewEvent } from './view-machine.ts';
 import { checkProbe, decodeFileWindow, probeFile, type DecodeRefusal, type FileProbe } from './file-decode.ts';
 import { readStartSeconds } from './file-limits.ts';
 
@@ -194,7 +195,17 @@ function failureText(failure: Failure): string {
   }
 }
 
-export function mountFileView(root: HTMLElement): void {
+/** I-13a: the file analysis as the view machine sees it. */
+export interface FileViewHooks {
+  onEvent?: (event: Extract<ViewEvent, { type: 'FILE_STARTED' | 'FILE_DONE' | 'FILE_FAILED' | 'FILE_CANCELLED' }>) => void;
+}
+
+export interface FileViewHandle {
+  /** «Interrompi» of the live screen: stops the running analysis, if any. */
+  stop(): void;
+}
+
+export function mountFileView(root: HTMLElement, hooks: FileViewHooks = {}): FileViewHandle {
   const section = document.createElement('section');
   section.className = 'mt-6 space-y-3 border-t border-slate-200 pt-4';
   const heading = document.createElement('h2');
@@ -386,6 +397,7 @@ export function mountFileView(root: HTMLElement): void {
     const sessionId = crypto.randomUUID();
     state.sessionId = sessionId;
     state.phase = 'starting';
+    hooks.onEvent?.({ type: 'FILE_STARTED', fileName: state.file?.name ?? '' });
     state.failure = null;
     state.result = null;
     state.stopArmedAt = performance.now() + STOP_ARM_MS;
@@ -413,6 +425,15 @@ export function mountFileView(root: HTMLElement): void {
       state.sessionId = null;
       state.abort = null;
       render();
+      if (phase === 'done' && result !== null) {
+        const d = result.analysis.descriptors;
+        hooks.onEvent?.({ type: 'FILE_DONE', result: { seed: d.seed, quality: d.quality, extractorVersion: d.extractorVersion, mappingVersion: d.mappingVersion } });
+      } else if (phase === 'failed') {
+        // Review M-2: the outcome screen shows the view's own text (refusal reason, what to do).
+        hooks.onEvent?.({ type: 'FILE_FAILED', code: failure?.kind === 'code' ? failure.code : 'FILE_DECODE_FAILED', message: failure === null ? null : failureText(failure) });
+      } else {
+        hooks.onEvent?.({ type: 'FILE_CANCELLED' });
+      }
     };
     state.abort = () => {
       finish('stopped', null);
@@ -506,4 +527,11 @@ export function mountFileView(root: HTMLElement): void {
     void onFileChosen();
   });
   render();
+  return {
+    stop: () => {
+      // Same arming as the view's own «Interrompi» (review M1 of I-18): the
+      // second click of a double click on «Analizza» lands here and is ignored.
+      if (performance.now() >= state.stopArmedAt) state.abort?.();
+    },
+  };
 }

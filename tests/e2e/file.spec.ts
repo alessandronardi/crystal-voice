@@ -352,6 +352,35 @@ test('a start offset analyses the chosen window: voice-a-long from 10 s', async 
   expect(arithmeticPart(panel.analysis)).toEqual(arithmeticPart(await reference(file, 'chromium', 480000)));
 });
 
+test('I-13a screens: a tone ends in an outcome, a long voice file is revealed with its label, «Scarta» goes home', async () => {
+  const screen = (): Promise<unknown> => h.inSidePanel(`document.querySelector('[data-testid="shell-screen"]')?.dataset.screen ?? ''`);
+  // From wherever the earlier tests left the panel, back home.
+  await h.inSidePanel(`(() => { (${q('shell-discard')} ?? ${q('shell-back')})?.click(); return true; })()`);
+  await expect.poll(screen).toBe('HOME');
+  expect(await h.inSidePanel(`${q('shell-notice')}?.textContent ?? ''`)).toContain('Elaborazione 100% Locale e Sperimentale.');
+  // A pure tone first (the previous test chose voice-a-long, and choosing the
+  // same file again fires no change): no crystal, an outcome that says why.
+  expect(await choose(join(FIXTURES, 'tone-200hz.wav'))).toBe('ready');
+  await setStart(0);
+  expect(await analyze()).toBe('done');
+  await expect.poll(screen).toBe('OUTCOME');
+  expect(await h.inSidePanel(`${q('shell-screen')}?.textContent ?? ''`)).toContain('Dati insufficienti');
+  expect(await h.inSidePanel(click('shell-back'))).toBe(true);
+  await expect.poll(screen).toBe('HOME');
+  // A long voice: the crystal with its label; «Scarta» goes home.
+  expect(await choose(join(FIXTURES, 'voice-a-long.wav'))).toBe('ready');
+  expect(await analyze()).toBe('done');
+  await expect.poll(screen).toBe('REVEALED');
+  const label = String(await h.inSidePanel(`${q('shell-label')}?.textContent ?? ''`));
+  expect(label).toContain('voice-a-long.wav');
+  expect(label).toContain('extractor-0-experimental');
+  // The showcase: a WebGL canvas, or the SVG plate without WebGL (SPEC §13).
+  expect(await h.inSidePanel(`document.querySelectorAll('[data-testid="shell-showcase"] canvas, [data-testid="shell-showcase"] svg').length`)).toBe(1);
+  expect(await h.inSidePanel(exists('shell-export-svg'))).toBe(true);
+  expect(await h.inSidePanel(click('shell-discard'))).toBe(true);
+  await expect.poll(screen).toBe('HOME');
+});
+
 test('decodeAudioData keeps the samples at the file rate and resamples at another (documented in README)', async () => {
   const file = join(FIXTURES, 'voice-a-44k.wav');
   expect(await choose(file)).toBe('ready');
@@ -489,6 +518,10 @@ test('a double click on «Analizza» starts one session and does not stop it', a
   expect(await choose(big)).toBe('ready');
   const ends = async (): Promise<number> => (await h.messageTypes()).filter((t) => t === 'FILE_SESSION_END').length;
   const before = await ends();
+  // I-13a: the earlier tests leave the panel on a crystal or an outcome, where
+  // the controls are folded in «Dettagli tecnici»; a person goes back home first.
+  await h.inSidePanel(`(() => { (${q('shell-discard')} ?? ${q('shell-back')})?.click(); return true; })()`);
+  await expect.poll(() => h.inSidePanel(`document.querySelector('[data-testid="shell-screen"]')?.dataset.screen ?? ''`)).toBe('HOME');
   // A person's double click: two real mouse clicks 100 ms apart on the same spot,
   // where «Interrompi» has replaced «Analizza» after the first one (review M1).
   await h.mouseClicksInSidePanel('file-analyze', 2, 100);

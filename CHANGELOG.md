@@ -5,6 +5,18 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 ## [Unreleased]
 
 ### Aggiunto
+- I-13a: le schermate del pannello (SPEC §13), stile «Gabinetto di mineralogia» (D-AJ). Non distribuibile prima che le prescrizioni di G0 siano completate.
+  - **Macchina della vista** pura (SPEC §6.2): `HOME → LIVE → REVEALED | OUTCOME → HOME` in `extension/src/sidepanel/view-machine.ts`, con property test (mai un cristallo senza qualità accettata e 8 s di voce valida).
+  - **Home:** le tre sorgenti, l'avviso «elaborazione locale e sperimentale» (prescrizione G0-DOC-01) e i link alle licenze nel pacchetto.
+  - **Ascolto:** germe dal seme provvisorio, «in crescita, provvisorio», voce utile X / 18 s, «Interrompi».
+  - **Rivelazione:** vetrina 3D di `renderer-three` (tavola SVG senza WebGL), cartellino, «Scarta», «Esporta tavola SVG»; «Salva» arriva con I-14.
+  - **Esito:** dati insufficienti, interruzione, errore, con il motivo.
+  - I controlli e le righe tecniche di prima stanno nella card «La tua voce» o in «Dettagli tecnici».
+- I-13a: `CAPTURE_DIAG.provisionalSeed` e `STREAM_PROGRESS.provisionalSeed` (contratto interno): il seme dell'audio raccolto finora, solo durante l'ascolto e solo per il germe.
+- I-13a: three.js nel pacchetto dell'estensione (D-AI), in un file proprio (`assets/three.js`, 542.604 byte), con eccezioni puntuali della guardia del bundle e la licenza MIT in `THIRD_PARTY/three/`.
+- G0: decisione D-AH, valutazione di un agente IA di revisione legale accettata senza avvocato; G0 superato con prescrizioni (`docs/gates/G0-valutazione-2026-11-13.md`).
+- ADR-0027 (accettato il 2026-11-13, D-AG): G0 obbligatorio prima della distribuzione, non dello sviluppo. Aggiornati `AGENTS.md` §3, `docs/GATES.md`, `docs/BACKLOG.md` e SPEC §3 (nota); domanda sul repository pubblico in `docs/LEGAL_G0_CHECKLIST.md`.
+- `docs/gates/G0-fascicolo-legale.md`: fatti verificati e domande per il parere legale di G0 (non è un parere).
 - I-07: arresto split-half (SPEC §8, ADR-0008; ADR-0026 accettato il 2026-11-13, D-AF).
   - **Regola:** `splitHalfAt` in `dsp-core` divide la voce valida in blocchi da 1 s, pari e dispari, con onset contati sul prefisso intero. `SplitHalfMonitor` (`extension/src/shared/split-half-rule.ts`) valuta un secondo di voce valida alla volta da 8 s, con τ = 6 punti e 3 valutazioni di fila. Un avviso «più voci» blocca l'arresto per il resto della sessione (nessuno può rispondere prima di I-13); un descrittore mancante o una metà incompleta bloccano la valutazione. Costanti in `stop-config.ts`, `STOP_RULE_VERSION = split-half-0`; `extractorVersion` e i seed non cambiano.
   - **Durante l'ascolto:** il `dsp-worker` dell'offscreen rianalizza l'audio raccolto a ogni secondo intero, con la stessa funzione del risultato finale (D-AD), una valutazione alla volta e in un task successivo, così salta all'ultimo secondo arrivato; manda `STREAM_PROGRESS`. La sessione usa la voce valida nei `TICK`, quindi `MAX_VALID_SPEECH` scatta a 18 s, e applica `SPLIT_HALF_STABLE` alla convergenza.
@@ -139,6 +151,7 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
   Dettagli in `docs/BENCHMARK_PROTOCOL.md` §7.
 
 ### Modificato
+- CI: il job principale non carica più la build dell'estensione come artefatto (ADR-0027).
 - I-07: scheda e microfono non ascoltano più sempre 45 s. Con voce si fermano a 18 s di voce valida (`MAX_VALID_SPEECH`) o prima (`CONVERGED`). Un tono puro conta come voce per libfvad: si ferma a 18 s e finisce in `INSUFFICIENT_DATA`. Gli E2E del microfono e del tono lo verificano; M30 e M31 aggiornate.
 - `dsp-core`, I-07: `descriptorsWithOnsets` (stesse misure di `computeDescriptors`, con gli onset contati altrove), `splitHalfAt`, `validSpeechSeconds`. `PcmAccumulator.snapshot` nell'estensione.
 - `packages/contracts`, I-06b: `CAPTURE_DIAG` ha il campo `analysis` (`CaptureAnalysis`) e la guardia `isQualitySummary`; `dsp-core` esporta `describeFrames` e `FVAD_WASM_SHA256`.

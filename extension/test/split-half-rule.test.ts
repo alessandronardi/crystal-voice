@@ -147,6 +147,13 @@ describe('observe', () => {
   }
   const frames = (n: number): AcousticFrame[] => Array.from({ length: n }, (_, i) => frame(i, true));
 
+  it('gives a provisional seed once all six measures are measurable, never 0 before (I-13a, R13)', () => {
+    expect(new SplitHalfMonitor().observe(frames(150)).provisionalSeed).toBeNull();
+    const p = new SplitHalfMonitor().observe(frames(700));
+    expect(p.provisionalSeed).toHaveLength(6);
+    expect(p.provisionalSeed?.every((v) => Number.isInteger(v) && v >= 0 && v <= 10_000)).toBe(true);
+  });
+
   it('evaluates nothing below 8 s and reports the valid speech in ms', () => {
     const m = new SplitHalfMonitor();
     const p = m.observe(frames(799));

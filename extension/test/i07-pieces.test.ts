@@ -48,7 +48,7 @@ describe('StreamEvaluator', () => {
     (out: Partial<SplitHalfProgress> = {}, seen: number[] = []) =>
     (channels: Float32Array[]): SplitHalfProgress => {
       seen.push(channels[0]?.length ?? -1);
-      return { validSpeechMs: 0, evaluations: 0, last: null, converged: false, ...out };
+      return { validSpeechMs: 0, evaluations: 0, last: null, converged: false, provisionalSeed: null, ...out };
     };
 
   it('is due once per new whole second of audio, and analyses the prefix of that many seconds', () => {
@@ -96,7 +96,7 @@ describe('StreamEvaluator', () => {
     e.accumulator.push(block(1000));
     const converge = (_c: Float32Array[], _sr: number, monitor: SplitHalfMonitor): SplitHalfProgress => {
       for (let s = 8; s <= 10; s++) monitor.push({ seconds: s, a: [50, 50, 50, 50, 50, 50], b: [50, 50, 50, 50, 50, 50], missingWhole: [], multiSpeakerSuspected: false });
-      return { validSpeechMs: 10_000, evaluations: monitor.evaluations, last: monitor.last, converged: monitor.converged };
+      return { validSpeechMs: 10_000, evaluations: monitor.evaluations, last: monitor.last, converged: monitor.converged, provisionalSeed: null };
     };
     expect(e.evaluate(1, converge, clock(), never).converged).toBe(true);
     e.accumulator.push(block(5000));
@@ -112,7 +112,7 @@ describe('createEvaluationLoop (review H-2)', () => {
     const posted: StreamProgress[] = [];
     const analyse: PrefixAnalyser = (channels) => {
       seen.push(channels[0]?.length ?? -1);
-      return { validSpeechMs: 0, evaluations: 0, last: null, converged: false };
+      return { validSpeechMs: 0, evaluations: 0, last: null, converged: false, provisionalSeed: null };
     };
     const loop = createEvaluationLoop(evaluator, {
       defer: (fn) => queue.push(fn),
@@ -178,6 +178,7 @@ describe('STREAM_PROGRESS guard', () => {
     evaluations: 1,
     last: { seconds: 8, differences: [7.3, 0.6, 3.8, 0, 5, 11.4], s: 11.4, passed: false, blockedBy: 'UNSTABLE', consecutive: 0 },
     converged: false,
+    provisionalSeed: null,
     analysisMs: 212,
     failure: null,
   };

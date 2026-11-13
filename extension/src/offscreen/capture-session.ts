@@ -8,6 +8,7 @@ import type {
   CaptureErrorCode,
   CaptureStability,
   CaptureState,
+  CrystalSeed,
   HeartbeatMessage,
   OffscreenStopReason,
   PlayerEvent,
@@ -148,6 +149,8 @@ export class CaptureSession {
   /** I-07 (ADR-0026): valid speech of the latest evaluation of the audio so far. */
   private validSpeechMs = 0;
   private stability: CaptureStability | null = null;
+  /** I-13a: the germ's seed (display only, SPEC §13). */
+  private provisionalSeed: CrystalSeed | null = null;
   /** The rule converged while the machine could not take it (PAUSED): applied on the next LISTENING tick. */
   private convergedPending = false;
   readonly ignored: IgnoredCounts = { wrongTab: 0, wrongSession: 0, staleSeq: 0, rejectedEvent: 0, lateProgress: 0 };
@@ -267,6 +270,7 @@ export class CaptureSession {
     // evaluating, so the session goes on to its time limits.
     if (progress.failure !== null) return;
     this.validSpeechMs = progress.validSpeechMs;
+    this.provisionalSeed = progress.provisionalSeed;
     const last = progress.last;
     this.stability = {
       stopRuleVersion: STOP_RULE_VERSION,
@@ -501,6 +505,8 @@ export class CaptureSession {
       analysis: this.machine.state === 'RESULT_READY' || this.machine.state === 'INSUFFICIENT_DATA' ? this.analysis : null,
       validSpeechMs: this.validSpeechMs,
       stability: this.stability,
+      // Only while collecting audio: a terminal diagnostic carries the result, never the germ.
+      provisionalSeed: isTerminal(this.machine.state) || this.machine.state === 'FINALIZING' ? null : this.provisionalSeed,
     });
   }
 }

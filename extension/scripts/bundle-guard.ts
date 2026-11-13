@@ -131,6 +131,46 @@ export const GUARD_EXCEPTIONS: readonly GuardException[] = [
     reason:
       'I-02: isYoutubeWatchUrl compares the clicked tab URL protocol with "https:" (SPEC §5, NOT_YOUTUBE_WATCH). A comparison, not a network endpoint.',
   },
+  // I-13a (D-AI): three@0.186.1 in its own chunk (extension/scripts/build.ts,
+  // THREE_CHUNK). Each `.constructor(` below builds an object of a class it
+  // already has (a class's clone(), a typed-array copy); none turns text into
+  // code, and the CSP forbids that anyway (no 'unsafe-eval').
+  {
+    file: 'assets/three.js',
+    rule: 'no-function-constructor',
+    snippet: 'new this.constructor(',
+    reason: 'three.js clone(): `new this.constructor()` instantiates the class of the object being cloned (Vector3, Color, Matrix4, BufferAttribute…).',
+  },
+  {
+    file: 'assets/three.js',
+    rule: 'no-function-constructor',
+    snippet: 'new e.array.constructor(e.array)',
+    reason: 'three.js BufferAttribute.copy(): a typed array of the same type as the source array.',
+  },
+  {
+    file: 'assets/three.js',
+    rule: 'no-function-constructor',
+    snippet: 'new n.constructor(t.length*r)',
+    reason: 'three.js geometry de-indexing: a typed array of the same type as the attribute array.',
+  },
+  {
+    file: 'assets/three.js',
+    rule: 'no-function-constructor',
+    snippet: 'new e.constructor(e.buffer,e.byteOffset',
+    reason: 'three.js typed-array view copy: same type, same buffer.',
+  },
+  {
+    file: 'assets/three.js',
+    rule: 'no-function-constructor',
+    snippet: 'r===void 0?new t.constructor(n)',
+    reason: 'three.js PropertyMixer / Interpolant result buffer: a typed array of the same type as the sample values.',
+  },
+  {
+    file: 'assets/three.js',
+    rule: 'no-remote-url',
+    snippet: 'https://jcgt.org/published/0007/04/01/',
+    reason: 'A citation in a GLSL shader comment (visible-normals sampling paper, rilievo L6 di I-11): text inside a shader string, never fetched; the CSP allows no remote connection.',
+  },
 ];
 
 export function applyExceptions(

@@ -10,7 +10,7 @@
 //  - I-07 (ADR-0026): while the stream runs, the worker analyses the audio so
 //    far once per whole second and answers STREAM_PROGRESS (valid speech and
 //    the split-half evaluations, numbers only).
-import { SPLIT_HALF_BLOCKS } from '@voicecrystal/contracts';
+import { isCrystalSeed, SPLIT_HALF_BLOCKS, type CrystalSeed } from '@voicecrystal/contracts';
 import type { DspInputErrorCode } from '@voicecrystal/dsp-core';
 import type { DescriptorAnalysis } from './descriptor-analysis.ts';
 import type { PcmAnalysis } from './pcm-analysis.ts';
@@ -60,6 +60,8 @@ export interface StreamProgress {
   evaluations: number;
   last: SplitHalfEvaluation | null;
   converged: boolean;
+  /** I-13a: seed of the audio so far with the current estimates (germ only); null until measurable. */
+  provisionalSeed: CrystalSeed | null;
   /** Time of this analysis in the worker, ms (measured for BENCHMARK_PROTOCOL §7). */
   analysisMs: number;
   /** Set when the evaluation failed: no further evaluation runs, the session goes on to its limits. */
@@ -146,6 +148,7 @@ export function isStreamProgress(value: unknown): value is StreamProgress {
     count(value['evaluations']) &&
     (value['last'] === null || isEvaluation(value['last'])) &&
     typeof value['converged'] === 'boolean' &&
+    (value['provisionalSeed'] === null || isCrystalSeed(value['provisionalSeed'])) &&
     nonNegative(value['analysisMs']) &&
     (value['failure'] === null || typeof value['failure'] === 'string')
   );

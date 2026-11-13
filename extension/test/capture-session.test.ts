@@ -664,7 +664,7 @@ describe('FINALIZING captures nothing (review C-1, R8, ADR-0004)', () => {
 
 describe('split-half progress from the worker (I-07, ADR-0026)', () => {
   function progress(over: Partial<StreamProgress> = {}): StreamProgress {
-    return { audioSeconds: 14, validSpeechMs: 8_410, evaluations: 1, last: null, converged: false, analysisMs: 200, failure: null, ...over };
+    return { audioSeconds: 14, validSpeechMs: 8_410, evaluations: 0, last: null, converged: false, provisionalSeed: null, analysisMs: 200, failure: null, ...over };
   }
   const passed = (seconds: number, consecutive: number): StreamProgress['last'] => ({
     seconds,
@@ -748,6 +748,19 @@ describe('split-half progress from the worker (I-07, ADR-0026)', () => {
     await h.advance(500);
     await h.advance(100);
     expect(h.last).toMatchObject({ state: 'RESULT_READY', exitReason: 'MAX_VALID_SPEECH' });
+  });
+
+  it('carries the germ\'s seed while listening and drops it at the end (I-13a)', async () => {
+    const h = listening();
+    h.analysisOutcome = voice(12_000);
+    h.session.onProgress(progress({ provisionalSeed: [4000, 5000, 3000, 0, 2500, 6000] }));
+    await h.advance(500);
+    expect(h.last?.provisionalSeed).toEqual([4000, 5000, 3000, 0, 2500, 6000]);
+    h.session.onProgress(progress({ evaluations: 3, last: passed(10, 3), converged: true, provisionalSeed: [1, 1, 1, 1, 1, 1] }));
+    await h.advance(100);
+    expect(h.last?.state).toBe('RESULT_READY');
+    expect(h.last?.provisionalSeed).toBeNull();
+    for (const d of h.diags) expect(isCaptureDiag(d), d.state).toBe(true);
   });
 
   it('without evaluations the diagnostic says so: no valid speech, no stability', async () => {

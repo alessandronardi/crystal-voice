@@ -21,7 +21,7 @@ VoiceCrystal è un'estensione Chrome MV3 che trasforma un segmento di parlato in
 Lo stato vivo (fase, issue in corso, ultimo gate, blocchi) è in `docs/STATUS.md`. Leggilo all'inizio di ogni sessione e aggiornalo alla fine.
 
 - Fasi autorizzate: **1, 2, 3** (PoC, DSP offline, crystal core e renderer).
-- Fase 4 e 5: **bloccate fino alla chiusura di G0** (valutazione legale). Non iniziare issue di fase 4 o 5 senza che `docs/STATUS.md` registri G0 come chiuso.
+- Fase 4 e 5: **sviluppabili**; **distribuzione bloccata fino alla chiusura di G0** (valutazione legale, ADR-0027). Prima di G0 nessuna pubblicazione (Chrome Web Store o altro), nessun pacchetto distribuibile, nessuna build consegnata a terzi; la CI non carica la build dell'estensione come artefatto. Ogni PR di fase 4 o 5 dichiara «non distribuibile prima di G0».
 
 ## 4. Regole non negoziabili
 

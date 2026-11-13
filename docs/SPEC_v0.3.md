@@ -88,6 +88,8 @@ Gli identificativi `VC-xx` rimandano al registro dei rilievi della revisione avv
 
 ## 3. Vincolo legale e distribuzione [G0]
 
+> **Modificato da ADR-0027 (accettato il 2026-11-13):** G0 è obbligatorio prima di qualunque distribuzione, non prima di iniziare la fase 4. Le issue di fase 4 e 5 si sviluppano e si uniscono a `main`; nulla si pubblica né si consegna a terzi finché G0 non è chiuso. Dove questa sezione e l'ADR differiscono, prevale l'ADR.
+
 Il fatto che un'API del browser permetta di acquisire l'audio di una scheda **non dimostra** che ogni uso sia permesso dalle condizioni della piattaforma o dai diritti sul contenuto. I termini di YouTube prevedono restrizioni sull'uso dei contenuti; le regole aggiuntive dei servizi API non si applicano automaticamente in egual modo a un'estensione che non utilizza quelle API.
 
 **Decisione [F]:** non utilizzare YouTube Data API; non scaricare né memorizzare media; non bypassare DRM, pubblicità, limitazioni geografiche o controlli tecnici; non alterare il flusso del player; limitare i dati a metadati di navigazione e caratteristiche calcolate in memoria.

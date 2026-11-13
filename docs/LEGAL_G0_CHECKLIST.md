@@ -1,6 +1,6 @@
 # G0 — Checklist per la valutazione legale e di distribuzione
 
-> Questo documento raccoglie fatti e domande da sottoporre a un professionista qualificato. **Non è un parere legale** e nessun agente di programmazione deve trarne conclusioni.
+> Questo documento raccoglie fatti e domande per la valutazione G0. Decisione del product owner D-AH (2026-11-13): la valutazione G0 si fa con un agente IA dedicato alla revisione legale, accettata dal product owner, **senza il parere firmato di un avvocato**. Non è un parere legale professionale: la responsabilità della distribuzione resta del product owner.
 
 ## 1. Fatti tecnici da presentare (verificabili nel codice)
 
@@ -26,6 +26,7 @@ Riferimento: [Termini di servizio di YouTube](https://www.youtube.com/terms), se
 2. L'export e la condivisione di questi record da parte dell'utente cambia la valutazione?
 3. Servono avvisi specifici nell'interfaccia o nell'informativa?
 4. Diritto d'autore e diritti connessi: l'analisi transitoria in memoria e l'immagine derivata pongono problemi?
+5. **Repository pubblico** (ADR-0027). Il codice sorgente è su un repository GitHub pubblico (`alessandronardi/crystal-voice`), da cui chiunque può costruire l'estensione; dal 2026-11-09 al 2026-11-13 la CI caricava anche la build come artefatto scaricabile per 7 giorni (passo poi tolto; 67 artefatti ancora non scaduti il 2026-11-13, cancellati lo stesso giorno su richiesta del product owner). Un repository di codice pubblico conta come distribuzione dell'estensione ai fini delle domande precedenti? Serve una licenza esplicita del codice, o conviene renderlo privato fino a G0?
 
 ## 4. Domande sulle policy del Chrome Web Store
 
@@ -52,4 +53,4 @@ Riferimento: [Termini di servizio di YouTube](https://www.youtube.com/terms), se
 
 | Data | Interlocutore | Domande trattate | Esito | Documento |
 |---|---|---|---|---|
-| | | | | |
+| 2026-11-13 | Agente IA di revisione legale, su incarico del product owner; accettata dal product owner senza avvocato (D-AH) | Tutte le domande del fascicolo (§4.1–§4.6) | «Superato con prescrizioni»: esito (a) condizionato da 10 azioni (G0-ACT-01…03, G0-TECH-01…03, G0-DOC-01…04), fallback (b). **G0 superato con prescrizioni** (D-AH); distribuzione bloccata fino al completamento delle prescrizioni. Eseguita: G0-ACT-01 (2026-11-13) | `docs/gates/G0-valutazione-2026-11-13.md` |

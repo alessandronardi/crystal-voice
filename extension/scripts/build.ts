@@ -4,8 +4,11 @@
 //   1. pages + service worker: ES modules, shared chunks allowed;
 //   2. content script: classic script (IIFE), content scripts are not modules;
 //   3. AudioWorklet and DSP worker: single self-contained ES files.
+import { createHash } from 'node:crypto';
 import {
+  copyFileSync,
   existsSync,
+  mkdirSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -15,17 +18,22 @@ import {
 } from 'node:fs';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
+import { FVAD_WASM_SHA256 } from '@voicecrystal/dsp-core';
 import { build, type InlineConfig } from 'vite';
 import {
   GUARD_EXCEPTIONS,
   SCANNED_EXTENSIONS,
   applyExceptions,
   checkManifest,
+  checkUnscannedFile,
+  missingPinnedFiles,
   scanSource,
   type Finding,
+  type PinnedFile,
 } from './bundle-guard.ts';
 
 const EXTENSION_DIR = resolve(import.meta.dirname, '..');
+const REPO = resolve(EXTENSION_DIR, '..');
 const SRC = join(EXTENSION_DIR, 'src');
 const OUT = resolve(EXTENSION_DIR, '../dist/extension');
 
@@ -133,17 +141,50 @@ function guard(): Finding[] {
       findings.push({ file: required, rule: 'missing-required-output', detail: required });
     }
   }
+  const present = new Set<string>();
   for (const path of listFiles(OUT)) {
     const file = relative(OUT, path).split(sep).join('/');
+    present.add(file);
     if (file === 'manifest.json') continue; // validated structurally by checkManifest
     if (!SCANNED_EXTENSIONS.includes(extname(file))) {
-      // Unknown file types (e.g. .wasm, images) need a scanner before they ship.
-      findings.push({ file, rule: 'unscanned-file-type', detail: extname(file) || '(none)' });
+      // Unknown file types need a scanner, or an exact pin (I-06b), before they ship.
+      findings.push(...checkUnscannedFile(file, sha256Of(readFileSync(path)), PINNED));
       continue;
     }
     findings.push(...scanSource(file, readFileSync(path, 'utf8')));
   }
+  findings.push(...missingPinnedFiles(present, PINNED));
   return applyExceptions(findings, GUARD_EXCEPTIONS);
+}
+
+const sha256Of = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
+
+/**
+ * Copied into the bundle unchanged (I-06b, ADR-0023): libfvad's module and the
+ * license texts of what it contains. Texts get a .txt name so they are inert.
+ */
+const COPIED: readonly { from: string; to: string; reason: string }[] = [
+  { from: join(REPO, 'packages/dsp-core/wasm/fvad.wasm'), to: 'fvad.wasm', reason: 'libfvad (ADR-0023), loaded by the dsp-worker' },
+  { from: join(REPO, 'THIRD_PARTY/libfvad/LICENSE'), to: 'THIRD_PARTY/libfvad/LICENSE.txt', reason: 'libfvad BSD-3-Clause' },
+  { from: join(REPO, 'THIRD_PARTY/libfvad/PATENTS'), to: 'THIRD_PARTY/libfvad/PATENTS.txt', reason: 'WebRTC patent grant (D-S)' },
+  ...readdirSync(join(REPO, 'THIRD_PARTY/emscripten'))
+    .filter((f) => f.endsWith('.txt'))
+    .sort()
+    .map((f) => ({ from: join(REPO, 'THIRD_PARTY/emscripten', f), to: `THIRD_PARTY/emscripten/${f}`, reason: 'Emscripten parts linked into fvad.wasm' })),
+];
+
+/** The pins: fvad.wasm by the hash dsp-core checks at run time; texts by their committed bytes (compared in CI). */
+const PINNED: readonly PinnedFile[] = COPIED.map((c) => ({
+  path: c.to,
+  sha256: c.to === 'fvad.wasm' ? FVAD_WASM_SHA256 : sha256Of(readFileSync(c.from)),
+  reason: c.reason,
+}));
+
+function copyPinned(): void {
+  for (const c of COPIED) {
+    mkdirSync(dirname(join(OUT, c.to)), { recursive: true });
+    copyFileSync(c.from, join(OUT, c.to));
+  }
 }
 
 await buildPagesAndServiceWorker();
@@ -151,6 +192,7 @@ flattenHtml();
 await buildStandalone('content/youtube-adapter.ts', 'youtube-content.js', 'iife');
 await buildStandalone('offscreen/pcm-processor.ts', 'pcm-processor.js', 'es');
 await buildStandalone('offscreen/dsp-worker.ts', 'dsp-worker.js', 'es');
+copyPinned();
 
 const findings = guard();
 if (findings.length > 0) {

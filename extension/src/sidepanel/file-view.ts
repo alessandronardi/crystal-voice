@@ -26,6 +26,8 @@ import type { PcmAnalysis } from '../shared/pcm-analysis.ts';
 import { isOwnExtensionContext } from '../shared/sender.ts';
 import { ACTIVE_SESSION_KEY, LAST_START_KEY, isActiveSession, isLastStart } from '../shared/session-storage.ts';
 import { strings } from '../ui/strings.it.ts';
+import { analysisBlock } from './analysis-rows.ts';
+import { CAPTURE_LIMITS } from '../offscreen/capture-machine.ts';
 import { checkProbe, decodeFileWindow, probeFile, type DecodeRefusal, type FileProbe } from './file-decode.ts';
 import { readStartSeconds } from './file-limits.ts';
 
@@ -287,6 +289,27 @@ export function mountFileView(root: HTMLElement): void {
       list.append(digest);
     }
     if (list.childElementCount > 0) children.push(list);
+    if (result !== null) {
+      const d = result.analysis.descriptors;
+      // D-AA (2026-11-13): the same rule as the tab and the microphone (SPEC §6.1),
+      // a crystal only with at least 8 s of valid speech.
+      const ready = d.status === 'OK' && d.seed !== null && d.quality.accepted && d.quality.validSpeechMs >= CAPTURE_LIMITS.minValidSpeechMs;
+      children.push(
+        analysisBlock(
+          {
+            status: ready ? 'OK' : 'INSUFFICIENT_DATA',
+            seed: ready ? d.seed : null,
+            warnings: d.warnings,
+            missingFeatureKeys: d.missingFeatureKeys,
+            veiledKeys: d.veiledKeys,
+            validSpeechMs: d.quality.validSpeechMs,
+            analysedMs: null,
+            failure: null,
+          },
+          'file',
+        ),
+      );
+    }
     if (state.phase === 'ready' || state.phase === 'done' || state.phase === 'failed' || state.phase === 'stopped') {
       if (state.probe !== null) {
         children.push(
@@ -431,6 +454,11 @@ export function mountFileView(root: HTMLElement): void {
         stopWorker = stop;
       });
       if (isOver() || reply === null) return;
+      if (reply.type === 'STREAM_RESULT') {
+        // Not an answer to ANALYZE_PCM: this worker is ours, so it is a bug, never a result.
+        finish('failed', { kind: 'code', code: 'INTERNAL_ERROR' });
+        return;
+      }
       if (reply.type === 'ANALYSIS_FAILED') {
         const decodeLike = reply.code === 'UNSUPPORTED_RATE' || reply.code === 'BAD_SAMPLE_RATE' || reply.code === 'NON_FINITE_INPUT';
         finish(

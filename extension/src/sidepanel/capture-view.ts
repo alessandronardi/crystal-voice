@@ -26,6 +26,7 @@ import {
   type ActiveSession,
 } from '../shared/session-storage.ts';
 import { strings } from '../ui/strings.it.ts';
+import { analysisBlock } from './analysis-rows.ts';
 
 const t = strings.capture;
 
@@ -262,6 +263,24 @@ export function mountCaptureView(root: HTMLElement): void {
         row(t.outputLatency, formatMs(live.outputLatency), 'capture-output-latency'),
       );
       children.push(list);
+      const a = live.analysis;
+      if (a !== null) {
+        children.push(
+          analysisBlock(
+            {
+              status: live.state === 'RESULT_READY' ? 'OK' : 'INSUFFICIENT_DATA',
+              seed: a.seed,
+              warnings: a.quality?.warnings ?? [],
+              missingFeatureKeys: a.quality?.missingFeatureKeys ?? [],
+              veiledKeys: null,
+              validSpeechMs: a.quality?.validSpeechMs ?? null,
+              analysedMs: a.analysedMs,
+              failure: a.failure,
+            },
+            'capture',
+          ),
+        );
+      }
     }
 
     if (state.startFailure === 'CAPTURE_BUSY' && state.active !== null) {

@@ -1,6 +1,6 @@
-// What the DSP worker computes on a PCM buffer until descriptors and the seed
-// exist (I-06, I-07): the same dsp-core functions as the offline harness,
-// reduced to statistics and digests. No sample ever leaves this function's
+// What the DSP worker computes on a decoded file: the same dsp-core functions
+// as the offline harness, reduced to statistics and digests, and since I-06b
+// the descriptors and seed of extractor-0 (descriptor-analysis.ts). No sample ever leaves this function's
 // result (SPEC §9, AGENTS.md R1): the analysis signal is returned as a
 // SHA-256, the pitch track as a SHA-256 of a canonical byte layout.
 //
@@ -17,14 +17,16 @@ import {
   mixToMono,
   signalSummary,
   trackPitch,
+  type FvadModule,
   type MonoRule,
   type PitchTrack,
   type SignalSummary,
 } from '@voicecrystal/dsp-core';
 import type { QualityWarning } from '@voicecrystal/contracts';
+import { analyzeDescriptors, type DescriptorAnalysis } from './descriptor-analysis.ts';
 
 /** Layout version of the digests below: change it if the byte layout changes. */
-export const PCM_ANALYSIS_VERSION = 'pcm-analysis-0';
+export const PCM_ANALYSIS_VERSION = 'pcm-analysis-1';
 
 export interface PcmAnalysis {
   version: typeof PCM_ANALYSIS_VERSION;
@@ -53,6 +55,8 @@ export interface PcmAnalysis {
      */
     fieldSha256: Record<PitchField, string>;
   };
+  /** extractor-0-experimental with libfvad and the mapping-0 seed (I-06b). */
+  descriptors: DescriptorAnalysis;
 }
 
 export type PitchField = 'rmsDbfs' | 'f0Hz' | 'pitchConfidence' | 'periodicity' | 'clipped';
@@ -119,7 +123,7 @@ export function pitchTrackBytes(track: PitchTrack): Uint8Array {
 }
 
 /** Runs the analysis; throws dsp-core's DspInputError on invalid input. */
-export async function analyzePcm(channels: readonly Float32Array[], sampleRate: number): Promise<PcmAnalysis> {
+export async function analyzePcm(channels: readonly Float32Array[], sampleRate: number, fvad: FvadModule): Promise<PcmAnalysis> {
   const summaries = channels.map((ch) => signalSummary(ch, sampleRate));
   const mono = mixToMono(channels, sampleRate);
   const analysis = createResampler(sampleRate, ANALYSIS_SAMPLE_RATE).process(mono.pcm);
@@ -150,5 +154,6 @@ export async function analyzePcm(channels: readonly Float32Array[], sampleRate: 
       sha256: await sha256Hex(pitchTrackBytes(track)),
       fieldSha256,
     },
+    descriptors: await analyzeDescriptors(channels, sampleRate, fvad),
   };
 }

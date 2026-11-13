@@ -38,7 +38,7 @@ Riferimento: [Termini di servizio di YouTube](https://www.youtube.com/terms), se
 1. **libfvad e `PATENTS` di WebRTC** (ADR-0023). Il pacchetto distribuito conterrà `fvad.wasm`, compilato dal progetto da libfvad (BSD-3-Clause). Il file `PATENTS` di WebRTC concede i brevetti di Google necessari a «this implementation of the WebRTC code package». La concessione decade per chi avvia una causa sostenendo che quel codice violi un brevetto.
    - **Stato:** il product owner ha accettato la clausola il 2026-11-12 (decisione D-S, `docs/STATUS.md`).
    - **Domanda aperta:** libfvad è un estratto di WebRTC fatto da terzi (`dpirch/libfvad`). La concessione su «questa implementazione» copre anche l'estratto e la sua compilazione in WebAssembly?
-   - Il modulo contiene anche parti di musl (MIT), dlmalloc e compiler-rt (Apache-2.0 con eccezione LLVM): le note vanno in `THIRD_PARTY/` (I-06b).
+   - Il modulo contiene anche parti di musl (MIT), dlmalloc (pubblico dominio, CC0), compiler-rt (Apache-2.0 con eccezione LLVM) e del runtime di Emscripten (MIT / University of Illinois NCSA). Da I-06b le note sono in `THIRD_PARTY/emscripten/`, copiate dall'immagine Emscripten usata per la build, verificate dalla CI byte per byte, e distribuite nel pacchetto in `THIRD_PARTY/` insieme a `LICENSE` e `PATENTS` di libfvad.
 
 ## 5. Esiti possibili (da SPEC §3)
 

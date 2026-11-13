@@ -16,6 +16,14 @@ import type { VadEngine } from './vad.ts';
 
 export const WEBRTC_VAD_ID = 'webrtc-fvad-0';
 
+/**
+ * SHA-256 of the committed fvad.wasm (packages/dsp-core/wasm/fvad.wasm.sha256,
+ * checked by tests/unit/vad-fvad.test.ts). A loader outside Node (the
+ * extension's dsp-worker, I-06b) checks the fetched bytes against it before
+ * instantiateFvad.
+ */
+export const FVAD_WASM_SHA256 = '8af911182fc3db2dd5bcc142c3c5c318ec2309abd5e74a4714f74074e9950597';
+
 /** The exports of fvad.wasm this engine uses (see EXPORTED_FUNCTIONS in build-fvad.sh). */
 export interface FvadExports {
   readonly memory: { readonly buffer: ArrayBuffer };

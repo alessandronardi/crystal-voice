@@ -32,6 +32,7 @@ export {
   createWebRtcVad,
   FvadError,
   FVAD_IMPORTS,
+  FVAD_WASM_SHA256,
   fvadImportObject,
   instantiateFvad,
   toInt16,
@@ -62,6 +63,7 @@ export {
 export { assessMusic, peakAutocorrelation, type MusicAssessment } from './music-heuristic.ts';
 export { assessSpeakers, bimodalityCoefficient, twoGroupSplit, type SpeakerAssessment } from './speaker-heuristic.ts';
 export {
+  describeFrames,
   EXTRACTOR_VERSION,
   extractDescriptors,
   MUSIC_EXPOSED,

@@ -12,6 +12,7 @@
     "@tailwindcss/vite": "4.3.3",
     "@types/chrome": "0.3.7",
     "@types/node": "26.6.6",
+    "@voicecrystal/calibration": "workspace:*",
     "@voicecrystal/contracts": "workspace:*",
     "@voicecrystal/dsp-core": "workspace:*",
     "tailwindcss": "4.3.3",

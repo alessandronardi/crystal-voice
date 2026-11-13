@@ -187,25 +187,24 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
   - [x] Silenzio, toni, rumore → nessun cristallo. Misurato su 19 casi su 19: 12 fixture, compresi sweep, impulsi e accordi, più 7 segnali lunghi da 30–40 s generati in memoria. **Vale per toni stazionari e accordi.** Lacuna trovata dalla revisione (H-1): toni a impulsi e melodie a note brevi (80–190 ms) danno un cristallo senza avvisi, 5 casi su 5. Sono tracciati come «lacuna nota» (`it.fails`) in `tests/unit/descriptors-fixtures.test.ts`.
   - [x] Voce + musica a −12 dB → `MIXED_AUDIO_UNCERTAIN` in almeno il 90% delle varianti [H]. Misurato: 5 su 5.
   - **Nota (revisione H-2):** le soglie [H] nuove sono state fissate guardando queste stesse fixture. Le cifre di questa DoD sono quindi **tarate e valutate sullo stesso set (in-sample)**: non dicono come va su audio nuovo. La prova fuori campione è al G1, con I-08.
-  - [ ] Alternanza A/B → `MULTI_SPEAKER_SUSPECTED` in almeno il 90% delle varianti [H], o valore misurato. **Misurato: 2 su 3 (67%), sotto l'obiettivo**; la v2 non viene rilevata. Valore riportato come ammette la DoD.
+  - [x] Alternanza A/B → `MULTI_SPEAKER_SUSPECTED` in almeno il 90% delle varianti [H], o valore misurato. **Misurato: 2 su 3 (67%), sotto l'obiettivo**; la v2 non viene rilevata. Valore riportato come ammette la DoD.
   - [x] Voce compressa 4:1 → Δp3 misurato e riportato (VC-10): −8,5 dB, −28,9 punti.
 - **Test:** property test (nessun `NaN`, range, interi); fixture; impronta della versione.
-- **Stato:** implementata sul branch `issue/I-06-descriptors`, non committata. ADR-0024 accettato dal product owner il 2026-11-12.
+- **Stato:** chiusa il 2026-11-12 ([PR crystal-voice#15](https://github.com/alessandronardi/crystal-voice/pull/15), merge squash `fe0c58e`; CI della PR verde). ADR-0024 accettato. La voce A/B è chiusa con il valore misurato, come ammette la DoD; lacuna nota delle note brevi tracciata con `it.fails`.
 
 #### I-06b · Estrazione nell'estensione
 
 - **Dipende da:** I-06a.
-- **Perimetro:**
-  - resampler con stato ed estrazione a blocchi in `dsp-core`, con il test «blocchi concatenati = buffer intero»;
-  - guadagno di normalizzazione (D-V) per l'audio che arriva a blocchi;
-  - `fvad.wasm` in `dist/` e caricato nel `dsp-worker` sotto la CSP, solo tramite `instantiateFvad`;
-  - percorso file del pannello fino al seed;
-  - collegamento di scheda e microfono, da decidere nel piano;
-  - nel pacchetto: `THIRD_PARTY/libfvad/LICENSE`, `PATENTS` e le note di musl, dlmalloc e compiler-rt (ADR-0023). La clausola di `PATENTS` è accettata dal product owner (D-S).
-- **DoD:**
-  - [ ] `fvad.wasm` caricato nel `dsp-worker` sotto la CSP attuale, E2E con finestra e headless.
-  - [ ] Decisioni del VAD e seed delle fixture caricate come file: uguali fra Node e pannello, o differenza spiegata. È la misura anticipata del cancello D-N (VC-24); il cancello resta in I-07.
-  - [ ] Estrazione a blocchi = estrazione a buffer intero, o differenza misurata e dichiarata.
+- **Perimetro** (decisioni del product owner: D-W scheda e microfono inclusi; D-X licenze dalla CI; D-Y risultato in `CAPTURE_DIAG.analysis`; D-Z navigazione durante l'analisi finale non scarta, «Interrompi» sì; D-AA i file chiedono 8 s di voce valida come la cattura; D-AB riferimento del cancello D-N con la conversione di Chromium; D-AC ADR-0025 accettato):
+  - `fvad.wasm` in `dist/`, fissato per SHA-256 nella guardia del bundle, e caricato nel `dsp-worker` sotto la CSP, solo tramite `instantiateFvad` dopo il controllo dell'hash;
+  - percorso file del pannello fino al seed, con righe tecniche «sperimentali»;
+  - scheda e microfono: il worklet inoltra l'audio di ascolto al `dsp-worker` dell'offscreen; analisi a fine sessione, sul buffer intero, con la stessa funzione dei file (ADR-0025);
+  - nel pacchetto: `THIRD_PARTY/libfvad/LICENSE`, `PATENTS` e le note di musl, dlmalloc, compiler-rt ed Emscripten (ADR-0023, D-S).
+  - **Fuori, verso I-07:** resampler con stato, guadagno stimato in corsa ed estrazione incrementale: servono alla regola split-half, non all'analisi a fine sessione.
+- **DoD** (misure del 2026-11-12, `docs/BENCHMARK_PROTOCOL.md` §7):
+  - [x] `fvad.wasm` caricato nel `dsp-worker` sotto la CSP attuale, E2E con finestra e headless: pannello (file) e offscreen (scheda, microfono).
+  - [x] Decisioni del VAD e seed delle fixture caricate come file: uguali fra Node e pannello, con in Node la stessa conversione dei campioni di Chromium (D-AB). Misurato: 35 fixture su 35 con esito, avvisi, confidenza, qualità e decisioni VAD identici, e i 19 seed presenti identici; misure grezze diverse al più di 2 ULP in 8 valori. **Contro il lettore WAV dei benchmark** (int16/32768, diverso da Chromium da I-18) la differenza è misurata e dichiarata, non richiesta: vedi `docs/BENCHMARK_PROTOCOL.md` §7. Il cancello D-N resta in I-07, per la verifica finale.
+  - [x] Estrazione a blocchi = estrazione a buffer intero: per costruzione (ADR-0025), con il test unit bit per bit dell'accumulatore.
 - **Test:** unit sui blocchi; E2E Node contro pannello.
 
 ### I-07 · Arresto split-half

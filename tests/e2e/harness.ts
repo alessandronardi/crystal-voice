@@ -32,6 +32,15 @@ export interface Diag {
   activeMs: number;
   baseLatency: number | null;
   outputLatency: number | null;
+  /** End-of-session analysis (I-06b, D-Y): only in RESULT_READY and INSUFFICIENT_DATA after FINALIZING. */
+  analysis: {
+    quality: { accepted: boolean; validSpeechMs: number; warnings: string[]; missingFeatureKeys: string[]; droppedFrames: number } | null;
+    seed: number[] | null;
+    extractorVersion: string | null;
+    mappingVersion: string | null;
+    failure: string | null;
+    analysedMs: number | null;
+  } | null;
   /** Arrival time at the probe page, Date.now(). */
   at: number;
 }

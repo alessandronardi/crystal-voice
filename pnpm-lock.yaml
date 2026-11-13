@@ -229,6 +229,9 @@ importers:
       '@types/node':
         specifier: 26.6.6
         version: 26.6.6
+      '@voicecrystal/calibration':
+        specifier: workspace:*
+        version: link:../packages/calibration
       '@voicecrystal/contracts':
         specifier: workspace:*
         version: link:../packages/contracts

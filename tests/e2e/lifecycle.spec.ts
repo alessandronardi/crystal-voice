@@ -198,12 +198,21 @@ test('S8: the service worker is terminated; the capture goes on and stop still w
   await page.close();
 });
 
-test('45 s of listening ends in INSUFFICIENT_DATA / WALL_TIMEOUT (no speech detector yet)', async () => {
-  test.setTimeout(90_000);
+test('45 s of listening to a pure tone ends in INSUFFICIENT_DATA / WALL_TIMEOUT, with the analysis that says why (I-06b)', async () => {
+  test.setTimeout(120_000);
   const { page, session } = await startCapture();
-  const end = await h.waitForEnd(session.sessionId, 60_000);
+  const end = await h.waitForEnd(session.sessionId, 90_000);
   expect(end).toMatchObject({ state: 'INSUFFICIENT_DATA', exitReason: 'WALL_TIMEOUT' });
   expect(end.activeMs).toBeGreaterThanOrEqual(45_000);
+  // The tab's DSP worker loaded libfvad (no failure) and found no voice: a tone has no syllables.
+  expect(end.analysis?.failure).toBeNull();
+  expect(end.analysis?.extractorVersion).toBe('extractor-0-experimental');
+  expect(end.analysis?.seed).toBeNull();
+  expect(end.analysis?.quality?.missingFeatureKeys).toContain('p6_rhythm');
+  // Review M-3: no block refused (a stable channel count), and as much audio as listened, within 1 s.
+  expect(end.analysis?.quality?.droppedFrames).toBe(0);
+  expect(Math.abs((end.analysis?.analysedMs ?? Number.NaN) - end.activeMs)).toBeLessThan(1_000);
+  test.info().annotations.push({ type: 'tab tone analysis', description: JSON.stringify(end.analysis) });
   await expectReleased();
   await page.close();
 });

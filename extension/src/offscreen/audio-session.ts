@@ -2,7 +2,9 @@
 // AudioContext, the pass-through and the AudioWorklet. The authoritative
 // capture state lives in CaptureSession (capture machine + watchdog); this
 // file only wires it to chrome.runtime and WebAudio. Only chrome.runtime is
-// available here. The worklet counts samples; no DSP before I-05/I-06.
+// available here. The worklet counts samples and, since I-06b (ADR-0025),
+// forwards the audio of the listening states to a DSP worker of this
+// document, which analyses it once in FINALIZING.
 // Two sources: the tab (stream ID from tabCapture, played back) and the
 // microphone (I-17: no playback, kept alive by the side panel's port).
 import {
@@ -14,15 +16,18 @@ import {
   panelPortSessionId,
   type CaptureDiag,
   type HeartbeatReply,
+  type CaptureAnalysis,
   type OffscreenStartTab,
   type SessionId,
 } from '@voicecrystal/contracts';
+import { isDspWorkerReply, type DspWorkerReply, type StreamBeginRequest } from '../shared/dsp-protocol.ts';
 import { isOwnExtensionContext } from '../shared/sender.ts';
-import { CaptureSession, type AudioFacts, type SessionBinding } from './capture-session.ts';
-import { PCM_PROCESSOR_NAME, type PcmCountMessage } from './pcm-protocol.ts';
+import { CaptureSession, type AudioFacts, type SessionAnalysis, type SessionBinding } from './capture-session.ts';
+import { PCM_PROCESSOR_NAME, type PcmCountMessage, type WorkletCommand } from './pcm-protocol.ts';
 import { micPermissionState, openMicStream } from './sources/mic-source.ts';
 
 const WORKLET_URL = chrome.runtime.getURL('pcm-processor.js');
+const DSP_WORKER_URL = chrome.runtime.getURL('dsp-worker.js');
 const TICK_INTERVAL_MS = 500;
 /** [H] Time to wait for the service worker's reason after a tab track ends. */
 const STREAM_ENDED_GRACE_MS = 500;
@@ -33,6 +38,31 @@ interface AudioGraph {
   source: MediaStreamAudioSourceNode | null;
   worklet: AudioWorkletNode | null;
   ticker: ReturnType<typeof setInterval> | null;
+  /** I-06b: the DSP worker that keeps and analyses the audio of this session. */
+  worker: Worker | null;
+  sampleRate: number | null;
+  /** Review M-4: a worker failure seen before FINALIZING, reported at the end instead of a timeout. */
+  workerFailure: NonNullable<CaptureAnalysis['failure']> | null;
+}
+
+/**
+ * Review C-1 (R8): FINALIZING captures nothing. The tracks stop (the browser's
+ * capture indicator goes off) and the source is disconnected; the context
+ * and the worklet stay so that END and the last block still reach the worker.
+ */
+function endCapture(graph: AudioGraph): void {
+  try {
+    graph.stream?.getTracks().forEach((track) => {
+      track.stop();
+    });
+  } catch {
+    // Release stops them again.
+  }
+  try {
+    graph.source?.disconnect();
+  } catch {
+    // Already disconnected.
+  }
 }
 
 /** The one session of this document (one capture per profile, SPEC §5). */
@@ -51,6 +81,13 @@ function latency(value: number | undefined): number | null {
 async function releaseGraph(graph: AudioGraph): Promise<void> {
   if (graph.ticker !== null) clearInterval(graph.ticker);
   graph.ticker = null;
+  // The worker holds the session's audio (R1: RAM only): it goes first.
+  try {
+    graph.worker?.terminate();
+  } catch {
+    // Continue with the tracks.
+  }
+  graph.worker = null;
   try {
     graph.stream?.getTracks().forEach((track) => {
       track.stop();
@@ -95,6 +132,62 @@ function refuseBusy(sessionId: SessionId): void {
     activeMs: 0,
     baseLatency: null,
     outputLatency: null,
+    analysis: null,
+  });
+}
+
+function command(graph: AudioGraph, message: WorkletCommand): void {
+  try {
+    graph.worklet?.port.postMessage(message);
+  } catch {
+    // A closed worklet has nothing more to send; the analysis times out.
+  }
+}
+
+const failed = (failure: NonNullable<CaptureAnalysis['failure']>): SessionAnalysis => ({
+  analysis: { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure, analysedMs: null },
+  accepted: false,
+  validSpeechMs: 0,
+});
+
+/** STREAM_RESULT → what FINALIZING decides (I-06b). Never rejects. */
+function toSessionAnalysis(reply: DspWorkerReply, sampleRate: number | null): SessionAnalysis {
+  if (reply.type !== 'STREAM_RESULT') return failed('ANALYSIS_FAILED');
+  const a = reply.analysis;
+  if (reply.failure !== null || a === null) return failed(reply.failure === 'VAD_UNAVAILABLE' ? 'VAD_UNAVAILABLE' : 'ANALYSIS_FAILED');
+  // Refused samples, as 10 ms frames like pitchUsableFrames (droppedFrames of SPEC §9).
+  const dropped = sampleRate === null ? 0 : Math.ceil((reply.stats.droppedFrames * 100) / sampleRate);
+  const quality = { ...a.quality, droppedFrames: dropped };
+  return {
+    analysis: {
+      quality,
+      seed: a.seed,
+      extractorVersion: a.extractorVersion,
+      mappingVersion: a.mappingVersion,
+      failure: null,
+      analysedMs: sampleRate === null ? null : Math.round((reply.stats.frames * 1000) / sampleRate),
+    },
+    accepted: quality.accepted && a.seed !== null,
+    validSpeechMs: quality.validSpeechMs,
+  };
+}
+
+/** Asks the worker for the analysis: END goes through the worklet, after its last block. */
+function finalizeGraph(graph: AudioGraph): Promise<SessionAnalysis> {
+  const worker = graph.worker;
+  if (graph.workerFailure !== null) return Promise.resolve(failed(graph.workerFailure));
+  if (worker === null || graph.worklet === null) return Promise.resolve(failed('ANALYSIS_FAILED'));
+  return new Promise<SessionAnalysis>((resolve) => {
+    worker.onmessage = (event: MessageEvent<unknown>) => {
+      resolve(isDspWorkerReply(event.data) ? toSessionAnalysis(event.data, graph.sampleRate) : failed('ANALYSIS_FAILED'));
+    };
+    worker.onerror = () => {
+      resolve(failed('ANALYSIS_FAILED'));
+    };
+    worker.onmessageerror = () => {
+      resolve(failed('ANALYSIS_FAILED'));
+    };
+    command(graph, { type: 'END' });
   });
 }
 
@@ -104,7 +197,16 @@ function openSession(sessionId: SessionId, binding: SessionBinding): { session: 
     refuseBusy(sessionId);
     return null;
   }
-  const graph: AudioGraph = { stream: null, context: null, source: null, worklet: null, ticker: null };
+  const graph: AudioGraph = {
+    stream: null,
+    context: null,
+    source: null,
+    worklet: null,
+    ticker: null,
+    worker: null,
+    sampleRate: null,
+    workerFailure: null,
+  };
   const session = new CaptureSession(sessionId, binding, {
     now: () => performance.now(),
     setTimer: (fn, ms) => setTimeout(fn, ms),
@@ -113,6 +215,13 @@ function openSession(sessionId: SessionId, binding: SessionBinding): { session: 
     },
     emit: send,
     release: () => releaseGraph(graph),
+    finalize: () => finalizeGraph(graph),
+    setRecording: (record) => {
+      command(graph, { type: 'RECORD', record });
+    },
+    endCapture: () => {
+      endCapture(graph);
+    },
     onIdle: () => {
       if (current?.session === session) current = null;
       // ADR-0003: the document is closed explicitly once resources are released.
@@ -151,6 +260,24 @@ async function runGraph(session: CaptureSession, graph: AudioGraph, stream: Medi
     graph.worklet.port.onmessage = (event: MessageEvent<PcmCountMessage>) => {
       session.onSamples(event.data.samples);
     };
+    // I-06b: one DSP worker per session; the worklet talks to it on its own channel.
+    graph.sampleRate = Math.round(graph.context.sampleRate);
+    graph.worker = new Worker(DSP_WORKER_URL, { type: 'module' });
+    // Review M-4: a worker that fails to load or refuses STREAM_BEGIN is known at once;
+    // finalizeGraph replaces these handlers with the ones waiting for STREAM_RESULT.
+    graph.worker.onerror = () => {
+      graph.workerFailure = 'ANALYSIS_FAILED';
+    };
+    graph.worker.onmessage = (event: MessageEvent<unknown>) => {
+      const reply = event.data;
+      if (isDspWorkerReply(reply) && reply.type === 'ANALYSIS_FAILED') {
+        graph.workerFailure = reply.code === 'VAD_UNAVAILABLE' ? 'VAD_UNAVAILABLE' : 'ANALYSIS_FAILED';
+      }
+    };
+    const channel = new MessageChannel();
+    const begin: StreamBeginRequest = { type: 'STREAM_BEGIN', sampleRate: graph.sampleRate, port: channel.port2 };
+    graph.worker.postMessage(begin, [channel.port2]);
+    graph.worklet.port.postMessage({ type: 'ATTACH_WORKER', port: channel.port1 } satisfies WorkletCommand, [channel.port1]);
     graph.source.connect(graph.worklet);
     if (graph.context.state === 'suspended') await graph.context.resume();
   } catch {

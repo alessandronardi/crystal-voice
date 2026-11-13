@@ -4,6 +4,9 @@ import { createHash } from 'node:crypto';
 import { createResampler, mixToMono, signalSummary, trackPitch, type PitchTrack } from '@voicecrystal/dsp-core';
 import { describe, expect, it } from 'vitest';
 import { analyzePcm, float32Bytes, pitchFieldBytes, pitchTrackBytes, sha256Hex } from '../src/shared/pcm-analysis.ts';
+import { loadFvad } from '../../tests/benchmarks/fvad-loader.ts';
+
+const fvad = loadFvad().fvad;
 
 function voiceLike(seconds: number, rate: number, f0: number): Float32Array {
   return Float32Array.from({ length: Math.round(seconds * rate) }, (_, i) => {
@@ -18,7 +21,7 @@ describe('analyzePcm', () => {
   it('equals the dsp-core functions it wraps, and hashes with standard SHA-256', async () => {
     const rate = 44100;
     const channels = [voiceLike(1.5, rate, 140), voiceLike(1.5, rate, 140).map((v) => v * 0.5)];
-    const result = await analyzePcm(channels, rate);
+    const result = await analyzePcm(channels, rate, fvad);
     expect(result.channels).toEqual(channels.map((c) => signalSummary(c, rate)));
     const mono = mixToMono(channels, rate);
     const analysis = createResampler(rate, 16000).process(mono.pcm);
@@ -45,18 +48,18 @@ describe('analyzePcm', () => {
 
   it('is deterministic and changes with a single bit of input', async () => {
     const pcm = voiceLike(0.5, 16000, 200);
-    const a = await analyzePcm([pcm], 16000);
-    expect(await analyzePcm([pcm.slice()], 16000)).toEqual(a);
+    const a = await analyzePcm([pcm], 16000, fvad);
+    expect(await analyzePcm([pcm.slice()], 16000, fvad)).toEqual(a);
     const flipped = pcm.slice();
     const bits = new Uint32Array(flipped.buffer);
     bits[4000] = (bits[4000] ?? 0) ^ 1;
-    const b = await analyzePcm([flipped], 16000);
+    const b = await analyzePcm([flipped], 16000, fvad);
     expect(b.analysis.sha256).not.toBe(a.analysis.sha256);
   });
 
   it('rejects invalid input with dsp-core errors', async () => {
-    await expect(analyzePcm([new Float32Array([0, Number.NaN])], 16000)).rejects.toMatchObject({ name: 'DspInputError' });
-    await expect(analyzePcm([], 16000)).rejects.toMatchObject({ name: 'DspInputError' });
+    await expect(analyzePcm([new Float32Array([0, Number.NaN])], 16000, fvad)).rejects.toMatchObject({ name: 'DspInputError' });
+    await expect(analyzePcm([], 16000, fvad)).rejects.toMatchObject({ name: 'DspInputError' });
   });
 });
 

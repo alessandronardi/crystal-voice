@@ -7,9 +7,14 @@
 //    MessagePort on which the AudioWorklet posts PcmBlock messages while the
 //    session listens; STREAM_END asks for the analysis of everything received
 //    → STREAM_RESULT. The samples stay in the worker's RAM until it ends.
+//  - I-07 (ADR-0026): while the stream runs, the worker analyses the audio so
+//    far once per whole second and answers STREAM_PROGRESS (valid speech and
+//    the split-half evaluations, numbers only).
+import { SPLIT_HALF_BLOCKS } from '@voicecrystal/contracts';
 import type { DspInputErrorCode } from '@voicecrystal/dsp-core';
 import type { DescriptorAnalysis } from './descriptor-analysis.ts';
 import type { PcmAnalysis } from './pcm-analysis.ts';
+import type { SplitHalfEvaluation } from './split-half-rule.ts';
 
 export interface AnalyzePcmRequest {
   type: 'ANALYZE_PCM';
@@ -47,10 +52,25 @@ export interface StreamStats {
   channelCount: number;
 }
 
+/** I-07: the latest analysis of the audio so far (ADR-0026). */
+export interface StreamProgress {
+  /** Whole seconds of source audio analysed. */
+  audioSeconds: number;
+  validSpeechMs: number;
+  evaluations: number;
+  last: SplitHalfEvaluation | null;
+  converged: boolean;
+  /** Time of this analysis in the worker, ms (measured for BENCHMARK_PROTOCOL §7). */
+  analysisMs: number;
+  /** Set when the evaluation failed: no further evaluation runs, the session goes on to its limits. */
+  failure: DspFailureCode | null;
+}
+
 export type DspWorkerReply =
   | { type: 'ANALYSIS_DONE'; analysis: PcmAnalysis }
   | { type: 'ANALYSIS_FAILED'; code: DspFailureCode }
-  | { type: 'STREAM_RESULT'; analysis: DescriptorAnalysis | null; failure: DspFailureCode | null; stats: StreamStats };
+  | { type: 'STREAM_RESULT'; analysis: DescriptorAnalysis | null; failure: DspFailureCode | null; stats: StreamStats }
+  | { type: 'STREAM_PROGRESS'; progress: StreamProgress };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -98,10 +118,44 @@ function isDescriptorAnalysis(value: unknown): boolean {
   );
 }
 
+const nonNegative = (v: unknown): boolean => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+const count = (v: unknown): boolean => Number.isSafeInteger(v) && (v as number) >= 0;
+
+function isEvaluation(value: unknown): value is SplitHalfEvaluation {
+  if (!isRecord(value)) return false;
+  const d = value['differences'];
+  const blocked = value['blockedBy'];
+  return (
+    count(value['seconds']) &&
+    Array.isArray(d) &&
+    d.length === 6 &&
+    d.every((x) => x === null || nonNegative(x)) &&
+    (value['s'] === null || nonNegative(value['s'])) &&
+    typeof value['passed'] === 'boolean' &&
+    (blocked === null || (typeof blocked === 'string' && (SPLIT_HALF_BLOCKS as readonly string[]).includes(blocked))) &&
+    value['passed'] === (blocked === null) &&
+    count(value['consecutive'])
+  );
+}
+
+export function isStreamProgress(value: unknown): value is StreamProgress {
+  if (!isRecord(value)) return false;
+  return (
+    count(value['audioSeconds']) &&
+    nonNegative(value['validSpeechMs']) &&
+    count(value['evaluations']) &&
+    (value['last'] === null || isEvaluation(value['last'])) &&
+    typeof value['converged'] === 'boolean' &&
+    nonNegative(value['analysisMs']) &&
+    (value['failure'] === null || typeof value['failure'] === 'string')
+  );
+}
+
 /** Shape check of the worker's reply: the worker is ours, but a message is still a message. */
 export function isDspWorkerReply(value: unknown): value is DspWorkerReply {
   if (!isRecord(value)) return false;
   if (value['type'] === 'ANALYSIS_FAILED') return typeof value['code'] === 'string';
+  if (value['type'] === 'STREAM_PROGRESS') return isStreamProgress(value['progress']);
   if (value['type'] === 'STREAM_RESULT') {
     const stats = value['stats'];
     return (

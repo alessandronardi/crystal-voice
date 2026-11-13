@@ -3,6 +3,7 @@ import {
   PANEL_PORT_PREFIX,
   TERMINAL_CAPTURE_STATES,
   isCaptureDiag,
+  isCaptureStability,
   isQualitySummary,
   isCaptureStartMessage,
   isOffscreenStartMic,
@@ -41,6 +42,10 @@ const diag: CaptureDiag = {
   baseLatency: 0.01,
   outputLatency: 0.02,
   analysis: null,
+
+  validSpeechMs: 0,
+
+  stability: null,
 };
 
 const heartbeat = {
@@ -300,5 +305,32 @@ describe('enumerations', () => {
     expect([...TERMINAL_CAPTURE_STATES].sort()).toEqual(['ERROR', 'INSUFFICIENT_DATA', 'INTERRUPTED', 'RESULT_READY']);
     expect(isTerminalCaptureState('IDLE')).toBe(false);
     expect(isTerminalCaptureState('FINALIZING')).toBe(false);
+  });
+});
+
+describe('CAPTURE_DIAG valid speech and stability (I-07)', () => {
+  const stability = { stopRuleVersion: 'split-half-0', evaluations: 4, seconds: 11, s: 3.2, blockedBy: null, consecutive: 2, converged: false, analysisMs: 240 };
+
+  it('accepts a live diagnostic with the split-half state', () => {
+    expect(isCaptureDiag({ ...diag, validSpeechMs: 11_240, stability })).toBe(true);
+    expect(isCaptureStability({ stopRuleVersion: 'split-half-0', evaluations: 0, seconds: null, s: null, blockedBy: null, consecutive: 0, converged: false, analysisMs: null })).toBe(true);
+    expect(isCaptureStability({ ...stability, s: null, blockedBy: 'HALF_INCOMPLETE', consecutive: 0 })).toBe(true);
+  });
+
+  it('refuses inconsistent or malformed values', () => {
+    expect(isCaptureDiag({ ...diag, validSpeechMs: -1 })).toBe(false);
+    expect(isCaptureDiag({ ...diag, validSpeechMs: undefined })).toBe(false);
+    expect(isCaptureDiag({ ...diag, stability: undefined })).toBe(false);
+    // A failed evaluation resets the run; a passed one belongs to it.
+    expect(isCaptureStability({ ...stability, blockedBy: 'UNSTABLE' })).toBe(false);
+    expect(isCaptureStability({ ...stability, consecutive: 0 })).toBe(false);
+    expect(isCaptureStability({ ...stability, consecutive: 5 })).toBe(false);
+    expect(isCaptureStability({ ...stability, blockedBy: 'SOMETHING' })).toBe(false);
+    expect(isCaptureStability({ ...stability, s: Number.POSITIVE_INFINITY })).toBe(false);
+    expect(isCaptureStability({ ...stability, analysisMs: -1 })).toBe(false);
+    expect(isCaptureStability({ ...stability, stopRuleVersion: '' })).toBe(false);
+    // Nothing set before the first evaluation.
+    expect(isCaptureStability({ stopRuleVersion: 'split-half-0', evaluations: 0, seconds: 8, s: null, blockedBy: null, consecutive: 0, converged: false, analysisMs: null })).toBe(false);
+    expect(isCaptureStability({ stopRuleVersion: 'split-half-0', evaluations: 0, seconds: null, s: null, blockedBy: null, consecutive: 0, converged: true, analysisMs: null })).toBe(false);
   });
 });

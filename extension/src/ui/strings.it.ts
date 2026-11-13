@@ -187,6 +187,23 @@ export const strings = {
     stale: 'Nessun aggiornamento dalla cattura da qualche secondo: potrebbe essersi interrotta.',
     hertz: 'Hz',
     milliseconds: 'ms',
+    // I-07 (SPEC §8): technical rows of the stopping rule. «Stabilità del
+    // campionamento», never a percentage of «saturazione» of a voice.
+    validSpeech: 'Voce valida (sperimentale)',
+    validSpeechOf: (seconds: string, max: string): string => `${seconds} / ${max} s`,
+    stability: 'Stabilità del campionamento (sperimentale)',
+    stabilityNone: 'nessuna valutazione: servono 8 s di voce valida',
+    stabilityValue: (reason: string, s: string, run: string): string => `${reason} · s = ${s} punti · ${run}`,
+    stabilityNoS: '—',
+    stabilityReached: 'stabilità raggiunta',
+    stabilityPassed: 'metà coerenti',
+    stabilityBlocked: {
+      TOO_SHORT: 'voce valida sotto 8 s',
+      MISSING_DESCRIPTOR: 'un tratto non è ancora misurabile',
+      MULTI_SPEAKER: 'possibili più voci: nessun arresto anticipato',
+      HALF_INCOMPLETE: 'una metà non misura ancora tutti i tratti',
+      UNSTABLE: 'le due metà sono ancora diverse',
+    },
   },
   file: {
     heading: 'Da un file',

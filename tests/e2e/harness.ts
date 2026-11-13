@@ -41,6 +41,18 @@ export interface Diag {
     failure: string | null;
     analysedMs: number | null;
   } | null;
+  /** I-07: valid speech of the latest evaluation and the split-half state (ADR-0026). */
+  validSpeechMs: number;
+  stability: {
+    stopRuleVersion: string;
+    evaluations: number;
+    seconds: number | null;
+    s: number | null;
+    blockedBy: string | null;
+    consecutive: number;
+    converged: boolean;
+    analysisMs: number | null;
+  } | null;
   /** Arrival time at the probe page, Date.now(). */
   at: number;
 }

@@ -12,6 +12,7 @@ import {
   type SessionAnalysis,
   type SessionBinding,
 } from '../src/offscreen/capture-session.ts';
+import type { StreamProgress } from '../src/shared/dsp-protocol.ts';
 import type { QualitySummary } from '@voicecrystal/contracts';
 
 const NO_VOICE_QUALITY: QualitySummary = {
@@ -658,5 +659,100 @@ describe('FINALIZING captures nothing (review C-1, R8, ADR-0004)', () => {
     await h.advance(ANALYSIS_TIMEOUT_MS);
     expect(h.last?.state).toBe('INSUFFICIENT_DATA');
     expect(h.releases).toBe(1);
+  });
+});
+
+describe('split-half progress from the worker (I-07, ADR-0026)', () => {
+  function progress(over: Partial<StreamProgress> = {}): StreamProgress {
+    return { audioSeconds: 14, validSpeechMs: 8_410, evaluations: 1, last: null, converged: false, analysisMs: 200, failure: null, ...over };
+  }
+  const passed = (seconds: number, consecutive: number): StreamProgress['last'] => ({
+    seconds,
+    differences: [1, 1, 1, 1, 1, 1],
+    s: 1,
+    passed: true,
+    blockedBy: null,
+    consecutive,
+  });
+
+  it('a converged evaluation stops the session at once with CONVERGED, and the seed comes from the final analysis', async () => {
+    const h = listening();
+    h.analysisOutcome = voice(12_000);
+    await h.advance(2_000);
+    h.heartbeat();
+    h.session.onProgress(progress({ validSpeechMs: 10_200, evaluations: 3, last: passed(10, 3), converged: true }));
+    expect(h.session.state).toBe('FINALIZING');
+    expect(h.captureEnded).toBe(1);
+    expect(h.finalizations).toBe(1);
+    await h.advance(100);
+    expect(h.last).toMatchObject({ state: 'RESULT_READY', exitReason: 'CONVERGED', validSpeechMs: 10_200 });
+    expect(h.last?.stability).toEqual({ stopRuleVersion: 'split-half-0', evaluations: 3, seconds: 10, s: 1, blockedBy: null, consecutive: 3, converged: true, analysisMs: 200 });
+    expect(h.last?.analysis?.seed).toEqual([4000, 5000, 3000, 0, 2500, 6000]);
+    for (const d of h.diags) expect(isCaptureDiag(d), d.state).toBe(true);
+  });
+
+  it('the valid speech of the evaluations reaches the TICK: 18 s ends with MAX_VALID_SPEECH (SPEC §6.1)', async () => {
+    const h = listening();
+    h.analysisOutcome = voice(18_000);
+    h.session.onProgress(progress({ validSpeechMs: 17_990 }));
+    await h.advance(1_000);
+    h.heartbeat();
+    expect(h.session.state).toBe('LISTENING');
+    expect(h.last?.validSpeechMs).toBe(17_990);
+    h.session.onProgress(progress({ validSpeechMs: 18_000 }));
+    await h.advance(500);
+    expect(h.session.state).not.toBe('LISTENING');
+    await h.advance(100);
+    expect(h.last).toMatchObject({ state: 'RESULT_READY', exitReason: 'MAX_VALID_SPEECH' });
+  });
+
+  it('a convergence that arrives in a pause is applied when listening resumes, not lost', async () => {
+    const h = listening();
+    h.analysisOutcome = voice(12_000);
+    h.heartbeat({ paused: true });
+    expect(h.session.state).toBe('PAUSED');
+    h.session.onProgress(progress({ evaluations: 3, last: passed(10, 3), converged: true }));
+    await h.advance(1_000);
+    h.heartbeat({ paused: true });
+    expect(h.session.state).toBe('PAUSED');
+    h.heartbeat({ paused: false });
+    await h.advance(500);
+    expect(h.diags.some((d) => d.state === 'FINALIZING')).toBe(true);
+    await h.advance(100);
+    expect(h.last).toMatchObject({ state: 'RESULT_READY', exitReason: 'CONVERGED' });
+  });
+
+  it('a progress after FINALIZING or after the end is late: ignored and counted', async () => {
+    const h = listening();
+    h.analysisOutcome = 'hang';
+    h.session.onProgress(progress({ evaluations: 3, last: passed(10, 3), converged: true }));
+    expect(h.session.state).toBe('FINALIZING');
+    h.session.onProgress(progress({ validSpeechMs: 30_000 }));
+    expect(h.session.ignored.lateProgress).toBe(1);
+    await h.advance(ANALYSIS_TIMEOUT_MS + 500);
+    expect(h.last?.state).toBe('INSUFFICIENT_DATA');
+    expect(h.last?.validSpeechMs).toBe(8_410);
+    h.session.onProgress(progress());
+    expect(h.session.ignored.lateProgress).toBe(2);
+  });
+
+  it('a failed evaluation keeps the last valid speech (review M-3): the 18 s limit still works afterwards', async () => {
+    const h = listening();
+    h.analysisOutcome = voice(18_000);
+    h.session.onProgress(progress({ validSpeechMs: 17_990 }));
+    h.session.onProgress(progress({ validSpeechMs: 0, failure: 'INTERNAL' }));
+    await h.advance(500);
+    expect(h.last?.validSpeechMs).toBe(17_990);
+    expect(h.session.state).toBe('LISTENING');
+    h.session.onProgress(progress({ validSpeechMs: 18_010 }));
+    await h.advance(500);
+    await h.advance(100);
+    expect(h.last).toMatchObject({ state: 'RESULT_READY', exitReason: 'MAX_VALID_SPEECH' });
+  });
+
+  it('without evaluations the diagnostic says so: no valid speech, no stability', async () => {
+    const h = listening();
+    await h.advance(1_000);
+    expect(h.last).toMatchObject({ validSpeechMs: 0, stability: null });
   });
 });

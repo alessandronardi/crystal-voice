@@ -6,6 +6,7 @@ import type {
   CaptureAnalysis,
   CaptureDiag,
   CaptureErrorCode,
+  CaptureStability,
   CaptureState,
   HeartbeatMessage,
   OffscreenStopReason,
@@ -21,6 +22,8 @@ import {
   type FailReason,
   type MachineState,
 } from './capture-machine.ts';
+import { STOP_RULE_VERSION } from '@voicecrystal/dsp-core';
+import type { StreamProgress } from '../shared/dsp-protocol.ts';
 
 /** ADR-0004: no heartbeat for this long ends the session with NAVIGATED_AWAY. */
 export const HEARTBEAT_TIMEOUT_MS = 3_000;
@@ -103,6 +106,8 @@ export interface IgnoredCounts {
   wrongSession: number;
   staleSeq: number;
   rejectedEvent: number;
+  /** I-07: a STREAM_PROGRESS that came once the session no longer listened. */
+  lateProgress: number;
 }
 
 const YOUTUBE_HOST = 'www.youtube.com';
@@ -140,7 +145,12 @@ export class CaptureSession {
   private analysis: CaptureAnalysis | null = null;
   private analysing = false;
   private analysisTimer: unknown = null;
-  readonly ignored: IgnoredCounts = { wrongTab: 0, wrongSession: 0, staleSeq: 0, rejectedEvent: 0 };
+  /** I-07 (ADR-0026): valid speech of the latest evaluation of the audio so far. */
+  private validSpeechMs = 0;
+  private stability: CaptureStability | null = null;
+  /** The rule converged while the machine could not take it (PAUSED): applied on the next LISTENING tick. */
+  private convergedPending = false;
+  readonly ignored: IgnoredCounts = { wrongTab: 0, wrongSession: 0, staleSeq: 0, rejectedEvent: 0, lateProgress: 0 };
 
   readonly id: SessionId;
   readonly binding: SessionBinding;
@@ -232,10 +242,50 @@ export class CaptureSession {
   tick(): void {
     // FINALIZING has no timeouts of its own: the analysis has ANALYSIS_TIMEOUT_MS.
     if (!this.isLive() || this.machine.state === 'FINALIZING') return;
-    // Valid speech is measured at the end only (ADR-0025): 0 ms while listening,
-    // so MAX_VALID_SPEECH and the split-half stop wait for I-07.
-    this.apply({ type: 'TICK', activeMs: this.activeMs(), elapsedMs: this.elapsedMs(), validSpeechMs: 0 });
+    this.applyConvergence();
+    // applyConvergence may have moved the machine to FINALIZING.
+    if (!this.isLive() || this.state === 'FINALIZING') return;
+    // I-07: the valid speech of the latest evaluation (ADR-0026), so that
+    // MAX_VALID_SPEECH stops the session at 18 s (SPEC §6.1).
+    this.apply({ type: 'TICK', activeMs: this.activeMs(), elapsedMs: this.elapsedMs(), validSpeechMs: this.validSpeechMs });
     if (this.isLive()) this.emit();
+  }
+
+  /**
+   * I-07 (ADR-0026): the worker's latest evaluation of the audio so far.
+   * Taken only while the session collects audio; afterwards it is late
+   * (ignored and counted). A convergence becomes SPLIT_HALF_STABLE at once
+   * in LISTENING, or on the next LISTENING tick.
+   */
+  onProgress(progress: StreamProgress): void {
+    if (!this.isLive() || !(this.machine.state === 'LISTENING' || this.machine.state === 'WAITING_FOR_SPEECH' || this.machine.state === 'PAUSED')) {
+      this.ignored.lateProgress++;
+      return;
+    }
+    // Review M-3: a failed evaluation measured nothing. The last valid speech
+    // and stability stay (never 0 for «not measured», R13); the worker stops
+    // evaluating, so the session goes on to its time limits.
+    if (progress.failure !== null) return;
+    this.validSpeechMs = progress.validSpeechMs;
+    const last = progress.last;
+    this.stability = {
+      stopRuleVersion: STOP_RULE_VERSION,
+      evaluations: progress.evaluations,
+      seconds: last?.seconds ?? null,
+      s: last?.s ?? null,
+      blockedBy: last?.blockedBy ?? null,
+      consecutive: last?.consecutive ?? 0,
+      converged: progress.converged,
+      analysisMs: progress.analysisMs,
+    };
+    if (progress.converged) this.convergedPending = true;
+    this.applyConvergence();
+  }
+
+  private applyConvergence(): void {
+    if (!this.convergedPending || this.machine.state !== 'LISTENING') return;
+    this.convergedPending = false;
+    this.apply({ type: 'SPLIT_HALF_STABLE' });
   }
 
   stop(reason: OffscreenStopReason): void {
@@ -449,6 +499,8 @@ export class CaptureSession {
       baseLatency: this.audio.baseLatency,
       outputLatency: this.audio.outputLatency,
       analysis: this.machine.state === 'RESULT_READY' || this.machine.state === 'INSUFFICIENT_DATA' ? this.analysis : null,
+      validSpeechMs: this.validSpeechMs,
+      stability: this.stability,
     });
   }
 }

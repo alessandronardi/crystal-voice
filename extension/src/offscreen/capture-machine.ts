@@ -34,12 +34,12 @@ export type CaptureEvent =
   | { type: 'START' }
   | { type: 'ACQUIRED' }
   | { type: 'DENIED'; code: CaptureErrorCode }
-  /** Emitted by the VAD (not wired before I-05b/I-06). */
+  /** Emitted by the VAD: not wired yet (I-07 left WAITING_FOR_SPEECH out, see STATUS «Proposte»). */
   | { type: 'VAD_PAUSE' }
   | { type: 'VOICE_RESUMES' }
   | { type: 'PLAYER_PAUSED' }
   | { type: 'PLAYER_RESUMED' }
-  /** Emitted by the split-half stopping rule (SPEC §8, not wired yet). */
+  /** Emitted by the split-half stopping rule (SPEC §8, I-07: CaptureSession on the worker's convergence, ADR-0026). */
   | { type: 'SPLIT_HALF_STABLE' }
   | { type: 'TICK'; activeMs: number; elapsedMs: number; validSpeechMs: number }
   | { type: 'INTERRUPT'; reason: InterruptReason }

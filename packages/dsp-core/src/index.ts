@@ -53,6 +53,7 @@ export {
 } from './acoustic-frames.ts';
 export {
   computeDescriptors,
+  descriptorsWithOnsets,
   detectOnsets,
   isIntonated,
   isUseful,
@@ -60,6 +61,8 @@ export {
   type Descriptors,
   type RawMeasures,
 } from './descriptors.ts';
+export { SPLIT_HALF_BLOCK_FRAMES, splitHalfAt, validSpeechSeconds, type SplitHalf } from './split-half.ts';
+export { SPLIT_HALF_BLOCK_SECONDS, SPLIT_HALF_CONSECUTIVE, SPLIT_HALF_TAU_POINTS, STOP_RULE_VERSION } from './stop-config.ts';
 export { assessMusic, peakAutocorrelation, type MusicAssessment } from './music-heuristic.ts';
 export { assessSpeakers, bimodalityCoefficient, twoGroupSplit, type SpeakerAssessment } from './speaker-heuristic.ts';
 export {

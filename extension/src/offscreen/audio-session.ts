@@ -4,7 +4,9 @@
 // file only wires it to chrome.runtime and WebAudio. Only chrome.runtime is
 // available here. The worklet counts samples and, since I-06b (ADR-0025),
 // forwards the audio of the listening states to a DSP worker of this
-// document, which analyses it once in FINALIZING.
+// document, which analyses it once in FINALIZING. I-07 (ADR-0026): the worker
+// also evaluates the audio so far once per second (STREAM_PROGRESS), which
+// drives MAX_VALID_SPEECH and the split-half stop.
 // Two sources: the tab (stream ID from tabCapture, played back) and the
 // microphone (I-17: no playback, kept alive by the side panel's port).
 import {
@@ -133,6 +135,8 @@ function refuseBusy(sessionId: SessionId): void {
     baseLatency: null,
     outputLatency: null,
     analysis: null,
+    validSpeechMs: 0,
+    stability: null,
   });
 }
 
@@ -179,6 +183,8 @@ function finalizeGraph(graph: AudioGraph): Promise<SessionAnalysis> {
   if (worker === null || graph.worklet === null) return Promise.resolve(failed('ANALYSIS_FAILED'));
   return new Promise<SessionAnalysis>((resolve) => {
     worker.onmessage = (event: MessageEvent<unknown>) => {
+      // An evaluation that finished just before END is late, not the answer (I-07).
+      if (isDspWorkerReply(event.data) && event.data.type === 'STREAM_PROGRESS') return;
       resolve(isDspWorkerReply(event.data) ? toSessionAnalysis(event.data, graph.sampleRate) : failed('ANALYSIS_FAILED'));
     };
     worker.onerror = () => {
@@ -270,8 +276,11 @@ async function runGraph(session: CaptureSession, graph: AudioGraph, stream: Medi
     };
     graph.worker.onmessage = (event: MessageEvent<unknown>) => {
       const reply = event.data;
-      if (isDspWorkerReply(reply) && reply.type === 'ANALYSIS_FAILED') {
+      if (!isDspWorkerReply(reply)) return;
+      if (reply.type === 'ANALYSIS_FAILED') {
         graph.workerFailure = reply.code === 'VAD_UNAVAILABLE' ? 'VAD_UNAVAILABLE' : 'ANALYSIS_FAILED';
+      } else if (reply.type === 'STREAM_PROGRESS') {
+        session.onProgress(reply.progress);
       }
     };
     const channel = new MessageChannel();

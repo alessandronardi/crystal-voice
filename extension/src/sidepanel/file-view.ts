@@ -454,7 +454,7 @@ export function mountFileView(root: HTMLElement): void {
         stopWorker = stop;
       });
       if (isOver() || reply === null) return;
-      if (reply.type === 'STREAM_RESULT') {
+      if (reply.type === 'STREAM_RESULT' || reply.type === 'STREAM_PROGRESS') {
         // Not an answer to ANALYZE_PCM: this worker is ours, so it is a bug, never a result.
         finish('failed', { kind: 'code', code: 'INTERNAL_ERROR' });
         return;

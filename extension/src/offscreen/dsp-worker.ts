@@ -3,6 +3,8 @@
 //  - Side panel, one worker per local file (ADR-0022): ANALYZE_PCM.
 //  - Offscreen, one worker per tab or microphone session (ADR-0025):
 //    STREAM_BEGIN, blocks from the AudioWorklet on a MessagePort, STREAM_END.
+//    I-07 (ADR-0026): while the stream runs, one split-half evaluation of the
+//    audio so far per whole second (STREAM_PROGRESS); one at a time.
 // libfvad is loaded once per worker, through the checked loader (I-06b).
 // Output: statistics, digests and descriptors, never samples (SPEC §9, R1).
 // Nothing is logged: a failure is a code, never the data.
@@ -17,8 +19,9 @@ import {
   type DspWorkerReply,
 } from '../shared/dsp-protocol.ts';
 import { FvadLoadError, loadBundledFvad } from '../shared/fvad-loader.ts';
-import { PcmAccumulator } from '../shared/pcm-accumulator.ts';
 import { analyzePcm } from '../shared/pcm-analysis.ts';
+import { observePrefix } from '../shared/split-half-rule.ts';
+import { createEvaluationLoop, StreamEvaluator } from '../shared/stream-evaluator.ts';
 
 /** [H] Most audio a session may keep: 125 s per channel, above the 120 s absolute timeout (SPEC §6.1). */
 export const STREAM_MAX_SECONDS = 125;
@@ -41,7 +44,7 @@ function failureOf(error: unknown): DspFailureCode {
   return 'INTERNAL';
 }
 
-let stream: { accumulator: PcmAccumulator; port: MessagePort; sampleRate: number } | null = null;
+let stream: { evaluator: StreamEvaluator; port: MessagePort; sampleRate: number; loop: { kick(): void } } | null = null;
 
 scope.onmessage = (event) => {
   const request = event.data;
@@ -59,8 +62,20 @@ scope.onmessage = (event) => {
     return;
   }
   if (isStreamBeginRequest(request) && stream === null) {
-    const accumulator = new PcmAccumulator(Math.round(STREAM_MAX_SECONDS * request.sampleRate));
-    stream = { accumulator, port: request.port, sampleRate: request.sampleRate };
+    const evaluator = new StreamEvaluator(Math.round(STREAM_MAX_SECONDS * request.sampleRate), request.sampleRate);
+    // One evaluation at a time, in a later task (review H-2): see createEvaluationLoop.
+    const loop = createEvaluationLoop(evaluator, {
+      defer: (fn) => {
+        setTimeout(fn, 0);
+      },
+      analyser: () => fvad().then((module) => (channels, sampleRate, monitor) => observePrefix(channels, sampleRate, module, monitor)),
+      now: () => performance.now(),
+      failureOf,
+      post: (progress) => {
+        scope.postMessage({ type: 'STREAM_PROGRESS', progress });
+      },
+    });
+    stream = { evaluator, port: request.port, sampleRate: request.sampleRate, loop };
     request.port.onmessage = (message: MessageEvent<unknown>) => {
       // The worklet sends STREAM_END on this same port after its last block (ordering).
       if (isStreamEndRequest(message.data)) {
@@ -68,7 +83,7 @@ scope.onmessage = (event) => {
         return;
       }
       // A malformed block is refused like an over-the-cap one: counted by push(), never thrown.
-      if (isPcmBlock(message.data)) accumulator.push(message.data.channels);
+      if (isPcmBlock(message.data) && evaluator.accumulator.push(message.data.channels)) loop.kick();
     };
     // Load now; a failure is reported at once (review M-4) and again in STREAM_RESULT.
     void fvad().catch(() => {
@@ -87,7 +102,9 @@ scope.onmessage = (event) => {
 function endStream(): void {
   if (stream === null) return;
   {
-    const { accumulator, port, sampleRate } = stream;
+    const { evaluator, port, sampleRate } = stream;
+    const accumulator = evaluator.accumulator;
+    evaluator.stop();
     port.onmessage = null;
     port.close();
     const stats = { frames: accumulator.frames, droppedFrames: accumulator.droppedFrames, channelCount: accumulator.channelCount };

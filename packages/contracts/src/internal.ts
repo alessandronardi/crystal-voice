@@ -143,6 +143,37 @@ export interface CaptureDiag {
    * FINALIZING, null otherwise. Numbers and the seed only, never audio.
    */
   analysis: CaptureAnalysis | null;
+  /**
+   * I-07 (ADR-0026): valid speech of the latest analysis of the audio so far,
+   * ms; 0 before the first one. Drives MAX_VALID_SPEECH (SPEC §6.1).
+   */
+  validSpeechMs: number;
+  /** I-07: the split-half stopping rule (SPEC §8); null before its first analysis. */
+  stability: CaptureStability | null;
+}
+
+/** Why a split-half evaluation did not pass: the first SPEC §8 condition that failed (I-07). */
+export type SplitHalfBlock = 'TOO_SHORT' | 'MISSING_DESCRIPTOR' | 'MULTI_SPEAKER' | 'HALF_INCOMPLETE' | 'UNSTABLE';
+
+export const SPLIT_HALF_BLOCKS: readonly SplitHalfBlock[] = ['TOO_SHORT', 'MISSING_DESCRIPTOR', 'MULTI_SPEAKER', 'HALF_INCOMPLETE', 'UNSTABLE'];
+
+/** The split-half stopping rule as the panel shows it (I-07, technical rows). */
+export interface CaptureStability {
+  /** The rule that decided (review L-1): `split-half-0` (dsp-core STOP_RULE_VERSION). */
+  stopRuleVersion: string;
+  /** Evaluations so far, one per second of valid speech from 8 s. */
+  evaluations: number;
+  /** Second of valid speech of the latest evaluation; null before the first. */
+  seconds: number | null;
+  /** s_t of the latest evaluation, points; null when a half cannot measure a descriptor or before the first. */
+  s: number | null;
+  /** Why the latest evaluation did not pass; null when it passed or before the first. */
+  blockedBy: SplitHalfBlock | null;
+  /** Passing evaluations in a row (3 converge, SPEC §8). */
+  consecutive: number;
+  converged: boolean;
+  /** Time of the latest analysis of the audio so far in the worker, ms (BENCHMARK_PROTOCOL §7); null before the first. */
+  analysisMs: number | null;
 }
 
 /** Why the end-of-session analysis gave no measure (I-06b). */
@@ -408,8 +439,35 @@ export function isCaptureDiag(value: unknown): value is CaptureDiag {
     isNonNegativeFinite(value['activeMs']) &&
     isNonNegativeFiniteOrNull(value['baseLatency']) &&
     isNonNegativeFiniteOrNull(value['outputLatency']) &&
-    isAnalysisFor(state, value['analysis'])
+    isAnalysisFor(state, value['analysis']) &&
+    isNonNegativeFinite(value['validSpeechMs']) &&
+    (value['stability'] === null || isCaptureStability(value['stability']))
   );
+}
+
+/** Structural guard of CaptureStability; the fields must agree with each other. */
+export function isCaptureStability(value: unknown): value is CaptureStability {
+  if (!isRecord(value)) return false;
+  const seconds = value['seconds'];
+  const s = value['s'];
+  const blocked = value['blockedBy'];
+  const consecutive = value['consecutive'];
+  const evaluations = value['evaluations'];
+  const shapeOk =
+    typeof value['stopRuleVersion'] === 'string' &&
+    value['stopRuleVersion'].length > 0 &&
+    isSeq(evaluations) &&
+    (seconds === null || isSeq(seconds)) &&
+    isNonNegativeFiniteOrNull(s) &&
+    (blocked === null || (typeof blocked === 'string' && (SPLIT_HALF_BLOCKS as readonly string[]).includes(blocked))) &&
+    isSeq(consecutive) &&
+    typeof value['converged'] === 'boolean' &&
+    isNonNegativeFiniteOrNull(value['analysisMs']);
+  if (!shapeOk) return false;
+  // Before the first evaluation nothing is set; afterwards a run never exceeds the evaluations.
+  if (evaluations === 0) return seconds === null && s === null && blocked === null && consecutive === 0 && value['converged'] === false;
+  // A failed evaluation resets the run; a passed one is part of it.
+  return seconds !== null && consecutive <= evaluations && (blocked === null ? consecutive >= 1 : consecutive === 0);
 }
 
 const probability = (v: unknown): boolean => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;

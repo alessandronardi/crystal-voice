@@ -1,5 +1,6 @@
 // `pnpm bench:descriptors` (I-06a, SPEC §7.2–§7.5, BENCHMARK_PROTOCOL §7):
-// extractor-0-experimental on every fixture and on the long rejection cases.
+// extractor-0-experimental on every fixture and on the long rejection cases;
+// since I-07, the split-half stop simulated second by second (ADR-0026).
 // Prints the tables recorded in BENCHMARK_PROTOCOL §7 and writes
 // tests/benchmarks/out/descriptors.json. Synthetic signals only (R16).
 //
@@ -9,6 +10,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { DESCRIPTOR_KEYS } from '@voicecrystal/contracts';
 import { describeEnvironment, readManifest } from './harness.ts';
+import { fixtureAudio, regularVoice, simulateSession, type StopSimulation } from './stop-simulation.ts';
 import { FIXTURES_DIR, KNOWN_GAP_CASES, LONG_REJECTION_CASES, runFixture, runGapCase, runLongCase, type DescriptorCase } from './descriptor-cases.ts';
 
 const ROOT = resolve(import.meta.dirname, '../..');
@@ -19,6 +21,61 @@ function arg(flag: string, fallback: string): string {
 }
 
 const fmt = (v: number | null | undefined, d = 2): string => (v === null || v === undefined ? '—' : v.toFixed(d));
+
+interface StopRow {
+  name: string;
+  exitReason: string | null;
+  state: string;
+  stoppedAtSeconds: number | null;
+  validSpeechMs: number;
+  evaluations: number;
+  passed: number;
+  /** s_t of every evaluation, points (null: a half incomplete). */
+  s: (number | null)[];
+  blockedBy: (string | null)[];
+  maxAnalysisMs: number;
+  totalAnalysisMs: number;
+  seed: readonly number[] | null;
+}
+
+function stopRow(name: string, sim: StopSimulation): StopRow {
+  const evaluated = sim.steps.filter((x, i, all) => x.last !== null && x.evaluations !== (all[i - 1]?.evaluations ?? 0));
+  return {
+    name,
+    exitReason: sim.exitReason,
+    state: sim.state,
+    stoppedAtSeconds: sim.stoppedAtSeconds,
+    validSpeechMs: sim.steps.at(-1)?.validSpeechMs ?? 0,
+    evaluations: sim.steps.at(-1)?.evaluations ?? 0,
+    passed: evaluated.filter((x) => x.last?.passed === true).length,
+    s: evaluated.map((x) => x.last?.s ?? null),
+    blockedBy: evaluated.map((x) => x.last?.blockedBy ?? null),
+    maxAnalysisMs: Math.max(0, ...sim.steps.map((x) => x.analysisMs)),
+    totalAnalysisMs: sim.steps.reduce((t, x) => t + x.analysisMs, 0),
+    seed: sim.seed,
+  };
+}
+
+/** I-07: the split-half stop on the synthetic voices and the positive control (D-AE). */
+function stopRuleReport(): { rows: StopRow[]; controlDeltaPoints: number[] } {
+  const rows: StopRow[] = [];
+  for (const name of ['voice-a-long', 'a-then-b', 'alternating-ab-v1', 'alternating-ab-v2', 'alternating-ab-v3']) {
+    const { channels, sampleRate } = fixtureAudio(name);
+    rows.push(stopRow(name, simulateSession(channels, sampleRate)));
+  }
+  // G1 metric M11 on the control only (synthetic, indicative): seed at CONVERGED vs seed at 18 s of valid speech.
+  const controlDeltaPoints: number[] = [];
+  for (const seed of [1, 2]) {
+    const { channels, sampleRate } = regularVoice(40, seed);
+    const early = simulateSession(channels, sampleRate);
+    const late = simulateSession(channels, sampleRate, { neverConverge: true });
+    rows.push(stopRow(`regular-voice-${seed}`, early), stopRow(`regular-voice-${seed} (no early stop)`, late));
+    if (early.seed !== null && late.seed !== null) {
+      controlDeltaPoints.push(Math.max(...early.seed.map((v, i) => Math.abs(v - (late.seed?.[i] ?? v)) / 100)));
+    }
+  }
+  return { rows, controlDeltaPoints };
+}
 
 /** Distance, in seed units, from 100·p to the nearest rounding boundary (k + 0.5). */
 export function roundingMargin(point: number): number {
@@ -152,6 +209,16 @@ function main(): void {
   }
   console.log(`\n## Seed margin (VC-24)\n\nSmallest distance to a rounding boundary: ${fmt(minMargin, 6)} seed units (${where}).`);
 
+  const stop = stopRuleReport();
+  console.log('\n## Split-half stop (I-07, ADR-0026), simulated second by second\n');
+  console.log('| Case | Exit | Final | Stop at (s of audio) | Valid speech (s) | Evaluations | Passed | s_t per evaluation | Analysis max / total (ms) |');
+  console.log('|---|---|---|---|---|---|---|---|---|');
+  for (const r of stop.rows) {
+    const st = r.s.map((v, i) => (v === null ? (r.blockedBy[i] ?? '—') : fmt(v, 1))).join(' ');
+    console.log(`| ${r.name} | ${r.exitReason ?? '—'} | ${r.state} | ${r.stoppedAtSeconds ?? '—'} | ${fmt(r.validSpeechMs / 1000, 1)} | ${r.evaluations} | ${r.passed} | ${st} | ${fmt(r.maxAnalysisMs, 0)} / ${fmt(r.totalAnalysisMs, 0)} |`);
+  }
+  console.log(`\nControl, seed at CONVERGED vs at 18 s of valid speech (largest difference, points): ${stop.controlDeltaPoints.map((d) => fmt(d, 2)).join(', ')}`);
+
   mkdirSync(outDir, { recursive: true });
   const report = {
     environment: { ...describeEnvironment(new Date()), extractorVersion: base?.extraction.extractorVersion ?? null, mappingVersion: base?.mapped?.mappingVersion ?? null },
@@ -162,6 +229,7 @@ function main(): void {
     compression: { dp3Db: dp3raw, dp3Points: dp3pt },
     warningRates,
     seedMargin: { minUnits: minMargin, where },
+    stopRule: stop,
   };
   writeFileSync(join(outDir, 'descriptors.json'), `${JSON.stringify(report, null, 2)}\n`);
   console.log(`\nwrote ${join(outDir, 'descriptors.json')}`);

@@ -198,12 +198,18 @@ test('S8: the service worker is terminated; the capture goes on and stop still w
   await page.close();
 });
 
-test('45 s of listening to a pure tone ends in INSUFFICIENT_DATA / WALL_TIMEOUT, with the analysis that says why (I-06b)', async () => {
+test('listening to a pure tone ends in INSUFFICIENT_DATA, with the analysis that says why (I-06b, I-07)', async () => {
   test.setTimeout(120_000);
   const { page, session } = await startCapture();
   const end = await h.waitForEnd(session.sessionId, 90_000);
-  expect(end).toMatchObject({ state: 'INSUFFICIENT_DATA', exitReason: 'WALL_TIMEOUT' });
-  expect(end.activeMs).toBeGreaterThanOrEqual(45_000);
+  expect(end.state).toBe('INSUFFICIENT_DATA');
+  // libfvad calls a loud tone speech (measured in Node, I-07): it stops at 18 s of valid speech;
+  // a tone it rejects reaches the 45 s of listening instead.
+  expect(['MAX_VALID_SPEECH', 'WALL_TIMEOUT']).toContain(end.exitReason);
+  if (end.exitReason === 'MAX_VALID_SPEECH') expect(end.validSpeechMs).toBeGreaterThanOrEqual(18_000);
+  else expect(end.activeMs).toBeGreaterThanOrEqual(45_000);
+  // A tone never passes a split-half evaluation (p6 is not measurable).
+  expect(end.stability?.converged ?? false).toBe(false);
   // The tab's DSP worker loaded libfvad (no failure) and found no voice: a tone has no syllables.
   expect(end.analysis?.failure).toBeNull();
   expect(end.analysis?.extractorVersion).toBe('extractor-0-experimental');

@@ -270,13 +270,20 @@ test('an offscreen that disappears mid-session leaves a way out: «Usa il microf
   await expectReleased();
 });
 
-test('45 s of microphone listening on the synthetic voice gives RESULT_READY with a seed close to Node (I-06b)', async () => {
+test('microphone listening on the synthetic voice stops at 18 s of valid speech (or earlier, split-half) with a seed close to Node (I-06b, I-07)', async () => {
   test.setTimeout(120_000);
   await openPanel();
   const mic = await micListening();
+  // The technical rows grow while listening (I-07).
+  await expect.poll(() => h.inSidePanel(text('capture-stability')), { timeout: 40_000 }).toMatch(/s = /);
   const end = await h.waitForEnd(mic, 90_000);
-  expect(end).toMatchObject({ state: 'RESULT_READY', exitReason: 'WALL_TIMEOUT' });
-  expect(end.activeMs).toBeGreaterThanOrEqual(45_000);
+  // voice-a looped: the split-half halves stay apart (measured in Node, D-AE), so 18 s of valid speech is expected;
+  // CONVERGED is accepted too (the browser chain is not bit-exact).
+  expect(end.state).toBe('RESULT_READY');
+  expect(['MAX_VALID_SPEECH', 'CONVERGED']).toContain(end.exitReason);
+  if (end.exitReason === 'MAX_VALID_SPEECH') expect(end.validSpeechMs).toBeGreaterThanOrEqual(18_000);
+  expect(end.activeMs).toBeLessThan(45_000);
+  expect(end.stability?.evaluations ?? 0).toBeGreaterThan(0);
   const analysis = end.analysis;
   expect(analysis?.failure).toBeNull();
   expect(analysis?.extractorVersion).toBe('extractor-0-experimental');
@@ -288,14 +295,15 @@ test('45 s of microphone listening on the synthetic voice gives RESULT_READY wit
   expect(analysis?.quality?.warnings).not.toContain('MULTI_SPEAKER_SUSPECTED');
   // The panel shows the seed (technical rows, I-06b).
   await expect.poll(() => h.inSidePanel(text('capture-analysis-seed'))).toBe((analysis?.seed ?? []).join(' · '));
-  // Node reference: the same WAV the fake device loops, repeated to 48 s. The
+  // Node reference: the same WAV the fake device loops, cut to the audio the worker analysed. The
   // browser's capture chain is not bit-exact and the loop phase is unknown:
   // the distance is measured and recorded, not required to be zero.
   const wav = decodeWav(readFileSync(FAKE_MIC_WAV));
   const one = wav.channels[0] ?? new Float32Array();
   const looped = new Float32Array(one.length * 4);
   for (let k = 0; k < 4; k++) looped.set(one, k * one.length);
-  const node = await analyzeDescriptors([looped], wav.sampleRate, loadFvad().fvad);
+  const keep = Math.min(looped.length, Math.round(((analysis?.analysedMs ?? 0) * wav.sampleRate) / 1000));
+  const node = await analyzeDescriptors([looped.subarray(0, keep)], wav.sampleRate, loadFvad().fvad);
   expect(node.status).toBe('OK');
   const panelSeed = analysis?.seed ?? null;
   const nodeSeed = node.seed;
@@ -305,11 +313,27 @@ test('45 s of microphone listening on the synthetic voice gives RESULT_READY wit
   const diags = (await h.diags()).filter((d) => d.sessionId === mic);
   const finalizing = diags.find((d) => d.state === 'FINALIZING')?.at ?? null;
   const analysisMs = finalizing === null ? null : end.at - finalizing;
-  const measured = { panelSeed: analysis?.seed, nodeSeed: node.seed, deltaPoints: deltas, validSpeechMs: analysis?.quality?.validSpeechMs, warnings: analysis?.quality?.warnings, analysisMs, analysedMs: analysis?.analysedMs ?? null, activeMs: end.activeMs };
+  // I-07: the split-half evaluations while listening (their time in the worker, the s_t of each).
+  const evaluations = diags.filter((d) => d.stability !== null && d.stability.analysisMs !== null);
+  const evaluationMs = evaluations.map((d) => d.stability?.analysisMs ?? 0);
+  const measured = {
+    exitReason: end.exitReason,
+    panelSeed: analysis?.seed,
+    nodeSeed: node.seed,
+    deltaPoints: deltas,
+    validSpeechMs: analysis?.quality?.validSpeechMs,
+    liveValidSpeechMs: end.validSpeechMs,
+    warnings: analysis?.quality?.warnings,
+    analysisMs,
+    analysedMs: analysis?.analysedMs ?? null,
+    activeMs: end.activeMs,
+    stability: end.stability,
+    evaluationMsMax: evaluationMs.length > 0 ? Math.max(...evaluationMs) : null,
+  };
   test.info().annotations.push({ type: 'mic seed vs Node (points)', description: JSON.stringify(measured) });
-  writeFileSync(resolve(import.meta.dirname, '../../test-results/i06b-mic-seed.json'), JSON.stringify(measured, null, 2));
+  writeFileSync(resolve(import.meta.dirname, '../../test-results/i07-mic-stop.json'), JSON.stringify(measured, null, 2));
   // p1 depends only on the voice f0 (120 Hz): it must match. The others depend on where the loop starts
-  // and on 45 s against 48 s of audio; measured on 2026-11-12 (BENCHMARK_PROTOCOL §7): 0.01–0.9 points, p6 8.7.
+  // of the fake device; measured on 2026-11-12 (BENCHMARK_PROTOCOL §7) on 45 s: 0.01–0.9 points, p6 8.7 once.
   expect(deltas[0]).toBeLessThan(2);
   await expectReleased();
 });

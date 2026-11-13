@@ -5,6 +5,14 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 ## [Unreleased]
 
 ### Aggiunto
+- I-07: arresto split-half (SPEC §8, ADR-0008; ADR-0026 accettato il 2026-11-13, D-AF).
+  - **Regola:** `splitHalfAt` in `dsp-core` divide la voce valida in blocchi da 1 s, pari e dispari, con onset contati sul prefisso intero. `SplitHalfMonitor` (`extension/src/shared/split-half-rule.ts`) valuta un secondo di voce valida alla volta da 8 s, con τ = 6 punti e 3 valutazioni di fila. Un avviso «più voci» blocca l'arresto per il resto della sessione (nessuno può rispondere prima di I-13); un descrittore mancante o una metà incompleta bloccano la valutazione. Costanti in `stop-config.ts`, `STOP_RULE_VERSION = split-half-0`; `extractorVersion` e i seed non cambiano.
+  - **Durante l'ascolto:** il `dsp-worker` dell'offscreen rianalizza l'audio raccolto a ogni secondo intero, con la stessa funzione del risultato finale (D-AD), una valutazione alla volta e in un task successivo, così salta all'ultimo secondo arrivato; manda `STREAM_PROGRESS`. La sessione usa la voce valida nei `TICK`, quindi `MAX_VALID_SPEECH` scatta a 18 s, e applica `SPLIT_HALF_STABLE` alla convergenza.
+  - **Contratto interno:** `CAPTURE_DIAG.validSpeechMs` e `CAPTURE_DIAG.stability` (`CaptureStability`, `SplitHalfBlock`), con le guardie; `CaptureMessage` di SPEC §9 invariato.
+  - **Pannello:** righe tecniche «Voce valida» e «Stabilità del campionamento».
+  - **Misure:** `pnpm bench:descriptors` simula le sessioni secondo per secondo (`tests/benchmarks/stop-simulation.ts`). Con τ = 6 la voce sintetica lunga non converge e si ferma a 18 s di voce valida; τ resta 6 fino a G1 (D-AE).
+- SPEC §8: nota che rimanda ad ADR-0026.
+- Prove manuali M32–M34 (arresto con microfono, YouTube a una voce, YouTube a due voci).
 - I-06b: libfvad e il seed nell'estensione.
   - **Bundle:** `fvad.wasm` e i testi di licenza (libfvad, `PATENTS`, musl, compiler-rt, dlmalloc, Emscripten) in `dist/extension/`, ammessi dalla guardia solo con il loro SHA-256. Il `dsp-worker` scarica il modulo dalla propria origine, ne controlla l'hash e lo istanzia con `instantiateFvad` (CSP invariata).
   - **File locale:** il pannello calcola descrittori, avvisi e seed di `mapping-0` e li mostra in righe tecniche «sperimentali»; `pcm-analysis-1`.
@@ -131,6 +139,8 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
   Dettagli in `docs/BENCHMARK_PROTOCOL.md` §7.
 
 ### Modificato
+- I-07: scheda e microfono non ascoltano più sempre 45 s. Con voce si fermano a 18 s di voce valida (`MAX_VALID_SPEECH`) o prima (`CONVERGED`). Un tono puro conta come voce per libfvad: si ferma a 18 s e finisce in `INSUFFICIENT_DATA`. Gli E2E del microfono e del tono lo verificano; M30 e M31 aggiornate.
+- `dsp-core`, I-07: `descriptorsWithOnsets` (stesse misure di `computeDescriptors`, con gli onset contati altrove), `splitHalfAt`, `validSpeechSeconds`. `PcmAccumulator.snapshot` nell'estensione.
 - `packages/contracts`, I-06b: `CAPTURE_DIAG` ha il campo `analysis` (`CaptureAnalysis`) e la guardia `isQualitySummary`; `dsp-core` esporta `describeFrames` e `FVAD_WASM_SHA256`.
 - Backlog, I-06: divisa in I-06a (Node) e I-06b (estensione), decisione D-R. Clausola di `PATENTS` di WebRTC accettata dal product owner (D-S); domanda aperta per il G0 in `docs/LEGAL_G0_CHECKLIST.md` §4-bis.
 - `dsp-core`, I-06a: `trackPitch` usa un aiuto condiviso con i frame acustici; il risultato non cambia.

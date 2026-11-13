@@ -364,6 +364,10 @@ describe('session routing (I-03)', () => {
       baseLatency: null,
       outputLatency: null,
       analysis: null,
+
+      validSpeechMs: 0,
+
+      stability: null,
     };
     await routing.onDiag({ ...base, sessionId: session, state: 'LISTENING', exitReason: null });
     expect(mock.store.has('activeSession')).toBe(true);

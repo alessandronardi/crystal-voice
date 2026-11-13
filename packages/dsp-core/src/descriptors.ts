@@ -103,9 +103,17 @@ export interface Descriptors {
 const KEYS: readonly DescriptorKey[] = ['p1_pitch', 'p2_intonation', 'p3_dynamics', 'p4_roughness', 'p5_brightness', 'p6_rhythm'];
 
 export function computeDescriptors(frames: readonly AcousticFrame[]): Descriptors {
+  return descriptorsWithOnsets(frames, detectOnsets(frames).length);
+}
+
+/**
+ * The six measures of a frame set whose onsets were counted elsewhere (I-07:
+ * each split-half takes the onsets detected on the whole prefix, so that the
+ * 80 ms distance is never applied across the seam of two glued blocks).
+ */
+export function descriptorsWithOnsets(frames: readonly AcousticFrame[], onsetCount: number): Descriptors {
   const useful = frames.filter(isUseful);
   const intonated = useful.filter(isIntonated);
-  const onsets = detectOnsets(frames);
   const usefulSeconds = useful.length * FRAME_HOP_SECONDS;
   const intonatedSeconds = intonated.length * FRAME_HOP_SECONDS;
   const enoughIntonated = intonatedSeconds >= MIN_INTONATED_SECONDS;
@@ -123,12 +131,12 @@ export function computeDescriptors(frames: readonly AcousticFrame[]): Descriptor
   const p4 = enoughIntonated ? median(aperiodicity) : null;
   const centroids = useful.filter((f) => f.spectralCentroidHz !== null && f.spectralCentroidHz > 0).map((f) => Math.log2(f.spectralCentroidHz ?? 1));
   const p5 = enoughUseful ? median(centroids) : null;
-  const p6 = onsets.length >= MIN_ONSETS && enoughIntonated ? onsets.length / intonatedSeconds : null;
+  const p6 = onsetCount >= MIN_ONSETS && enoughIntonated ? onsetCount / intonatedSeconds : null;
 
   const raw: RawMeasures = [p1, p2, p3, p4, p5, p6];
   return {
     raw,
-    amounts: { usefulFrames: useful.length, intonatedFrames: intonated.length, onsets: onsets.length },
+    amounts: { usefulFrames: useful.length, intonatedFrames: intonated.length, onsets: onsetCount },
     missing: KEYS.filter((_, i) => raw[i] === null),
   };
 }

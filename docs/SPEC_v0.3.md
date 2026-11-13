@@ -383,6 +383,8 @@ type SeedConfidence = readonly [number, number, number, number, number, number];
 
 ## 8. Arresto adattivo: non «saturazione spettrale» assoluta
 
+> **Modificato da ADR-0026 (accettato il 2026-11-13):** durante l'ascolto si rianalizza a ogni secondo l'audio raccolto fino a quel momento, quindi il costo non è di «due stime aggiuntive al secondo». Ogni metà deve rispettare i minimi di §7.4. Un avviso `MULTI_SPEAKER_SUSPECTED` apparso una volta resta in attesa di risposta per tutta la sessione. Dove questa sezione e l'ADR differiscono, prevale l'ADR.
+
 **Terminologia [F]:** `feature_convergence` / «stabilità del campionamento». Il testo UI non deve dichiarare una percentuale scientifica di saturazione di una voce.
 
 Tre condizioni **tutte necessarie** per terminazione anticipata:

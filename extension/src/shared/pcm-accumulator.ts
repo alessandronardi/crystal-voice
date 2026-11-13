@@ -43,6 +43,24 @@ export class PcmAccumulator {
     return this.channels;
   }
 
+  /**
+   * A copy of the first `frames` kept samples per channel; the blocks stay
+   * (I-07, ADR-0026: the split-half evaluations analyse the audio so far while
+   * the session goes on). `frames` is clamped to what is kept.
+   */
+  snapshot(frames: number): Float32Array[] {
+    const n = Math.max(0, Math.min(Math.floor(frames), this.kept));
+    const out = Array.from({ length: this.channels }, () => new Float32Array(n));
+    let at = 0;
+    for (const block of this.blocks) {
+      if (at >= n) break;
+      const take = Math.min(block[0]?.length ?? 0, n - at);
+      block.forEach((c, i) => out[i]?.set(c.subarray(0, take), at));
+      at += take;
+    }
+    return out;
+  }
+
   /** The kept samples, one array per channel; the blocks are released. */
   take(): Float32Array[] {
     const out = Array.from({ length: this.channels }, () => new Float32Array(this.kept));

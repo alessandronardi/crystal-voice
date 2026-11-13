@@ -14,9 +14,12 @@ import {
   type CaptureErrorCode,
   type CaptureExitReason,
   type CaptureMessage,
+  type CaptureStability,
   type CaptureState,
   type SessionId,
 } from '@voicecrystal/contracts';
+import { SPLIT_HALF_CONSECUTIVE } from '@voicecrystal/dsp-core';
+import { CAPTURE_LIMITS } from '../offscreen/capture-machine.ts';
 import { isOwnExtensionContext } from '../shared/sender.ts';
 import {
   ACTIVE_SESSION_KEY,
@@ -101,6 +104,18 @@ function formatMs(seconds: number | null): string {
 
 function formatSeconds(ms: number): string {
   return `${(ms / 1000).toFixed(1)} ${t.seconds}`;
+}
+
+/** I-07: the split-half rule in one line (SPEC §8): reason, s_t and the run out of SPLIT_HALF_CONSECUTIVE. */
+function stabilityText(stability: CaptureStability | null): string {
+  if (stability === null || stability.evaluations === 0) return t.stabilityNone;
+  const reason = stability.converged
+    ? t.stabilityReached
+    : stability.blockedBy === null
+      ? t.stabilityPassed
+      : t.stabilityBlocked[stability.blockedBy];
+  const s = stability.s === null ? t.stabilityNoS : stability.s.toFixed(1);
+  return t.stabilityValue(reason, s, `${stability.consecutive}/${SPLIT_HALF_CONSECUTIVE}`);
 }
 
 function row(label: string, value: string, testId: string): HTMLElement {
@@ -261,6 +276,12 @@ export function mountCaptureView(root: HTMLElement): void {
         row(t.active, formatSeconds(live.activeMs), 'capture-active'),
         row(t.baseLatency, formatMs(live.baseLatency), 'capture-base-latency'),
         row(t.outputLatency, formatMs(live.outputLatency), 'capture-output-latency'),
+        row(
+          t.validSpeech,
+          t.validSpeechOf((live.validSpeechMs / 1000).toFixed(1), String(CAPTURE_LIMITS.maxValidSpeechMs / 1000)),
+          'capture-valid-speech',
+        ),
+        row(t.stability, stabilityText(live.stability), 'capture-stability'),
       );
       children.push(list);
       const a = live.analysis;

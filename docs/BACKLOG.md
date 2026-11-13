@@ -206,16 +206,36 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
   - [x] Decisioni del VAD e seed delle fixture caricate come file: uguali fra Node e pannello, con in Node la stessa conversione dei campioni di Chromium (D-AB). Misurato: 35 fixture su 35 con esito, avvisi, confidenza, qualità e decisioni VAD identici, e i 19 seed presenti identici; misure grezze diverse al più di 2 ULP in 8 valori. **Contro il lettore WAV dei benchmark** (int16/32768, diverso da Chromium da I-18) la differenza è misurata e dichiarata, non richiesta: vedi `docs/BENCHMARK_PROTOCOL.md` §7. Il cancello D-N resta in I-07, per la verifica finale.
   - [x] Estrazione a blocchi = estrazione a buffer intero: per costruzione (ADR-0025), con il test unit bit per bit dell'accumulatore.
 - **Test:** unit sui blocchi; E2E Node contro pannello.
+- **Stato:** mergiata il 2026-11-13 ([PR crystal-voice#16](https://github.com/alessandronardi/crystal-voice/pull/16), merge squash `c11a0d4`; CI della PR verde). **Non chiusa:** restano le prove manuali M29–M31 in Brave (`tests/e2e/MANUAL_CHECKLIST.md`), TO DO non bloccante (decisione del product owner, 2026-11-13): I-07 può partire. ADR-0025 accettato.
 
 ### I-07 · Arresto split-half
 
-- **Riferimenti:** SPEC §8; ADR-0008; VC-07.
-- **DoD:**
-  - [ ] Mai `CONVERGED` prima di 8 s o senza copertura.
-  - [ ] Fixture A+B: nessun `CONVERGED` a cavallo del cambio di voce.
-  - [ ] Tutti i motivi d'uscita prodotti dalle fixture appropriate.
-  - [ ] Timeout (45 s attivi, 120 s assoluti): semantica definita qui e verificata con sequenze sintetiche di descrittori e tempi; WAV dedicati solo se una sequenza non basta. Controllo positivo per `CONVERGED` e `MAX_VALID_SPEECH`: fixture `voice-a-long` (decisione del product owner, 2026-11-10).
-  - [ ] **Eredità da I-18 (D4, 2026-11-12):** le fixture di I-04 caricate come file nel pannello danno lo stesso seed dell'harness Node, o una differenza spiegata e documentata. L'E2E di I-18 (`tests/e2e/file.spec.ts`) confronta oggi segnale a 16 kHz, `signalSummary` e traccia di pitch: va esteso al seed. Due differenze sono già note e misurate in I-18: la regola int16 → float del decoder di Chromium, e `Math.log10`, `sin` e `cos` non identici fra le versioni di V8 (`docs/BENCHMARK_PROTOCOL.md` §7). Il seed è quantizzato: va verificato se differenze di 1–2 ULP possono spostarlo di una casella. **Cancello (D-N):** se anche un solo seed differisce fra Node e pannello, prima di proseguire serve un ADR che porti in `dsp-core` implementazioni proprie di `log10`, `log2`, `sin`, `cos`, `sinh` (come ADR-0010).
+- **Riferimenti:** SPEC §8; ADR-0008; ADR-0026 (accettato il 2026-11-13, D-AF); VC-07.
+- **Decisioni del product owner (2026-11-13):** D-AD, durante l'ascolto si rianalizza l'audio raccolto a ogni secondo con la stessa funzione del risultato finale (nessun calcolo a pezzi); D-AE, τ resta 6 anche se la voce sintetica non converge, la soglia si misura in G1.
+- **Fuori perimetro, in «Proposte» di STATUS:** gli eventi `VAD_PAUSE` / `VOICE_RESUMES` (stato `WAITING_FOR_SPEECH`); il calcolo a pezzi, se il carico misurato lo chiederà.
+- **DoD** (misure del 2026-11-13, `docs/BENCHMARK_PROTOCOL.md` §7):
+  - [x] Mai `CONVERGED` prima di 8 s o senza copertura: la prima valutazione è a 8 s di voce valida, il primo arresto possibile a 10 s; un descrittore mancante, una metà incompleta o «più voci» bloccano (`extension/test/split-half-rule.test.ts`, anche come property test).
+  - [x] Fixture A+B: nessun `CONVERGED` a cavallo del cambio di voce (`tests/unit/stop-rule-voices.test.ts`).
+    - `a-then-b` e `alternating-ab-v1…v3` sono troppo corte perché le metà misurino tutti i tratti (revisione H-3): le valutazioni sono bloccate da «più voci» o da metà incomplete, e lo split-half non arriva mai a confrontare le due voci.
+    - Per questo c'è anche un caso lungo, generato in memoria: voce regolare A per 10 s, poi voce regolare B. Dopo il cambio le metà sono complete e si somigliano, perché contengono entrambe le voci; solo l'avviso «più voci», che resta in attesa per tutta la sessione (revisione H-1), impedisce `CONVERGED`. Esito `MAX_VALID_SPEECH`.
+  - [x] Tutti i motivi d'uscita prodotti dalle fixture appropriate:
+    - `MAX_VALID_SPEECH`: `voice-a-long` e il tono di 46 s;
+    - `WALL_TIMEOUT`: 46 s di silenzio;
+    - `CONVERGED`: il controllo positivo regolare;
+    - `ABSOLUTE_TIMEOUT` e i motivi `INTERRUPTED`: sequenze di eventi e tempi nei test della macchina e della sessione, ed E2E esistenti.
+  - [x] Timeout (45 s attivi, 120 s assoluti). **Semantica** (SPEC §6.1, invariata, ora con la voce valida vera):
+    - il tempo attivo si conta sul clock dei campioni solo in `LISTENING` e `WAITING_FOR_SPEECH`; a 45 s → `FINALIZING` / `WALL_TIMEOUT`;
+    - il tempo assoluto si conta da `START`, pause comprese; a 120 s → `FINALIZING` / `ABSOLUTE_TIMEOUT`, anche in `PAUSED`;
+    - la voce valida è quella dell'ultima valutazione del worker (frame utili del prefisso); a 18 s, solo in `LISTENING` → `FINALIZING` / `MAX_VALID_SPEECH`. Se una valutazione arriva tardi, la sessione può ascoltare qualche decimo di secondo oltre i 18 s;
+    - se la convergenza è già arrivata quando scatta il `TICK`, vince `CONVERGED`: la sessione la applica prima del `TICK`;
+    - in `FINALIZING` nessun limite: c'è solo il tempo massimo di 15 s dell'analisi finale;
+    - qualunque uscita da `FINALIZING` passa da `QUALITY`, con la regola degli 8 s.
+
+    Verificata con sequenze di eventi e tempi (`capture-machine.test.ts`, `capture-session.test.ts`) e con i segnali sopra. **Controllo positivo, con un limite dichiarato:**
+    - `MAX_VALID_SPEECH` su `voice-a-long`: sì;
+    - `CONVERGED` su `voice-a-long`: **no**, con τ = 6 le metà restano a 8–16 punti (D-AE). Il controllo positivo di `CONVERGED` è una voce sintetica molto regolare, che converge però con p6 saturo: prova la catena, non la soglia.
+  - [x] **Eredità da I-18 (D4, 2026-11-12):** le fixture di I-04 caricate come file nel pannello danno lo stesso seed dell'harness Node, o una differenza spiegata e documentata. L'E2E di I-18 (`tests/e2e/file.spec.ts`) confronta oggi segnale a 16 kHz, `signalSummary` e traccia di pitch: va esteso al seed. Due differenze sono già note e misurate in I-18: la regola int16 → float del decoder di Chromium, e `Math.log10`, `sin` e `cos` non identici fra le versioni di V8 (`docs/BENCHMARK_PROTOCOL.md` §7). Il seed è quantizzato: va verificato se differenze di 1–2 ULP possono spostarlo di una casella. **Cancello (D-N):** se anche un solo seed differisce fra Node e pannello, prima di proseguire serve un ADR che porti in `dsp-core` implementazioni proprie di `log10`, `log2`, `sin`, `cos`, `sinh` (come ADR-0010).
+    - **Esito:** il confronto del seed è in `tests/e2e/file.spec.ts` da I-06b: 19 seed su 19 identici con la conversione di Chromium (D-AB); la differenza dal lettore dei benchmark è misurata e dichiarata. Margine dal confine di arrotondamento: al minimo 0,000354 unità, contro circa 10⁻¹² per ULP. Il cancello non scatta; va ripetuto a ogni Chrome nuovo (VC-24).
 - **Test:** unit su fixture e su sequenze sintetiche di descrittori.
 
 ### I-08 · Dataset umano + report G1

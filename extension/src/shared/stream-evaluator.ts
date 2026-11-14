@@ -40,7 +40,7 @@ export class StreamEvaluator {
     this.analysed = seconds;
     try {
       const p = analyse(this.accumulator.snapshot(seconds * this.sampleRate), this.sampleRate, this.monitor);
-      return { audioSeconds: seconds, validSpeechMs: p.validSpeechMs, evaluations: p.evaluations, last: p.last, converged: p.converged, provisionalSeed: p.provisionalSeed, analysisMs: Math.max(0, now() - t0), failure: null };
+      return { audioSeconds: seconds, validSpeechMs: p.validSpeechMs, evaluations: p.evaluations, last: p.last, converged: p.converged, provisionalSeed: p.provisionalSeed, analysisMs: Math.max(0, now() - t0), failure: null, multiSpeakerPending: this.monitor.multiSpeakerPending };
     } catch (error: unknown) {
       this.failed = failureOf(error);
       return {
@@ -52,8 +52,14 @@ export class StreamEvaluator {
         provisionalSeed: null,
         analysisMs: Math.max(0, now() - t0),
         failure: this.failed,
+        multiSpeakerPending: this.monitor.multiSpeakerPending,
       };
     }
+  }
+
+  /** I-13b: the user confirmed one speaker (D-AM). */
+  confirmSingleSpeaker(): void {
+    this.monitor.confirmSingleSpeaker();
   }
 
   /** The stream ended: no more evaluations. */

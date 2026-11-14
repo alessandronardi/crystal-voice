@@ -90,6 +90,29 @@ describe('SplitHalfMonitor', () => {
     expect(m.push(input(9))?.blockedBy).toBe('MULTI_SPEAKER');
   });
 
+  it('I-13b (D-AM): «Sì, continua» unblocks the stop for the rest of the session', () => {
+    const m = new SplitHalfMonitor(IDENTITY);
+    m.push(input(8, { multiSpeakerSuspected: true }));
+    expect(m.multiSpeakerPending).toBe(true);
+    expect(m.push(input(9))?.blockedBy).toBe('MULTI_SPEAKER');
+    m.confirmSingleSpeaker();
+    expect(m.multiSpeakerPending).toBe(false);
+    // The heuristic fires again: the answer holds, the run builds up and converges.
+    m.push(input(10, { multiSpeakerSuspected: true }));
+    m.push(input(11, { multiSpeakerSuspected: true }));
+    expect(m.push(input(12, { multiSpeakerSuspected: true }))?.consecutive).toBe(3);
+    expect(m.multiSpeakerPending).toBe(false);
+    expect(m.converged).toBe(true);
+  });
+
+  it('without an answer the warning stays pending (ADR-0026 point 4.3)', () => {
+    const m = new SplitHalfMonitor(IDENTITY);
+    m.push(input(8, { multiSpeakerSuspected: true }));
+    for (let s = 9; s < 30; s++) m.push(input(s));
+    expect(m.multiSpeakerPending).toBe(true);
+    expect(m.converged).toBe(false);
+  });
+
   it('refuses an evaluation out of order and changes nothing after convergence', () => {
     const m = new SplitHalfMonitor(IDENTITY);
     expect(m.push(input(9))).toBeNull(); // 8 first

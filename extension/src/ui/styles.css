@@ -4,9 +4,14 @@
 /*
  * I-13a, «Gabinetto di mineralogia» (decision D-AJ, 2026-11-13): ivory paper,
  * ink, one verdigris accent; serif for names, monospace for data (SPEC §13).
- * The font names come first for when the OFL fonts are bundled; until then
- * the system serif and monospace are used. All colours are [H]: tuned by eye.
+ * I-13b (D-AQ): Spectral and IBM Plex Mono, OFL, bundled in fonts/ (latin
+ * subset, weights 400 and 600); never loaded from the network (R2). All
+ * colours are [H]: tuned by eye.
  */
+@font-face { font-family: 'Spectral'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/spectral-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Spectral'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/spectral-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2'); }
 :root {
   --vc-bg: #f6f1e7;
   --vc-paper: #fbf8f1;
@@ -68,6 +73,19 @@ body.vc-body {
 .vc-tools dl { font-family: var(--vc-mono); font-size: 12px; }
 .vc-tools .text-slate-600, .vc-tools .text-slate-500 { color: var(--vc-muted); }
 .vc-tools hr, .vc-tools .border-t { border-color: var(--vc-line); }
+
+/* I-13b: live legend (ADR-0028), several-voices notice, simplified rendering. */
+.vc-legend { display: flex; flex-direction: column; gap: 6px; }
+.vc-legend-title { font-weight: 600; font-size: 16px; margin: 0; }
+.vc-legend ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.vc-legend-row { width: 100%; text-align: left; background: var(--vc-paper); color: var(--vc-ink); border: 1px solid var(--vc-line); padding: 8px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; font: 13px/1.35 var(--vc-mono); }
+.vc-legend-row[aria-pressed="true"] { border-color: var(--vc-accent); box-shadow: inset 3px 0 0 var(--vc-accent); }
+.vc-legend-row:focus-visible, .vc-toggle input:focus-visible { outline: 2px solid var(--vc-accent); outline-offset: 2px; }
+.vc-legend-trait { font: 600 14px var(--vc-serif); }
+.vc-legend-sub { color: var(--vc-muted); font-size: 12px; }
+.vc-dialog { background: var(--vc-paper); border: 1px solid var(--vc-accent); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.vc-toggle { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.vc-toggle input { margin-top: 3px; accent-color: var(--vc-accent); }
 
 @media (prefers-reduced-motion: no-preference) {
   .vc-reveal { animation: vc-solidify 1.2s ease-out both; }

@@ -7,7 +7,7 @@
 import { AgXToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer } from 'three';
 import type { CrystalGeometry } from '@voicecrystal/contracts';
 import { showPlateFallback } from './fallback.ts';
-import { turntableAngle, type RenderProfile } from './pure/index.ts';
+import { PROFILE_SAMPLE_FRAMES, turntableAngle, type HighlightTarget, type RenderProfile } from './pure/index.ts';
 import { buildShowcaseScene, type ShowcaseScene } from './scene.ts';
 
 export type RenderState = 'webgl' | 'fallback-svg' | 'disposed';
@@ -23,6 +23,11 @@ export interface RenderConfig {
   sizePx: number;
   /** Called once when the showcase switches to the SVG plate. */
   onFallback?: (reason: FallbackReason) => void;
+  /**
+   * I-13b (D-AN): called once with the cost of frames 2–31 of the turntable,
+   * measured as M17 (render + 1-pixel readPixels). Not called without motion.
+   */
+  onFrameCosts?: (costsMs: number[]) => void;
 }
 
 export interface RenderHandle {
@@ -33,6 +38,10 @@ export interface RenderHandle {
   readonly canvas: HTMLCanvasElement | null;
   /** Turntable angle of the last drawn frame, radians. */
   readonly angle: number;
+  /** I-13b: the trait lit by the legend, or null (ADR-0028). */
+  readonly highlighted: HighlightTarget | null;
+  /** Lights up one trait, or none; redraws at once when the turntable is still. */
+  highlight(target: HighlightTarget | null): void;
   /** Stops the turntable and renders one frame at a fixed angle (tests, benchmarks, stills). */
   renderAt(angleRad: number): void;
   /** Idempotent. Releases every GPU resource and the WebGL context. */
@@ -53,6 +62,10 @@ export function renderCrystal(geometry: CrystalGeometry, config: RenderConfig): 
   let spinning = !config.reducedMotion;
   let start = -1;
   let angle = 0;
+  let highlighted: HighlightTarget | null = null;
+  let drawn = 0;
+  const costs: number[] = [];
+  const pixel = new Uint8Array(4);
 
   const draw = (a: number): void => {
     if (renderer === null || showcase === null) return;
@@ -65,7 +78,19 @@ export function renderCrystal(geometry: CrystalGeometry, config: RenderConfig): 
     frame = 0;
     if (!spinning || state !== 'webgl') return;
     if (start < 0) start = now;
+    const measuring = config.onFrameCosts !== undefined && drawn >= 1 && costs.length < PROFILE_SAMPLE_FRAMES;
+    const t0 = measuring ? performance.now() : 0;
     draw(turntableAngle(now - start));
+    drawn++;
+    if (measuring && renderer !== null) {
+      // GPU sync as bench:render (M17): the cost includes the GPU work of the frame.
+      const gl = renderer.getContext();
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+      costs.push(performance.now() - t0);
+      if (costs.length === PROFILE_SAMPLE_FRAMES) config.onFrameCosts?.([...costs]);
+    }
+    // onFrameCosts may have disposed the showcase (the compiler cannot see the callback change state).
+    if ((state as RenderState) !== 'webgl') return;
     frame = requestAnimationFrame(loop);
   };
 
@@ -133,6 +158,7 @@ export function renderCrystal(geometry: CrystalGeometry, config: RenderConfig): 
     }
     container.replaceChildren(canvas);
     draw(0);
+    drawn = 1;
     if (spinning) frame = requestAnimationFrame(loop);
   }
 
@@ -149,6 +175,16 @@ export function renderCrystal(geometry: CrystalGeometry, config: RenderConfig): 
     },
     get angle() {
       return angle;
+    },
+    get highlighted() {
+      return highlighted;
+    },
+    highlight(target) {
+      // Only the WebGL showcase lights a trait; the SVG plate does not (ADR-0028 point 6).
+      highlighted = state === 'webgl' ? target : null;
+      showcase?.setHighlight(highlighted);
+      container.dataset['highlight'] = highlighted ?? '';
+      if (!spinning && state === 'webgl') draw(angle);
     },
     renderAt(angleRad: number) {
       spinning = false;

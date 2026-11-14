@@ -120,7 +120,9 @@ export class SplitHalfMonitor {
   private latest: SplitHalfEvaluation | null = null;
   private done = false;
   /** A several-voices warning appeared: pending until an answer (I-13), so every later evaluation is blocked. */
-  private multiSpeakerPending = false;
+  private pending = false;
+  /** I-13b (D-AM): «Sì, continua» holds for the rest of the session, even if the heuristic fires again. */
+  private confirmed = false;
   /** Review M-6: the germ's seed is recomputed only when the valid speech gains a whole second. */
   private seedSeconds = -1;
   private seed: CrystalSeed | null = null;
@@ -139,6 +141,16 @@ export class SplitHalfMonitor {
     return this.count;
   }
 
+  get multiSpeakerPending(): boolean {
+    return this.pending;
+  }
+
+  /** I-13b: the user answered «Sì, continua» (D-AM, ADR-0026 point 4.3). */
+  confirmSingleSpeaker(): void {
+    this.confirmed = true;
+    this.pending = false;
+  }
+
   get last(): SplitHalfEvaluation | null {
     return this.latest;
   }
@@ -151,8 +163,8 @@ export class SplitHalfMonitor {
   push(input: SplitHalfInput): SplitHalfEvaluation | null {
     if (this.done || input.seconds !== this.lastSeconds + 1) return null;
     this.lastSeconds = input.seconds;
-    if (input.multiSpeakerSuspected) this.multiSpeakerPending = true;
-    const e = evaluateSplitHalf({ ...input, multiSpeakerSuspected: this.multiSpeakerPending }, this.table);
+    if (input.multiSpeakerSuspected && !this.confirmed) this.pending = true;
+    const e = evaluateSplitHalf({ ...input, multiSpeakerSuspected: this.pending }, this.table);
     this.run = e.passed ? this.run + 1 : 0;
     this.count++;
     this.latest = { ...e, consecutive: this.run };

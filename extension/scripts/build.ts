@@ -173,6 +173,14 @@ const COPIED: readonly { from: string; to: string; reason: string }[] = [
   { from: join(REPO, 'THIRD_PARTY/libfvad/LICENSE'), to: 'THIRD_PARTY/libfvad/LICENSE.txt', reason: 'libfvad BSD-3-Clause' },
   { from: join(REPO, 'THIRD_PARTY/libfvad/PATENTS'), to: 'THIRD_PARTY/libfvad/PATENTS.txt', reason: 'WebRTC patent grant (D-S)' },
   { from: join(REPO, 'THIRD_PARTY/three/LICENSE'), to: 'THIRD_PARTY/three/LICENSE.txt', reason: 'three.js MIT, bundled in the side panel since I-13a (D-AI)' },
+  { from: join(REPO, 'THIRD_PARTY/tailwindcss/LICENSE'), to: 'THIRD_PARTY/tailwindcss/LICENSE.txt', reason: 'Tailwind CSS MIT: its generated CSS is in the bundle (I-13b, L-6)' },
+  // I-13b (D-AQ): the OFL fonts of SPEC §13, latin subset, from @fontsource 5.3.0, unchanged.
+  { from: join(REPO, 'THIRD_PARTY/spectral/OFL.txt'), to: 'THIRD_PARTY/spectral/OFL.txt', reason: 'Spectral, SIL Open Font License 1.1' },
+  { from: join(REPO, 'THIRD_PARTY/ibm-plex-mono/OFL.txt'), to: 'THIRD_PARTY/ibm-plex-mono/OFL.txt', reason: 'IBM Plex Mono, SIL Open Font License 1.1' },
+  ...readdirSync(join(EXTENSION_DIR, 'assets/fonts'))
+    .filter((f) => f.endsWith('.woff2'))
+    .sort()
+    .map((f) => ({ from: join(EXTENSION_DIR, 'assets/fonts', f), to: `fonts/${f}`, reason: 'OFL font of the side panel (SPEC §13, D-AQ)' })),
   ...readdirSync(join(REPO, 'THIRD_PARTY/emscripten'))
     .filter((f) => f.endsWith('.txt'))
     .sort()

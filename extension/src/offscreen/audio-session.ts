@@ -11,6 +11,7 @@
 // microphone (I-17: no playback, kept alive by the side panel's port).
 import {
   isHeartbeatMessage,
+  isMultiSpeakerAnswer,
   isOffscreenStartMic,
   isOffscreenStartTab,
   isOffscreenStop,
@@ -22,7 +23,7 @@ import {
   type OffscreenStartTab,
   type SessionId,
 } from '@voicecrystal/contracts';
-import { isDspWorkerReply, type DspWorkerReply, type StreamBeginRequest } from '../shared/dsp-protocol.ts';
+import { isDspWorkerReply, type DspWorkerReply, type SpeakerConfirmedRequest, type StreamBeginRequest } from '../shared/dsp-protocol.ts';
 import { isOwnExtensionContext } from '../shared/sender.ts';
 import { CaptureSession, type AudioFacts, type SessionAnalysis, type SessionBinding } from './capture-session.ts';
 import { PCM_PROCESSOR_NAME, type PcmCountMessage, type WorkletCommand } from './pcm-protocol.ts';
@@ -138,6 +139,7 @@ function refuseBusy(sessionId: SessionId): void {
     validSpeechMs: 0,
     stability: null,
     provisionalSeed: null,
+    multiSpeaker: 'NONE',
   });
 }
 
@@ -150,7 +152,7 @@ function command(graph: AudioGraph, message: WorkletCommand): void {
 }
 
 const failed = (failure: NonNullable<CaptureAnalysis['failure']>): SessionAnalysis => ({
-  analysis: { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure, analysedMs: null },
+  analysis: { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure, analysedMs: null, rawMeasures: null },
   accepted: false,
   validSpeechMs: 0,
 });
@@ -171,6 +173,7 @@ function toSessionAnalysis(reply: DspWorkerReply, sampleRate: number | null): Se
       mappingVersion: a.mappingVersion,
       failure: null,
       analysedMs: sampleRate === null ? null : Math.round((reply.stats.frames * 1000) / sampleRate),
+      rawMeasures: a.raw,
     },
     accepted: quality.accepted && a.seed !== null,
     validSpeechMs: quality.validSpeechMs,
@@ -402,6 +405,15 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
     void startMic(message.sessionId);
   } else if (isOffscreenStop(message) && current?.session.id === message.sessionId) {
     current.session.stop(message.reason);
+  } else if (isMultiSpeakerAnswer(message) && current !== null) {
+    // I-13b: the side panel's answer to the several-voices notice (SPEC §13 D4).
+    if (current.session.answerMultiSpeaker(message)) {
+      try {
+        current.graph.worker?.postMessage({ type: 'SPEAKER_CONFIRMED' } satisfies SpeakerConfirmedRequest);
+      } catch {
+        // A worker already gone has nothing left to evaluate.
+      }
+    }
   }
   return false;
 });

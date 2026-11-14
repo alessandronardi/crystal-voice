@@ -13,6 +13,52 @@ import type { FaceClass } from './mesh-arrays.ts';
 
 export type RenderProfile = 'vetrina' | 'economy';
 
+/**
+ * I-13b (ADR-0028): what a row of the live legend lights up on the showcase.
+ * Colour (p5) and zoning (p6) belong to the whole body: no target.
+ */
+export type HighlightTarget = 'prism' | 'termination' | 'secondary' | 'inclusions';
+
+export const HIGHLIGHT_TARGETS: readonly HighlightTarget[] = ['prism', 'termination', 'secondary', 'inclusions'];
+
+/** [H] Highlight overlay: light gold, readable on the dark showcase and on any crystal hue (aesthetic check, M38). */
+export const HIGHLIGHT_COLOR: Rgb = [0.92, 0.62, 0.2];
+export const HIGHLIGHT_OPACITY = 0.5;
+
+/** The descriptor each target belongs to (SPEC §10 D3 traits, ADR-0014). */
+export function highlightTargetOf(trait: DescriptorKey): HighlightTarget | null {
+  switch (trait) {
+    case 'p1_pitch':
+      return 'prism';
+    case 'p2_intonation':
+      return 'termination';
+    case 'p3_dynamics':
+      return 'secondary';
+    case 'p4_roughness':
+      return 'inclusions';
+    case 'p5_brightness':
+    case 'p6_rhythm':
+      return null;
+    default:
+      return assertNever(trait);
+  }
+}
+
+/** A target lights up only an element that exists (the rendering never invents one). */
+export function highlightAvailable(target: HighlightTarget, geometry: CrystalGeometry): boolean {
+  switch (target) {
+    case 'prism':
+    case 'termination':
+      return true;
+    case 'secondary':
+      return geometry.bodies.some((b) => b.kind === 'secondary');
+    case 'inclusions':
+      return geometry.inclusions.length > 0;
+    default:
+      return assertNever(target);
+  }
+}
+
 export interface Veil {
   /** p1: prism faces frosted. */
   prismFrosted: boolean;

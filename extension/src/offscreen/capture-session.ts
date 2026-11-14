@@ -10,6 +10,8 @@ import type {
   CaptureState,
   CrystalSeed,
   HeartbeatMessage,
+  MultiSpeakerAnswerMessage,
+  MultiSpeakerState,
   OffscreenStopReason,
   PlayerEvent,
   SessionId,
@@ -93,10 +95,22 @@ export interface SessionAnalysis {
 export const ANALYSIS_TIMEOUT_MS = 15_000;
 
 const FAILED_ANALYSIS = (failure: CaptureAnalysis['failure']): SessionAnalysis => ({
-  analysis: { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure, analysedMs: null },
+  analysis: { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure, analysedMs: null, rawMeasures: null },
   accepted: false,
   validSpeechMs: 0,
 });
+
+/**
+ * Review H-1 of I-13b (SPEC §7.2: «se risponde sì il cristallo è valido e
+ * porta il warning»): a several-voices notice seen while listening, answered
+ * or not, stays among the result's warnings even when the analysis of the
+ * whole buffer does not raise it again.
+ */
+export function withSessionWarnings(analysis: CaptureAnalysis, multiSpeaker: MultiSpeakerState): CaptureAnalysis {
+  const quality = analysis.quality;
+  if (multiSpeaker === 'NONE' || quality === null || quality.warnings.includes('MULTI_SPEAKER_SUSPECTED')) return analysis;
+  return { ...analysis, quality: { ...quality, warnings: [...quality.warnings, 'MULTI_SPEAKER_SUSPECTED'] } };
+}
 
 /** States whose audio belongs to the analysed segment (SPEC §7.2: pauses are not). */
 const RECORDING_STATES: readonly CaptureState[] = ['LISTENING', 'WAITING_FOR_SPEECH'];
@@ -153,6 +167,9 @@ export class CaptureSession {
   private provisionalSeed: CrystalSeed | null = null;
   /** The rule converged while the machine could not take it (PAUSED): applied on the next LISTENING tick. */
   private convergedPending = false;
+  /** I-13b: the several-voices notice (SPEC §13 D4, D-AM). */
+  private multiSpeaker: MultiSpeakerState = 'NONE';
+  private answerSeq = -1;
   readonly ignored: IgnoredCounts = { wrongTab: 0, wrongSession: 0, staleSeq: 0, rejectedEvent: 0, lateProgress: 0 };
 
   readonly id: SessionId;
@@ -271,6 +288,8 @@ export class CaptureSession {
     if (progress.failure !== null) return;
     this.validSpeechMs = progress.validSpeechMs;
     this.provisionalSeed = progress.provisionalSeed;
+    // The notice is pending from the worker's first warning until the user answers (ADR-0026 point 4.3).
+    if (progress.multiSpeakerPending && this.multiSpeaker === 'NONE') this.multiSpeaker = 'PENDING';
     const last = progress.last;
     this.stability = {
       stopRuleVersion: STOP_RULE_VERSION,
@@ -290,6 +309,37 @@ export class CaptureSession {
     if (!this.convergedPending || this.machine.state !== 'LISTENING') return;
     this.convergedPending = false;
     this.apply({ type: 'SPLIT_HALF_STABLE' });
+  }
+
+  /**
+   * I-13b: the side panel's answer to the several-voices notice (SPEC §13 D4).
+   * «No» ends the session (INTERRUPTED / MULTI_SPEAKER_DECLINED); «Sì» holds
+   * for the rest of the session (D-AM). Returns true when the DSP worker must
+   * be told that one speaker was confirmed. Answers for another session, with
+   * an old seq, or with no notice pending are ignored and counted.
+   */
+  answerMultiSpeaker(message: MultiSpeakerAnswerMessage): boolean {
+    if (message.sessionId !== this.id) {
+      this.ignored.wrongSession++;
+      return false;
+    }
+    if (message.seq <= this.answerSeq) {
+      this.ignored.staleSeq++;
+      return false;
+    }
+    if (!this.isLive() || this.machine.state === 'FINALIZING' || this.multiSpeaker !== 'PENDING') {
+      this.ignored.rejectedEvent++;
+      return false;
+    }
+    // Only an answer taken counts for the seq (review L-1): a refused one changes nothing.
+    this.answerSeq = message.seq;
+    if (!message.singleSpeaker) {
+      this.apply({ type: 'INTERRUPT', reason: 'MULTI_SPEAKER_DECLINED' });
+      return false;
+    }
+    this.multiSpeaker = 'CONFIRMED';
+    this.emit();
+    return true;
   }
 
   stop(reason: OffscreenStopReason): void {
@@ -455,7 +505,7 @@ export class CaptureSession {
     // Same rule as the machine's QUALITY row (SPEC §6.1: at least 8 s of valid
     // speech): a refused result keeps its measures but never shows a seed.
     const ready = outcome.accepted && outcome.validSpeechMs >= CAPTURE_LIMITS.minValidSpeechMs && outcome.analysis.seed !== null;
-    this.analysis = ready ? outcome.analysis : { ...outcome.analysis, seed: null };
+    this.analysis = withSessionWarnings(ready ? outcome.analysis : { ...outcome.analysis, seed: null }, this.multiSpeaker);
     this.apply({ type: 'QUALITY', accepted: ready, validSpeechMs: outcome.validSpeechMs });
   }
 
@@ -507,6 +557,7 @@ export class CaptureSession {
       stability: this.stability,
       // Only while collecting audio: a terminal diagnostic carries the result, never the germ.
       provisionalSeed: isTerminal(this.machine.state) || this.machine.state === 'FINALIZING' ? null : this.provisionalSeed,
+      multiSpeaker: this.multiSpeaker,
     });
   }
 }

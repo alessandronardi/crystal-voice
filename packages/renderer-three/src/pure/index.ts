@@ -9,6 +9,11 @@ export {
   BAND_CONTRAST_VEILED,
   ECONOMY_OPACITY,
   FRAMING_RADIUS,
+  HIGHLIGHT_COLOR,
+  HIGHLIGHT_OPACITY,
+  HIGHLIGHT_TARGETS,
+  highlightAvailable,
+  highlightTargetOf,
   INCLUSION_FADE,
   INCLUSION_FADE_VEILED,
   NEEDLE_RADIUS_FACTOR_VEILED,
@@ -25,10 +30,21 @@ export {
   VEILED_CHROMA_FACTOR,
   VETRINA_MATERIAL,
   zoningTexels,
+  type HighlightTarget,
   type Palette,
   type RenderProfile,
   type Veil,
 } from './look.ts';
+export {
+  chooseProfile,
+  FRAME_COST_P95_LIMIT_MS,
+  frameCostP95,
+  isSoftwareRenderer,
+  PROFILE_SAMPLE_FRAMES,
+  type ProfileChoice,
+  type ProfileInput,
+  type ProfileReason,
+} from './profile.ts';
 export {
   bodyToMeshArrays,
   boundingRadius,

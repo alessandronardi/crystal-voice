@@ -13,6 +13,7 @@ import { analyzeDescriptors } from '../shared/descriptor-analysis.ts';
 import {
   isAnalyzePcmRequest,
   isPcmBlock,
+  isSpeakerConfirmedRequest,
   isStreamBeginRequest,
   isStreamEndRequest,
   type DspFailureCode,
@@ -93,6 +94,12 @@ scope.onmessage = (event) => {
   }
   if (isStreamEndRequest(request) && stream !== null) {
     endStream();
+    return;
+  }
+  if (isSpeakerConfirmedRequest(request)) {
+    // I-13b (D-AM): a late answer after the stream ended has nothing left to unblock.
+    stream?.evaluator.confirmSingleSpeaker();
+    stream?.loop.kick();
     return;
   }
   scope.postMessage({ type: 'ANALYSIS_FAILED', code: 'BAD_REQUEST' });

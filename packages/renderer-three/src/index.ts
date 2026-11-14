@@ -4,3 +4,4 @@ export * from './pure/index.ts';
 export { renderCrystal, type FallbackReason, type RenderConfig, type RenderHandle, type RenderState } from './render.ts';
 export { buildShowcaseScene, type ShowcaseScene } from './scene.ts';
 export { showPlateFallback } from './fallback.ts';
+export { probeGpu, type GpuProbe } from './gpu-probe.ts';

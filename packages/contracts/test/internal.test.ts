@@ -15,6 +15,7 @@ import {
   isCaptureExitReason,
   isCaptureState,
   isCaptureStopMessage,
+  isMultiSpeakerAnswer,
   isHeartbeatMessage,
   isOffscreenStartTab,
   isOffscreenStop,
@@ -49,6 +50,7 @@ const diag: CaptureDiag = {
 
 
   provisionalSeed: null,
+  multiSpeaker: 'NONE',
 };
 
 const heartbeat = {
@@ -245,7 +247,7 @@ describe('CAPTURE_DIAG analysis (I-06b, D-Y)', () => {
     missingFeatureKeys: [],
     warnings: ['EXPERIMENTAL_MAPPING'],
   };
-  const ok = { quality, seed: [1, 2, 3, 4, 5, 6], extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental', failure: null, analysedMs: 45_000 };
+  const ok = { quality, seed: [1, 2, 3, 4, 5, 6], extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental', failure: null, analysedMs: 45_000, rawMeasures: [7.5, 3.4, 12.1, 0.21, 10.5, 4.1] };
   const ready = { ...diag, state: 'RESULT_READY', exitReason: 'WALL_TIMEOUT', analysis: ok };
 
   it('accepts a result with a seed, and a refusal with its measures', () => {
@@ -253,7 +255,7 @@ describe('CAPTURE_DIAG analysis (I-06b, D-Y)', () => {
     expect(isQualitySummary(quality)).toBe(true);
     const refused = { ...ok, seed: null, quality: { ...quality, accepted: false, missingFeatureKeys: ['p6_rhythm'] } };
     expect(isCaptureDiag({ ...ready, state: 'INSUFFICIENT_DATA', analysis: refused })).toBe(true);
-    const failed = { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure: 'ANALYSIS_TIMEOUT', analysedMs: null };
+    const failed = { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure: 'ANALYSIS_TIMEOUT', analysedMs: null, rawMeasures: null };
     expect(isCaptureDiag({ ...ready, state: 'INSUFFICIENT_DATA', analysis: failed })).toBe(true);
   });
 
@@ -267,7 +269,7 @@ describe('CAPTURE_DIAG analysis (I-06b, D-Y)', () => {
     // Review M-1: the guard holds the invariants the panel relies on.
     expect(isCaptureDiag({ ...ready, analysis: { ...ok, quality: { ...quality, accepted: false } } })).toBe(false);
     expect(isCaptureDiag({ ...ready, state: 'INSUFFICIENT_DATA', analysis: ok })).toBe(false); // a seed outside RESULT_READY
-    const empty = { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure: null, analysedMs: null };
+    const empty = { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure: null, analysedMs: null, rawMeasures: null };
     expect(isCaptureDiag({ ...ready, state: 'INSUFFICIENT_DATA', analysis: empty })).toBe(false);
   });
 
@@ -281,6 +283,34 @@ describe('CAPTURE_DIAG analysis (I-06b, D-Y)', () => {
     expect(isQualitySummary({ ...quality, validSpeechMs: Number.NaN })).toBe(false);
     expect(isCaptureDiag({ ...ready, analysis: { ...ok, failure: 'OOPS' } })).toBe(false);
     expect(isCaptureDiag({ ...ready, analysis: { ...ok, analysedMs: -1 } })).toBe(false);
+  });
+
+  it('I-13b: carries the raw measures of a measured analysis, null never replaced by 0', () => {
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, rawMeasures: [7.5, null, 12.1, 0.21, 10.5, null] } })).toBe(true);
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, rawMeasures: null } })).toBe(false);
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, rawMeasures: [1, 2, 3, 4, 5] } })).toBe(false);
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, rawMeasures: [1, 2, 3, 4, 5, Number.NaN] } })).toBe(false);
+    expect(isCaptureDiag({ ...ready, analysis: { ...ok, rawMeasures: undefined } })).toBe(false);
+    const failed = { quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure: 'ANALYSIS_TIMEOUT', analysedMs: null, rawMeasures: [1, 2, 3, 4, 5, 6] };
+    expect(isCaptureDiag({ ...ready, state: 'INSUFFICIENT_DATA', analysis: failed })).toBe(false);
+  });
+});
+
+describe('several voices (I-13b)', () => {
+  it('CAPTURE_DIAG carries the notice state', () => {
+    for (const m of ['NONE', 'PENDING', 'CONFIRMED']) expect(isCaptureDiag({ ...diag, multiSpeaker: m })).toBe(true);
+    expect(isCaptureDiag({ ...diag, multiSpeaker: 'YES' })).toBe(false);
+    expect(isCaptureDiag({ ...diag, multiSpeaker: undefined })).toBe(false);
+  });
+
+  it('accepts the SPEC §9 answer only', () => {
+    const answer = { v: 1, type: 'MULTI_SPEAKER_ANSWER', singleSpeaker: true, sessionId: SESSION, seq: 3 };
+    expect(isMultiSpeakerAnswer(answer)).toBe(true);
+    expect(isMultiSpeakerAnswer({ ...answer, singleSpeaker: false })).toBe(true);
+    expect(isMultiSpeakerAnswer({ ...answer, singleSpeaker: 'yes' })).toBe(false);
+    expect(isMultiSpeakerAnswer({ ...answer, sessionId: 'x' })).toBe(false);
+    expect(isMultiSpeakerAnswer({ ...answer, seq: -1 })).toBe(false);
+    expect(isMultiSpeakerAnswer({ ...answer, v: 2 })).toBe(false);
   });
 });
 

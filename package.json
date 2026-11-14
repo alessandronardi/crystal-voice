@@ -38,6 +38,7 @@
     "@voicecrystal/dsp-core": "workspace:*",
     "@voicecrystal/renderer-svg": "workspace:*",
     "@voicecrystal/renderer-three": "workspace:*",
+    "axe-core": "4.14.0",
     "eslint": "10.14.0",
     "fast-check": "4.10.2",
     "typescript": "6.0.3",

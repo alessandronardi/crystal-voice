@@ -157,7 +157,20 @@ export interface CaptureDiag {
    * result: the result is `analysis.seed` (RESULT_READY).
    */
   provisionalSeed: CrystalSeed | null;
+  /**
+   * I-13b (SPEC §13 D4, ADR-0026 point 4.3, D-AM): the several-voices notice.
+   * PENDING from the first warning until the user answers; CONFIRMED after
+   * «Sì, continua», for the rest of the session. Never a judgement on a person.
+   */
+  multiSpeaker: MultiSpeakerState;
 }
+
+export type MultiSpeakerState = 'NONE' | 'PENDING' | 'CONFIRMED';
+
+export const MULTI_SPEAKER_STATES: readonly MultiSpeakerState[] = ['NONE', 'PENDING', 'CONFIRMED'];
+
+/** The six raw measures x_i (SPEC §7.4 units), null when not measurable (R13: never 0). */
+export type RawMeasureTuple = readonly [number | null, number | null, number | null, number | null, number | null, number | null];
 
 /** Why a split-half evaluation did not pass: the first SPEC §8 condition that failed (I-07). */
 export type SplitHalfBlock = 'TOO_SHORT' | 'MISSING_DESCRIPTOR' | 'MULTI_SPEAKER' | 'HALF_INCOMPLETE' | 'UNSTABLE';
@@ -197,6 +210,8 @@ export interface CaptureAnalysis {
   failure: CaptureAnalysisFailure | null;
   /** Audio kept for the analysis, ms (pauses excluded); null when nothing reached the worker. */
   analysedMs: number | null;
+  /** I-13b: raw measures for the live legend (SPEC §9 `AnalysisResult.rawMeasures`); null exactly when the analysis failed. */
+  rawMeasures: RawMeasureTuple | null;
 }
 
 export type InternalMessage =
@@ -449,8 +464,14 @@ export function isCaptureDiag(value: unknown): value is CaptureDiag {
     isAnalysisFor(state, value['analysis']) &&
     isNonNegativeFinite(value['validSpeechMs']) &&
     (value['stability'] === null || isCaptureStability(value['stability'])) &&
-    (value['provisionalSeed'] === null || (isCrystalSeed(value['provisionalSeed']) && !terminal))
+    (value['provisionalSeed'] === null || (isCrystalSeed(value['provisionalSeed']) && !terminal)) &&
+    typeof value['multiSpeaker'] === 'string' &&
+    (MULTI_SPEAKER_STATES as readonly string[]).includes(value['multiSpeaker'])
   );
+}
+
+export function isRawMeasureTuple(value: unknown): value is RawMeasureTuple {
+  return Array.isArray(value) && value.length === 6 && value.every((x) => x === null || (typeof x === 'number' && Number.isFinite(x)));
 }
 
 /** Structural guard of CaptureStability; the fields must agree with each other. */
@@ -520,9 +541,11 @@ function isAnalysisFor(state: CaptureState, value: unknown): boolean {
     (value['extractorVersion'] === null || typeof value['extractorVersion'] === 'string') &&
     (value['mappingVersion'] === null || typeof value['mappingVersion'] === 'string') &&
     (failure === null || (typeof failure === 'string' && Object.hasOwn(ANALYSIS_FAILURE_SET, failure))) &&
-    isNonNegativeFiniteOrNull(value['analysedMs']);
+    isNonNegativeFiniteOrNull(value['analysedMs']) &&
+    (value['rawMeasures'] === null || isRawMeasureTuple(value['rawMeasures']));
   if (!shapeOk) return false;
-  if (failure !== null) return seed === null && quality === null && state === 'INSUFFICIENT_DATA';
+  if (failure !== null) return seed === null && quality === null && value['rawMeasures'] === null && state === 'INSUFFICIENT_DATA';
+  if (value['rawMeasures'] === null) return false;
   // Review M-1: a measured analysis always has its quality; the seed and the acceptance follow the state.
   if (!isQualitySummary(quality)) return false;
   if (state === 'RESULT_READY') return seed !== null && quality.accepted && value['extractorVersion'] !== null;
@@ -546,6 +569,20 @@ export function isCaptureStartMessage(value: unknown): value is CaptureStartMess
     isSessionId(value['sessionId']) &&
     isSeq(value['seq']) &&
     sourceOk
+  );
+}
+
+export type MultiSpeakerAnswerMessage = Extract<CaptureMessage, { type: 'MULTI_SPEAKER_ANSWER' }>;
+
+/** Guard for the SPEC §9 answer to the several-voices notice, sent by the side panel (I-13b). */
+export function isMultiSpeakerAnswer(value: unknown): value is MultiSpeakerAnswerMessage {
+  return (
+    isRecord(value) &&
+    value['v'] === 1 &&
+    value['type'] === 'MULTI_SPEAKER_ANSWER' &&
+    typeof value['singleSpeaker'] === 'boolean' &&
+    isSessionId(value['sessionId']) &&
+    isSeq(value['seq'])
   );
 }
 

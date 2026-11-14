@@ -203,6 +203,8 @@ export interface FileViewHooks {
 export interface FileViewHandle {
   /** «Interrompi» of the live screen: stops the running analysis, if any. */
   stop(): void;
+  /** I-13b, review L-10 of I-13a: back to the home screen, the rows of the finished analysis go. */
+  clearResult(): void;
 }
 
 export function mountFileView(root: HTMLElement, hooks: FileViewHooks = {}): FileViewHandle {
@@ -427,7 +429,7 @@ export function mountFileView(root: HTMLElement, hooks: FileViewHooks = {}): Fil
       render();
       if (phase === 'done' && result !== null) {
         const d = result.analysis.descriptors;
-        hooks.onEvent?.({ type: 'FILE_DONE', result: { seed: d.seed, quality: d.quality, extractorVersion: d.extractorVersion, mappingVersion: d.mappingVersion } });
+        hooks.onEvent?.({ type: 'FILE_DONE', result: { seed: d.seed, quality: d.quality, extractorVersion: d.extractorVersion, mappingVersion: d.mappingVersion, rawMeasures: d.raw } });
       } else if (phase === 'failed') {
         // Review M-2: the outcome screen shows the view's own text (refusal reason, what to do).
         hooks.onEvent?.({ type: 'FILE_FAILED', code: failure?.kind === 'code' ? failure.code : 'FILE_DECODE_FAILED', message: failure === null ? null : failureText(failure) });
@@ -532,6 +534,13 @@ export function mountFileView(root: HTMLElement, hooks: FileViewHooks = {}): Fil
       // Same arming as the view's own «Interrompi» (review M1 of I-18): the
       // second click of a double click on «Analizza» lands here and is ignored.
       if (performance.now() >= state.stopArmedAt) state.abort?.();
+    },
+    clearResult: () => {
+      if (busy() || (state.result === null && state.failure === null)) return;
+      state.result = null;
+      state.failure = null;
+      state.phase = state.probe === null ? 'idle' : 'ready';
+      render();
     },
   };
 }

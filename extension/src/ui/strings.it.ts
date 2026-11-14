@@ -214,6 +214,55 @@ export const strings = {
       exportSvg: 'Esporta tavola SVG',
       save: 'Salva — arriva con l’archivio',
       showcaseLabel: (habit: string): string => `Cristallo: ${habit}`,
+      // I-13b: quality warnings and veiled traits on the label (review M-4 of I-13a; ADR-0014).
+      warnings: 'Avvisi',
+      veiled: 'Tratti velati',
+      veiledShown: 'confidenza bassa: reso smerigliato',
+      veiledNothing: (what: string): string => `incerta (${what})`,
+      profile: 'Resa',
+      profiles: { vetrina: 'vetrina', economy: 'semplificata' },
+      noWebgl: 'tavola, senza grafica 3D in questo browser',
+      profileReasons: {
+        USER_SIMPLIFIED: 'scelta da te',
+        MAJOR_PERFORMANCE_CAVEAT: 'grafica lenta su questo computer',
+        SOFTWARE_GPU: 'grafica senza scheda video',
+        SLOW_FRAMES: 'i primi fotogrammi erano lenti',
+        DEFAULT: '',
+      },
+      simplified: 'Resa semplificata',
+      simplifiedNote: 'Meno effetti, più leggera. La scelta resta per le prossime volte.',
+    },
+    // I-13b: the live legend (SPEC §13, ADR-0028). Names of the crystal traits per descriptor.
+    legend: {
+      title: 'Legenda',
+      hint: 'Scegli una riga per vedere il tratto sul cristallo.',
+      note: 'Percentile della taratura sperimentale (mapping-0), su voci sintetiche: non è un confronto con altre persone.',
+      traits: {
+        p1_pitch: 'Prisma',
+        p2_intonation: 'Terminazioni',
+        p3_dynamics: 'Cristalli secondari',
+        p4_roughness: 'Inclusioni',
+        p5_brightness: 'Colore',
+        p6_rhythm: 'Zonatura',
+      },
+      percentile: (n: string): string => `${n}° percentile`,
+      unmeasurable: 'non misurabile',
+      lowConfidence: 'confidenza bassa',
+      /** What the crystal cannot show for a trait (the rendering never invents an element). */
+      nothing: {
+        p3_dynamics: 'nessun cristallo secondario da mostrare',
+        p4_roughness: 'nessuna inclusione da mostrare',
+        p6_rhythm: 'una sola banda da mostrare',
+      },
+      wholeCrystal: 'riguarda tutto il cristallo',
+      units: { hz: 'Hz', semitones: 'semitoni', db: 'dB', onsets: 'onset/s', aperiodicity: 'aperiodicità' },
+    },
+    // I-13b: the several-voices notice (SPEC §13 [F], D4; D-AM).
+    multiSpeaker: {
+      question: 'Sembrano esserci più voci. Parla una sola persona in questo tratto?',
+      yes: 'Sì, continua',
+      no: 'No, interrompi',
+      confirmed: 'Hai confermato una sola voce: l’ascolto continua.',
     },
     outcome: {
       caption: 'Nessun cristallo',

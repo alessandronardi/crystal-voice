@@ -26,6 +26,7 @@ import {
   type Material,
   Matrix4,
   Mesh,
+  MeshBasicMaterial,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
   NearestFilter,
@@ -49,6 +50,9 @@ import {
   ECONOMY_OPACITY,
   FACE_CLASSES,
   FRAMING_RADIUS,
+  HIGHLIGHT_COLOR,
+  HIGHLIGHT_OPACITY,
+  HIGHLIGHT_TARGETS,
   mixRgb,
   NEEDLE_RADIUS_FACTOR_VEILED,
   needleMatrices,
@@ -63,6 +67,7 @@ import {
   zoningTexels,
   zoningUvs,
   zRange,
+  type HighlightTarget,
   type MeshArrays,
   type Palette,
   type RenderProfile,
@@ -70,8 +75,12 @@ import {
   type Veil,
 } from './pure/index.ts';
 
-/** [H] Dark neutral background (linear sRGB). */
-const BACKGROUND: Rgb = [0.012, 0.012, 0.014];
+/**
+ * [H] Background (linear sRGB): the panel's warm ink #2b2620, so the showcase
+ * belongs to the ivory page (decision D-AP of the product owner, 2026-11-14,
+ * chosen on screenshots against the neutral black and a verdigris velvet).
+ */
+const BACKGROUND: Rgb = [0.0242, 0.0194, 0.0144];
 /** [H] Camera: narrow field for little perspective distortion, slightly from above. */
 const CAMERA_FOV_DEG = 28;
 const CAMERA_ELEVATION = 0.32;
@@ -89,6 +98,11 @@ export interface ShowcaseScene {
   camera: PerspectiveCamera;
   /** Rotated about the world vertical axis by the turntable. */
   turntable: Group;
+  /**
+   * I-13b (ADR-0028): shows the overlay of one trait, or none. A target whose
+   * element does not exist has no overlay: nothing lights up.
+   */
+  setHighlight(target: HighlightTarget | null): void;
   /** Releases every geometry, material, texture and render target created here. */
   dispose(): void;
 }
@@ -233,15 +247,44 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
       return material;
     });
 
+  // I-13b: one overlay group per highlight target, hidden until a legend row asks for it.
+  const glow = own(
+    new MeshBasicMaterial({
+      color: color(HIGHLIGHT_COLOR),
+      transparent: true,
+      opacity: HIGHLIGHT_OPACITY,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+      toneMapped: false,
+      side: FrontSide,
+    }),
+  );
+  const hidden = own(new MeshBasicMaterial({ visible: false }));
+  const glowLine = own(new LineBasicMaterial({ color: color(HIGHLIGHT_COLOR), toneMapped: false }));
+  const overlays = new Map<HighlightTarget, Group>(HIGHLIGHT_TARGETS.map((t) => [t, new Group()]));
+  for (const g of overlays.values()) {
+    g.visible = false;
+    g.renderOrder = 10;
+    crystal.add(g);
+  }
+  const overlay = (t: HighlightTarget): Group => overlays.get(t) ?? new Group();
+
   let minZ = range[0];
   geometry.bodies.forEach((body, i) => {
     const secondary = body.kind === 'secondary';
     const arrays = bodyArrays[i];
     if (arrays === undefined) return;
-    const mesh = new Mesh(own(bodyGeometry(arrays, range)), materialFor(body, secondary));
+    const shape = own(bodyGeometry(arrays, range));
+    const mesh = new Mesh(shape, materialFor(body, secondary));
     mesh.castShadow = profile === 'vetrina';
     crystal.add(mesh);
     minZ = Math.min(minZ, zRange(body)[0]);
+    // The face groups of bodyToMeshArrays follow FACE_CLASSES: prism, termination.
+    overlay('prism').add(new Mesh(shape, FACE_CLASSES.map((c) => (c === 'prism' ? glow : hidden))));
+    overlay('termination').add(new Mesh(shape, FACE_CLASSES.map((c) => (c === 'termination' ? glow : hidden))));
+    if (secondary) overlay('secondary').add(new Mesh(shape, glow));
   });
 
   // Needles: opaque instanced cylinders (unit cylinder along z, contract Inclusion 'needle').
@@ -254,6 +297,11 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
     instanced.instanceMatrix.needsUpdate = true;
     instanced.computeBoundingSphere();
     crystal.add(instanced);
+    const lit = own(new InstancedMesh(cylinder, glow, needleCount));
+    lit.instanceMatrix.array.set(needles);
+    lit.instanceMatrix.needsUpdate = true;
+    lit.computeBoundingSphere();
+    overlay('inclusions').add(lit);
   }
 
   // Phantoms: opaque outlines of a scaled copy of the primary.
@@ -265,6 +313,10 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
       line.matrixAutoUpdate = false;
       line.matrix.copy(new Matrix4().fromArray(m).transpose());
       crystal.add(line);
+      const lit = new LineSegments(outline, glowLine);
+      lit.matrixAutoUpdate = false;
+      lit.matrix.copy(line.matrix);
+      overlay('inclusions').add(lit);
     }
   }
 
@@ -301,6 +353,9 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
     scene,
     camera,
     turntable,
+    setHighlight(target) {
+      for (const [t, g] of overlays) g.visible = t === target && g.children.length > 0;
+    },
     dispose() {
       // Shared textures Three injects into our materials' uniforms (in 0.186.1
       // the DFG LUT, a module singleton). Every renderer that uploads one adds

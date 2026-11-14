@@ -172,6 +172,10 @@ export interface CaptureViewHandle {
   stop(): void;
   /** «Interrompi la cattura in corso» after CAPTURE_BUSY (review M-3). */
   stopActive(): void;
+  /** I-13b: the answer to the several-voices notice of the running session (SPEC §13 D4). */
+  answerMultiSpeaker(singleSpeaker: boolean): void;
+  /** I-13b, review L-10 of I-13a: back to the home screen, the rows of the ended session go. */
+  clearResult(): void;
 }
 
 export function mountCaptureView(root: HTMLElement, hooks: CaptureViewHooks = {}): CaptureViewHandle {
@@ -481,6 +485,17 @@ export function mountCaptureView(root: HTMLElement, hooks: CaptureViewHooks = {}
     stopActive: () => {
       // SPEC §5: a refused start offers to stop the first session, in whatever tab it runs.
       if (state.active !== null) sendStop(state.active.sessionId);
+    },
+    answerMultiSpeaker: (singleSpeaker) => {
+      const live = state.live;
+      if (live === null || !isRunning(live) || live.multiSpeaker !== 'PENDING') return;
+      const message: CaptureMessage = { v: 1, type: 'MULTI_SPEAKER_ANSWER', singleSpeaker, sessionId: live.sessionId, seq: state.seq++ };
+      void chrome.runtime.sendMessage(message).catch(() => undefined);
+    },
+    clearResult: () => {
+      if (state.live === null || isRunning(state.live)) return;
+      state.live = null;
+      render();
     },
   };
 }

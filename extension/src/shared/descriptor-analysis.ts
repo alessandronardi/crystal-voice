@@ -5,7 +5,7 @@
 // test calls it in Node for the reference. Only numbers and digests leave
 // it, never samples (SPEC §9, AGENTS.md R1).
 import { MAPPING_0_VERSION, seedFromRaw } from '@voicecrystal/calibration';
-import type { CrystalSeed, DescriptorKey, QualitySummary, QualityWarning, SeedConfidence } from '@voicecrystal/contracts';
+import type { CrystalSeed, DescriptorKey, QualitySummary, QualityWarning, RawMeasureTuple, SeedConfidence } from '@voicecrystal/contracts';
 import {
   createWebRtcVad,
   describeFrames,
@@ -19,7 +19,7 @@ export interface DescriptorAnalysis {
   mappingVersion: string;
   status: 'OK' | 'INSUFFICIENT_DATA';
   /** x_i; null = not measurable. Through Math.log2/log10: compared in ULP across engines. */
-  raw: (number | null)[];
+  raw: RawMeasureTuple;
   /** Integer seed of mapping-0, null when the status is INSUFFICIENT_DATA. */
   seed: CrystalSeed | null;
   confidence: SeedConfidence;
@@ -53,7 +53,7 @@ export async function analyzeDescriptors(
       extractorVersion: x.extractorVersion,
       mappingVersion: MAPPING_0_VERSION,
       status: x.status,
-      raw: [...x.raw],
+      raw: x.raw,
       seed: mapped?.seed ?? null,
       confidence: x.confidence,
       warnings: [...x.warnings],

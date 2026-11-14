@@ -40,7 +40,7 @@ export class StreamEvaluator {
     this.analysed = seconds;
     try {
       const p = analyse(this.accumulator.snapshot(seconds * this.sampleRate), this.sampleRate, this.monitor);
-      return { audioSeconds: seconds, validSpeechMs: p.validSpeechMs, evaluations: p.evaluations, last: p.last, converged: p.converged, analysisMs: Math.max(0, now() - t0), failure: null };
+      return { audioSeconds: seconds, validSpeechMs: p.validSpeechMs, evaluations: p.evaluations, last: p.last, converged: p.converged, provisionalSeed: p.provisionalSeed, analysisMs: Math.max(0, now() - t0), failure: null };
     } catch (error: unknown) {
       this.failed = failureOf(error);
       return {
@@ -49,6 +49,7 @@ export class StreamEvaluator {
         evaluations: this.monitor.evaluations,
         last: this.monitor.last,
         converged: false,
+        provisionalSeed: null,
         analysisMs: Math.max(0, now() - t0),
         failure: this.failed,
       };

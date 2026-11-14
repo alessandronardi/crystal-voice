@@ -42,7 +42,8 @@ test('the extension loads and its service worker answers a ping', async () => {
   });
 
   await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
-  await expect(page.locator('h1')).toHaveText('VoiceCrystal');
+  // I-13a: the home screen of SPEC §13.
+  await expect(page.locator('h1')).toHaveText('Cristallizza una voce');
 
   const reply: unknown = await page.evaluate(() =>
     chrome.runtime.sendMessage({ v: 1, type: 'PING', nonce: 'e2e-nonce' }),

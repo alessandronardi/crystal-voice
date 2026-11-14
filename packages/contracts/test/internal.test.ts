@@ -46,6 +46,9 @@ const diag: CaptureDiag = {
   validSpeechMs: 0,
 
   stability: null,
+
+
+  provisionalSeed: null,
 };
 
 const heartbeat = {
@@ -319,6 +322,10 @@ describe('CAPTURE_DIAG valid speech and stability (I-07)', () => {
 
   it('refuses inconsistent or malformed values', () => {
     expect(isCaptureDiag({ ...diag, validSpeechMs: -1 })).toBe(false);
+    // I-13a: the germ's seed only while listening, never on a terminal diagnostic.
+    expect(isCaptureDiag({ ...diag, provisionalSeed: [1, 2, 3, 4, 5, 6] })).toBe(true);
+    expect(isCaptureDiag({ ...diag, state: 'INTERRUPTED', exitReason: 'USER_STOP', provisionalSeed: [1, 2, 3, 4, 5, 6] })).toBe(false);
+    expect(isCaptureDiag({ ...diag, provisionalSeed: [1, 2, 3, 4, 5, 6.5] })).toBe(false);
     expect(isCaptureDiag({ ...diag, validSpeechMs: undefined })).toBe(false);
     expect(isCaptureDiag({ ...diag, stability: undefined })).toBe(false);
     // A failed evaluation resets the run; a passed one belongs to it.

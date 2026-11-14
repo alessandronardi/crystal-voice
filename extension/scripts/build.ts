@@ -35,6 +35,8 @@ import {
 const EXTENSION_DIR = resolve(import.meta.dirname, '..');
 const REPO = resolve(EXTENSION_DIR, '..');
 const SRC = join(EXTENSION_DIR, 'src');
+/** I-13a (D-AI): the chunk that holds three.js, named in GUARD_EXCEPTIONS. */
+export const THREE_CHUNK = 'three';
 const OUT = resolve(EXTENSION_DIR, '../dist/extension');
 
 /** HTML entries, keyed by the flat file name they must have in the bundle. */
@@ -99,8 +101,11 @@ async function buildPagesAndServiceWorker(): Promise<void> {
         output: {
           entryFileNames: (chunk) =>
             chunk.name === 'background' ? 'background.js' : 'assets/[name]-[hash].js',
-          chunkFileNames: 'assets/[name]-[hash].js',
+          // I-13a: three.js in its own chunk with a stable name, so the
+          // guard's reviewed exceptions can name that file and nothing else.
+          chunkFileNames: (chunk) => (chunk.name === THREE_CHUNK ? `assets/${THREE_CHUNK}.js` : 'assets/[name]-[hash].js'),
           assetFileNames: 'assets/[name]-[hash][extname]',
+          advancedChunks: { groups: [{ name: THREE_CHUNK, test: /[\\/]node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?three[\\/]/ }] },
         },
       },
     },
@@ -167,6 +172,7 @@ const COPIED: readonly { from: string; to: string; reason: string }[] = [
   { from: join(REPO, 'packages/dsp-core/wasm/fvad.wasm'), to: 'fvad.wasm', reason: 'libfvad (ADR-0023), loaded by the dsp-worker' },
   { from: join(REPO, 'THIRD_PARTY/libfvad/LICENSE'), to: 'THIRD_PARTY/libfvad/LICENSE.txt', reason: 'libfvad BSD-3-Clause' },
   { from: join(REPO, 'THIRD_PARTY/libfvad/PATENTS'), to: 'THIRD_PARTY/libfvad/PATENTS.txt', reason: 'WebRTC patent grant (D-S)' },
+  { from: join(REPO, 'THIRD_PARTY/three/LICENSE'), to: 'THIRD_PARTY/three/LICENSE.txt', reason: 'three.js MIT, bundled in the side panel since I-13a (D-AI)' },
   ...readdirSync(join(REPO, 'THIRD_PARTY/emscripten'))
     .filter((f) => f.endsWith('.txt'))
     .sort()

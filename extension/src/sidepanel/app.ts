@@ -1,10 +1,7 @@
 import { mountPage } from '../ui/mount-page.ts';
-import { mountCaptureView } from './capture-view.ts';
-import { mountFileView } from './file-view.ts';
+import { mountShell } from './shell.ts';
 
 mountPage('sidepanel');
 const root = document.getElementById('app');
-if (root !== null) {
-  mountCaptureView(root);
-  mountFileView(root);
-}
+// I-13a: the screens of SPEC §13; the capture and file views live inside them.
+if (root !== null) mountShell(root);

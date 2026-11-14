@@ -1,2 +1,79 @@
 /* Tailwind compiled locally at build time: no CDN, no remote fonts (AGENTS.md R2). */
 @import "tailwindcss";
+
+/*
+ * I-13a, «Gabinetto di mineralogia» (decision D-AJ, 2026-11-13): ivory paper,
+ * ink, one verdigris accent; serif for names, monospace for data (SPEC §13).
+ * The font names come first for when the OFL fonts are bundled; until then
+ * the system serif and monospace are used. All colours are [H]: tuned by eye.
+ */
+:root {
+  --vc-bg: #f6f1e7;
+  --vc-paper: #fbf8f1;
+  --vc-ink: #2b2620;
+  --vc-muted: #6b6155;
+  --vc-line: #d9cfbd;
+  --vc-accent: #2f6f62;
+  --vc-accent-ink: #f6f1e7;
+  --vc-serif: 'Spectral', Georgia, 'Times New Roman', serif;
+  --vc-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+}
+
+body.vc-body {
+  margin: 0;
+  background: var(--vc-bg);
+  color: var(--vc-ink);
+  font-family: var(--vc-serif);
+}
+
+.vc-shell { display: flex; flex-direction: column; gap: 14px; padding: 18px 16px 24px; }
+.vc-shell > section { display: flex; flex-direction: column; gap: 14px; }
+.vc-shell > section > .vc-cap { margin-bottom: -6px; }
+.vc-shell > section > button.vc-btn { width: 100%; }
+.vc-cap { font: 600 11px/1.2 var(--vc-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--vc-muted); margin: 0; }
+.vc-title { font-weight: 600; font-size: 26px; line-height: 1.15; margin: 0; }
+.vc-h2 { font-weight: 600; font-size: 21px; line-height: 1.2; margin: 0; }
+.vc-text { margin: 0; font-size: 15px; line-height: 1.45; }
+.vc-muted { color: var(--vc-muted); }
+.vc-card { background: var(--vc-paper); border: 1px solid var(--vc-line); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.vc-card-title { font-weight: 600; font-size: 16px; margin: 0; }
+.vc-btn { font: 600 14px var(--vc-mono); background: var(--vc-accent); color: var(--vc-accent-ink); border: 1px solid var(--vc-accent); padding: 10px 14px; text-align: center; cursor: pointer; }
+.vc-btn-ghost { background: transparent; color: var(--vc-accent); }
+.vc-btn:disabled { background: transparent; color: #a99f90; border: 1px dashed #c9bfae; cursor: default; }
+.vc-btn:focus-visible, .vc-link:focus-visible, .vc-details summary:focus-visible { outline: 2px solid var(--vc-accent); outline-offset: 2px; }
+.vc-btns { display: flex; gap: 8px; }
+.vc-btns .vc-btn { flex: 1; }
+.vc-note { font-size: 12.5px; line-height: 1.45; color: var(--vc-muted); border-top: 1px solid var(--vc-line); padding-top: 10px; margin: 0; }
+.vc-link { color: var(--vc-accent); background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; cursor: pointer; }
+.vc-licenses { margin: 6px 0 0; padding-left: 18px; font: 12px var(--vc-mono); }
+.vc-stage { background: var(--vc-paper); border: 1px solid var(--vc-line); display: flex; justify-content: center; align-items: center; min-height: 200px; padding: 8px; }
+.vc-stage svg, .vc-stage canvas { display: block; max-width: 100%; height: auto; }
+.vc-germ svg { opacity: 0.35; }
+.vc-tag { align-self: center; font: 12px var(--vc-mono); color: var(--vc-muted); border: 1px solid var(--vc-line); padding: 2px 8px; background: var(--vc-paper); }
+.vc-bar { height: 6px; background: var(--vc-line); }
+.vc-bar > span { display: block; height: 6px; background: var(--vc-accent); }
+.vc-data { margin: 0; display: grid; grid-template-columns: 96px 1fr; row-gap: 6px; font: 13px/1.35 var(--vc-mono); }
+.vc-data dt { color: var(--vc-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.08em; padding-top: 2px; }
+.vc-data dd { margin: 0; overflow-wrap: anywhere; }
+.vc-label { background: var(--vc-paper); border: 1px solid var(--vc-line); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.vc-label-name { font-size: 22px; font-weight: 600; margin: 0; }
+.vc-details { border-top: 1px solid var(--vc-line); padding-top: 8px; }
+.vc-details > summary { font: 12px var(--vc-mono); color: var(--vc-muted); cursor: pointer; }
+.vc-tools { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+/* The I-02…I-07 views inside the screens: same palette, without touching their logic. */
+.vc-tools button { font: 600 13px var(--vc-mono); background: var(--vc-accent); color: var(--vc-accent-ink); border: 1px solid var(--vc-accent); border-radius: 0; padding: 8px 12px; }
+.vc-tools button:disabled { background: transparent; color: #a99f90; border: 1px dashed #c9bfae; }
+.vc-tools input { border: 1px solid var(--vc-line); background: var(--vc-paper); border-radius: 0; font-family: var(--vc-mono); }
+.vc-tools h2, .vc-tools h3 { font-family: var(--vc-serif); font-weight: 600; }
+.vc-tools dl { font-family: var(--vc-mono); font-size: 12px; }
+.vc-tools .text-slate-600, .vc-tools .text-slate-500 { color: var(--vc-muted); }
+.vc-tools hr, .vc-tools .border-t { border-color: var(--vc-line); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .vc-reveal { animation: vc-solidify 1.2s ease-out both; }
+  @keyframes vc-solidify { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vc-reveal { animation: vc-fade 0.3s linear both; }
+  @keyframes vc-fade { from { opacity: 0; } to { opacity: 1; } }
+}

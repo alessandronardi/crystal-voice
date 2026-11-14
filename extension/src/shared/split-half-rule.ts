@@ -15,9 +15,10 @@
 // failing one resets the run. observe() catches up: from the frames of one
 // analysis it evaluates every second reached since the previous evaluation,
 // so how many evaluations there are never depends on the machine's speed.
-import { MAPPING_0, mapToPoint, type MappingTable } from '@voicecrystal/calibration';
-import { DESCRIPTOR_KEYS, type DescriptorKey, type SplitHalfBlock } from '@voicecrystal/contracts';
+import { MAPPING_0, mapToPoint, seedFromRaw, type MappingTable } from '@voicecrystal/calibration';
+import { DESCRIPTOR_KEYS, type CrystalSeed, type DescriptorKey, type SplitHalfBlock } from '@voicecrystal/contracts';
 import {
+  computeDescriptors,
   createWebRtcVad,
   extractAcousticFrames,
   isUseful,
@@ -104,6 +105,12 @@ export interface SplitHalfProgress {
   evaluations: number;
   last: SplitHalfEvaluation | null;
   converged: boolean;
+  /**
+   * I-13a: the seed of the whole prefix with the current estimates, for the
+   * growing germ (SPEC §9 provisionalSeed, §13). Null until all six measures
+   * reach their minimum. Display only: never stored, never the result.
+   */
+  provisionalSeed: CrystalSeed | null;
 }
 
 export class SplitHalfMonitor {
@@ -114,6 +121,9 @@ export class SplitHalfMonitor {
   private done = false;
   /** A several-voices warning appeared: pending until an answer (I-13), so every later evaluation is blocked. */
   private multiSpeakerPending = false;
+  /** Review M-6: the germ's seed is recomputed only when the valid speech gains a whole second. */
+  private seedSeconds = -1;
+  private seed: CrystalSeed | null = null;
 
   private readonly table: MappingTable;
 
@@ -150,6 +160,14 @@ export class SplitHalfMonitor {
     return this.latest;
   }
 
+  private provisional(frames: readonly AcousticFrame[], reached: number): CrystalSeed | null {
+    if (reached !== this.seedSeconds) {
+      this.seedSeconds = reached;
+      this.seed = provisionalSeedOf(frames, this.table);
+    }
+    return this.seed;
+  }
+
   /**
    * The frames of one analysis of the audio so far: evaluates, in order,
    * every whole second of valid speech reached since the last evaluation,
@@ -162,7 +180,13 @@ export class SplitHalfMonitor {
       if (split === null) break;
       this.push(inputOf(split));
     }
-    return { validSpeechMs: validSpeechMsOf(frames), evaluations: this.count, last: this.latest, converged: this.done };
+    return {
+      validSpeechMs: validSpeechMsOf(frames),
+      evaluations: this.count,
+      last: this.latest,
+      converged: this.done,
+      provisionalSeed: this.provisional(frames, reached),
+    };
   }
 }
 
@@ -184,6 +208,12 @@ export function observePrefix(
   } finally {
     vad.dispose();
   }
+}
+
+/** The seed of all the frames so far, or null while a measure is below its minimum (R13: never 0). */
+export function provisionalSeedOf(frames: readonly AcousticFrame[], table: MappingTable = MAPPING_0): CrystalSeed | null {
+  const raw = computeDescriptors(frames).raw;
+  return raw.some((x) => x === null) ? null : seedFromRaw(raw, table).seed;
 }
 
 /** Valid speech of a frame sequence, ms: the useful 10 ms frames (same count as qualitySummary). */

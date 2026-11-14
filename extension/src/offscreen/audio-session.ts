@@ -137,6 +137,7 @@ function refuseBusy(sessionId: SessionId): void {
     analysis: null,
     validSpeechMs: 0,
     stability: null,
+    provisionalSeed: null,
   });
 }
 

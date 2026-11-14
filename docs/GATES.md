@@ -49,17 +49,19 @@ Un gate è superato solo con un **verbale** in `docs/gates/<gate>-<AAAA-MM-GG>.m
 - [ ] Tavola SVG byte-identica; fallback senza WebGL funzionante.
 - [ ] Schema `CrystalGeometry` congelato in `habit-1`.
 
-## G0 — legale e distribuzione (obbligatorio prima della fase 4)
+## G0 — legale e distribuzione (obbligatorio prima di qualunque distribuzione)
+
+> Da ADR-0027 (2026-11-13): le fasi 4 e 5 si sviluppano prima di G0; G0 blocca la pubblicazione, i pacchetti e ogni consegna a terzi, ed è richiesto dal gate Release.
 
 **Domanda:** con quale canale e quali sorgenti si può distribuire?
 
-- [ ] `docs/LEGAL_G0_CHECKLIST.md` compilata.
-- [ ] Parere documentato di un professionista qualificato sui Termini YouTube, sul diritto applicabile e sulle policy del Chrome Web Store.
-- [ ] Valutazione privacy (dati di terzi, etichette dei parlanti, export).
-- [ ] Esito scelto fra: (a) estensione con entrambe le sorgenti; (b) estensione con sola «La tua voce»; (c) web app con il solo nucleo.
-- [ ] `docs/STATUS.md` aggiornato con l'esito.
+- [x] `docs/LEGAL_G0_CHECKLIST.md` compilata: fascicolo `docs/gates/G0-fascicolo-legale.md` e registro §6 (2026-11-13).
+- [x] Valutazione documentata sui Termini YouTube, sul diritto applicabile e sulle policy del Chrome Web Store: `docs/gates/G0-valutazione-2026-11-13.md`, scritta da un agente IA di revisione legale e accettata dal product owner (D-AH), **senza parere firmato di un avvocato**.
+- [x] Valutazione privacy (dati di terzi, etichette dei parlanti, export): §3.2 e §3.6 della valutazione IA (D-AH), con prescrizioni G0-TECH-01/02 e G0-DOC-04.
+- [x] Esito scelto fra: (a) estensione con entrambe le sorgenti; (b) estensione con sola «La tua voce»; (c) web app con il solo nucleo: **(a) condizionato**, fallback (b) (valutazione §6, accettata dal product owner, D-AH).
+- [x] `docs/STATUS.md` aggiornato con l'esito (2026-11-13). **Distribuzione bloccata finché le prescrizioni non sono completate.**
 
-Nessun agente esprime pareri legali: prepara materiali e domande, non conclusioni.
+Decisione del product owner D-AH (2026-11-13): la valutazione G0 si fa con un agente IA dedicato alla revisione legale, accettata dal product owner, **senza il parere firmato di un avvocato**. Non è un parere legale professionale: la responsabilità della distribuzione resta del product owner. Gli agenti di sviluppo preparano materiali e domande; le conclusioni sono dell'agente di revisione legale e del product owner. **La distribuzione resta bloccata finché tutte le prescrizioni della valutazione (G0-ACT, G0-TECH, G0-DOC) non sono completate.**
 
 ## Release — fine fase 5
 

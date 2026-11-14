@@ -150,6 +150,13 @@ export interface CaptureDiag {
   validSpeechMs: number;
   /** I-07: the split-half stopping rule (SPEC §8); null before its first analysis. */
   stability: CaptureStability | null;
+  /**
+   * I-13a: seed of the audio so far with the current estimates, for the
+   * growing germ labelled «provvisorio» (SPEC §9, §13). Only while the
+   * session collects audio; null otherwise and until measurable. Never the
+   * result: the result is `analysis.seed` (RESULT_READY).
+   */
+  provisionalSeed: CrystalSeed | null;
 }
 
 /** Why a split-half evaluation did not pass: the first SPEC §8 condition that failed (I-07). */
@@ -441,7 +448,8 @@ export function isCaptureDiag(value: unknown): value is CaptureDiag {
     isNonNegativeFiniteOrNull(value['outputLatency']) &&
     isAnalysisFor(state, value['analysis']) &&
     isNonNegativeFinite(value['validSpeechMs']) &&
-    (value['stability'] === null || isCaptureStability(value['stability']))
+    (value['stability'] === null || isCaptureStability(value['stability'])) &&
+    (value['provisionalSeed'] === null || (isCrystalSeed(value['provisionalSeed']) && !terminal))
   );
 }
 

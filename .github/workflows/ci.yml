@@ -52,12 +52,8 @@ jobs:
             tests/benchmarks/out/vad-latest.json
             tests/benchmarks/out/descriptors.json
           retention-days: 30
+      # ADR-0027: no extension artifact before G0 (the build is not distributed).
       - run: pnpm build
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: extension
-          path: dist/extension/
-          retention-days: 7
 
   e2e:
     name: e2e (Chromium, extension loaded)

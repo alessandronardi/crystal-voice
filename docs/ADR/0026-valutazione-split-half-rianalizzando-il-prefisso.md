@@ -36,6 +36,7 @@ I-07 porta l'arresto anticipato di SPEC §8 e ADR-0008. La regola chiede una val
    1. il prefisso ha almeno 8 s di voce valida;
    2. il prefisso ha tutti e sei i descrittori sopra il minimo;
    3. nessun avviso «più voci» è in attesa di risposta. La risposta dell'utente (`MULTI_SPEAKER_ANSWER`) arriva solo con I-13: fino ad allora un avviso apparso una volta resta in attesa per tutta la sessione, e nessuna valutazione successiva passa (rilievo H-1: su una voce A seguita da una voce B le metà alternate contengono entrambe le voci e si somigliano, quindi solo l'avviso impedisce l'arresto);
+      - **Aggiornamento di I-13b (D-AM, decisione del product owner, 2026-11-14):** la risposta arriva dal dialogo del pannello. «Sì, continua» vale per tutta la sessione: l'avviso non torna in attesa, anche se l'euristica scatta di nuovo, e l'arresto anticipato torna possibile; l'avviso resta fra quelli del risultato e sul cartellino. «No, interrompi» chiude la sessione con `INTERRUPTED` / `MULTI_SPEAKER_DECLINED`. Senza risposta vale la regola di sopra;
    4. le due metà misurano tutti e sei i descrittori;
    5. `s_t = max_i |a_i − b_i| ≤ τ`, in punti della tabella `mapping-0`.
 5. **Arresto.** Servono `SPLIT_HALF_CONSECUTIVE` (3) valutazioni passate di fila; una non passata azzera il conteggio.

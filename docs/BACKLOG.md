@@ -308,7 +308,7 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
     - le righe tecniche di oggi in «Dettagli tecnici».
     - «Salva» e gli ultimi esemplari sono di I-14.
     - Mergiata il 2026-11-14 (PR crystal-voice#18, squash `739fb03`), non chiusa: prove manuali M35–M37 TO DO.
-  - **I-13b, completamento:**
+  - **I-13b, completamento** (branch `issue/I-13b-side-panel`; decisioni D-AL…D-AQ in `docs/STATUS.md`; ADR-0028 Proposto):
     - legenda viva interattiva;
     - avviso più voci con risposta (`MULTI_SPEAKER_ANSWER`);
     - `chooseProfile`;
@@ -335,7 +335,7 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
   - [ ] `QuotaExceededError` simulato: nessun record esistente perso.
   - [ ] 1.000 record sotto 50 MB [H]; `geometryHash` verificato all'apertura.
   - [ ] Avviso dati personali all'export se presenti `speakerLabel`.
-  - [ ] `PRIVACY.md` §3 coerente con ciò che il vault salva davvero e dove (IndexedDB, non `chrome.storage`; miniatura secondo l'ADR di G0-TECH-01). Decisione del product owner D-AK, 2026-11-14.
+  - [ ] `PRIVACY.md` §3 coerente con ciò che il vault salva davvero e dove (IndexedDB, non `chrome.storage`; miniatura secondo l'ADR di G0-TECH-01). Decisione del product owner D-AK, 2026-11-14. Da I-13b: `PRIVACY.md` dovrà citare anche la preferenza «Resa semplificata» in `chrome.storage.local` (un solo valore vero/falso, nessun dato sulla GPU).
   - [ ] **Eredità da I-18:** il record di un'analisi da file contiene solo l'`AnalysisSource` di tipo `file` (`fileName`, `durationSeconds`, `offsetStartSeconds`, `offsetEndSeconds`): nessun contenuto del file, nessun digest del segnale. Il nome è testo non fidato, da validare in scrittura e in import (R17). Test sul record salvato.
   - [ ] `exportCrystalPng(handle, 1024)` in `renderer-three` (SPEC §10, ADR-0012): PNG 1024×1024 con camera ortografica e preset fissi, `dispose` verificato anche sul render target dell'export. Nessuna promessa di PNG identici fra GPU: l'export canonico resta la tavola SVG (ADR-0013). Assegnato a I-14 dal product owner il 2026-11-10.
   - [ ] Geometrie da record importati passano dal controllo di budget di `renderer-three` (`checkBudget`, errore `BUDGET_EXCEEDED`).

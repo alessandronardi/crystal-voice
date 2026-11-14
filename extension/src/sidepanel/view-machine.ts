@@ -1,22 +1,39 @@
-// View machine of the side panel (SPEC §6.2, ADR-0011; I-13a). Pure: the
-// panel feeds it the capture diagnostics and the local-file outcomes, and
-// draws the screen it returns. SAVED and COLLECTION arrive with I-14.
+// View machine of the side panel (SPEC §6.2, ADR-0011; I-13a, I-14). Pure: the
+// panel feeds it diagnostics, local-file outcomes, and saved records, and
+// draws the screen it returns.
 //
 //   HOME ─ a session starts ─▶ LIVE ─ RESULT_READY (accepted seed) ─▶ REVEALED ─ discard ─▶ HOME
 //   LIVE ─ INSUFFICIENT_DATA | INTERRUPTED | ERROR ─▶ OUTCOME ─ dismiss ─▶ HOME
+//   HOME ─ OPEN_SAVED (verified record) ─▶ REVEALED
 //
 // Invariants [F]: no REVEALED without quality.accepted and a seed; old seqs
 // and other sessions while one is live are ignored; a session closed by the
 // user (discard, dismiss) never comes back from a late diagnostic.
-import type { CaptureDiag, CaptureErrorCode, CaptureExitReason, CaptureState, CrystalSeed, QualitySummary, RawMeasureTuple, SessionId } from '@voicecrystal/contracts';
+import type { CaptureDiag, CaptureErrorCode, CaptureExitReason, CaptureState, CrystalRecordV1, CrystalSeed, QualitySummary, RawMeasureTuple, SessionId } from '@voicecrystal/contracts';
 import { CAPTURE_LIMITS } from '../offscreen/capture-machine.ts';
 
 export type ViewSource = 'tab' | 'mic' | 'file';
+
+export interface FileResultSource {
+  fileName: string;
+  durationSeconds: number;
+  offsetStartSeconds: number;
+  offsetEndSeconds: number;
+}
+
+export interface SavedMetadata {
+  id: string;
+  specimenNumber: number;
+  createdAt: string;
+  title: string;
+  speakerLabel: string | null;
+}
 
 export interface RevealedResult {
   source: ViewSource;
   sessionId: SessionId | null;
   fileName: string | null;
+  fileSource: FileResultSource | null;
   seed: CrystalSeed;
   quality: QualitySummary;
   extractorVersion: string | null;
@@ -24,6 +41,8 @@ export interface RevealedResult {
   exitReason: CaptureExitReason | null;
   /** I-13b: raw measures for the live legend (SPEC §13); null when not available. */
   rawMeasures: RawMeasureTuple | null;
+  /** I-14: populated once saved in the local IndexedDB vault or opened from it. */
+  saved: SavedMetadata | null;
 }
 
 export interface ViewOutcome {
@@ -50,6 +69,7 @@ export interface FileAnalysisOutcome {
   extractorVersion: string | null;
   mappingVersion: string | null;
   rawMeasures: RawMeasureTuple | null;
+  fileSource?: FileResultSource | null;
 }
 
 export type ViewEvent =
@@ -60,6 +80,8 @@ export type ViewEvent =
   | { type: 'FILE_CANCELLED' }
   /** The live capture stopped reporting and its routing is gone (capture-view's stale or lost port): no final message will come (review H-1). */
   | { type: 'CAPTURE_LOST'; sessionId: SessionId }
+  | { type: 'OPEN_SAVED'; record: CrystalRecordV1 }
+  | { type: 'MARK_SAVED'; record: CrystalRecordV1 }
   | { type: 'DISCARD' }
   | { type: 'DISMISS' };
 
@@ -90,12 +112,14 @@ function endOf(diag: CaptureDiag, source: ViewSource, closed: readonly SessionId
         source,
         sessionId: diag.sessionId,
         fileName: null,
+        fileSource: null,
         seed: a.seed,
         quality: a.quality,
         extractorVersion: a.extractorVersion,
         mappingVersion: a.mappingVersion,
         exitReason: diag.exitReason,
         rawMeasures: a.rawMeasures,
+        saved: null,
       },
     };
   }
@@ -149,12 +173,14 @@ export function viewTransition(view: ViewState, event: ViewEvent): ViewState {
             source: 'file',
             sessionId: null,
             fileName: view.fileName,
+            fileSource: r.fileSource ?? null,
             seed: r.seed,
             quality: r.quality,
             extractorVersion: r.extractorVersion,
             mappingVersion: r.mappingVersion,
             exitReason: null,
             rawMeasures: r.rawMeasures,
+            saved: null,
           },
         };
       }
@@ -180,6 +206,60 @@ export function viewTransition(view: ViewState, event: ViewEvent): ViewState {
         closed: view.closed,
         outcome: { source: view.source, sessionId: view.sessionId, state: 'ERROR', exitReason: 'OFFSCREEN_CLOSED', code: null, quality: null, message: null },
       };
+    case 'OPEN_SAVED': {
+      if (view.screen === 'LIVE') return view;
+      const rec = event.record;
+      if (!revealable(rec.quality, rec.seed)) return view;
+      const fileSource =
+        rec.source.kind === 'file'
+          ? {
+              fileName: rec.source.fileName,
+              durationSeconds: rec.source.durationSeconds,
+              offsetStartSeconds: rec.source.offsetStartSeconds,
+              offsetEndSeconds: rec.source.offsetEndSeconds,
+            }
+          : null;
+      return {
+        screen: 'REVEALED',
+        closed: view.closed,
+        result: {
+          source: rec.source.kind,
+          sessionId: null,
+          fileName: rec.source.kind === 'file' ? rec.source.fileName : null,
+          fileSource,
+          seed: rec.seed,
+          quality: rec.quality,
+          extractorVersion: rec.extractorVersion,
+          mappingVersion: rec.mappingVersion,
+          exitReason: rec.source.kind === 'file' ? null : rec.captureExitReason,
+          rawMeasures: rec.rawMeasures,
+          saved: {
+            id: rec.id,
+            specimenNumber: rec.specimenNumber,
+            createdAt: rec.createdAt,
+            title: rec.title,
+            speakerLabel: rec.speakerLabel,
+          },
+        },
+      };
+    }
+    case 'MARK_SAVED': {
+      if (view.screen !== 'REVEALED') return view;
+      const rec = event.record;
+      return {
+        ...view,
+        result: {
+          ...view.result,
+          saved: {
+            id: rec.id,
+            specimenNumber: rec.specimenNumber,
+            createdAt: rec.createdAt,
+            title: rec.title,
+            speakerLabel: rec.speakerLabel,
+          },
+        },
+      };
+    }
     case 'DISCARD':
       return view.screen === 'REVEALED' ? home(view.closed, view.result.sessionId) : view;
     case 'DISMISS':

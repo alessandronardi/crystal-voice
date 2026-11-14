@@ -5,3 +5,5 @@ export * from './assert-never.ts';
 export * from './geometry.ts';
 export * from './plate.ts';
 export * from './internal.ts';
+
+export * from './vault.ts';

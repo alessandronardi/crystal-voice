@@ -352,4 +352,230 @@ test.describe('renderer-three showcase (SwiftShader)', () => {
     });
     expect(r).toEqual({ error: 'RenderInputError:FACE_INDEX_OUT_OF_RANGE', living: 0, canvases: 0 });
   });
+
+  test('exportCrystalPng(handle, 1024) produces a 1024x1024 crystal PNG, restores handle state, and leaves no WebGL leaks', async ({ page }) => {
+    await mount(page, { seed: RICH, confidence: FULL, profile: 'vetrina' }, true);
+    const out = await page.evaluate(async () => {
+      const g = globalThis as unknown as {
+        VoiceCrystalRender: {
+          exportCrystalPng: (h: unknown, size?: number) => Promise<Blob>;
+        };
+        __handle: {
+          state: string;
+          angle: number;
+          highlighted: string | null;
+          canvas: HTMLCanvasElement | null;
+          highlight: (t: 'prism' | null) => void;
+          renderAt: (a: number) => void;
+          dispose: () => void;
+        };
+        __webglLive: Record<string, number>;
+      };
+      g.__handle.renderAt(0.4);
+      g.__handle.highlight('prism');
+      const canvasWidthBefore = g.__handle.canvas?.width ?? 0;
+      const canvasHeightBefore = g.__handle.canvas?.height ?? 0;
+
+      const blob = await g.VoiceCrystalRender.exportCrystalPng(g.__handle, 1024);
+      const header = Array.from(new Uint8Array(await blob.slice(0, 8).arrayBuffer()));
+      const bmp = await createImageBitmap(blob);
+      const width = bmp.width;
+      const height = bmp.height;
+      const inspectCanvas = document.createElement('canvas');
+      inspectCanvas.width = width;
+      inspectCanvas.height = height;
+      const ctx = inspectCanvas.getContext('2d');
+      ctx?.drawImage(bmp, 0, 0);
+      const data = ctx?.getImageData(0, 0, width, height).data ?? new Uint8ClampedArray();
+      const corner = [data[0], data[1], data[2]];
+      let distinctPixels = 0;
+      for (let i = 0; i < data.length; i += 16) {
+        if (
+          Math.abs((data[i] ?? 0) - (corner[0] ?? 0)) > 20 ||
+          Math.abs((data[i + 1] ?? 0) - (corner[1] ?? 0)) > 20 ||
+          Math.abs((data[i + 2] ?? 0) - (corner[2] ?? 0)) > 20
+        ) {
+          distinctPixels++;
+        }
+      }
+      bmp.close();
+
+      return {
+        type: blob.type,
+        size: blob.size,
+        header,
+        width,
+        height,
+        distinctPixels,
+        angleAfter: g.__handle.angle,
+        highlightedAfter: g.__handle.highlighted,
+        canvasWidthAfter: g.__handle.canvas?.width ?? 0,
+        canvasHeightAfter: g.__handle.canvas?.height ?? 0,
+        canvasWidthBefore,
+        canvasHeightBefore,
+        liveDuring: { ...g.__webglLive },
+      };
+    });
+
+    expect(out.type).toBe('image/png');
+    expect(out.header).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    expect(out.width).toBe(1024);
+    expect(out.height).toBe(1024);
+    expect(out.distinctPixels).toBeGreaterThan(500);
+    expect(out.angleAfter).toBe(0.4);
+    expect(out.highlightedAfter).toBe('prism');
+    expect(out.canvasWidthAfter).toBe(out.canvasWidthBefore);
+    expect(out.canvasHeightAfter).toBe(out.canvasHeightBefore);
+
+    await disposeHandle(page);
+    const contexts = await page.evaluate(() =>
+      (globalThis as unknown as { __webglTakeContexts: () => { lost: boolean; counts: Record<string, number> }[] }).__webglTakeContexts(),
+    );
+    expect(contexts.filter((c) => !c.lost)).toEqual([]);
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0]?.counts).toEqual({
+      Buffer: 0,
+      Texture: 5,
+      Program: 1,
+      Shader: 0,
+      Framebuffer: 5,
+      Renderbuffer: 3,
+      VertexArray: 0,
+    });
+  });
+
+  test('exportCrystalPng rejects fallback and disposed handles with typed RenderExportError', async ({ page }) => {
+    await mount(page, { seed: RICH, confidence: FULL, profile: 'economy' }, true);
+    await page.evaluate(() => {
+      (globalThis as unknown as { __handle: { dispose: () => void } }).__handle.dispose();
+    });
+    const disposedCode = await page.evaluate(async () => {
+      const g = globalThis as unknown as {
+        VoiceCrystalRender: { exportCrystalPng: (h: unknown, size?: number) => Promise<Blob> };
+        __handle: unknown;
+      };
+      try {
+        await g.VoiceCrystalRender.exportCrystalPng(g.__handle, 1024);
+        return 'none';
+      } catch (e) {
+        return e instanceof Error ? `${e.name}:${(e as Error & { code?: string }).code ?? ''}` : 'untyped';
+      }
+    });
+    expect(disposedCode).toBe('RenderExportError:HANDLE_DISPOSED');
+
+    allowedConsole = [/WebGL context could not be created|Error creating WebGL context/i];
+    await page.evaluate(() => {
+      const original: HTMLCanvasElement['getContext'] = Reflect.get(HTMLCanvasElement.prototype, 'getContext');
+      HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+        if (type === 'webgl2' || type === 'webgl') return null;
+        return (original as (...a: unknown[]) => unknown).call(this, type, ...rest);
+      } as typeof original;
+    });
+    await mount(page, { seed: RICH, confidence: FULL, profile: 'vetrina' }, true);
+    const fallbackCode = await page.evaluate(async () => {
+      const g = globalThis as unknown as {
+        VoiceCrystalRender: { exportCrystalPng: (h: unknown, size?: number) => Promise<Blob> };
+        __handle: unknown;
+      };
+      try {
+        await g.VoiceCrystalRender.exportCrystalPng(g.__handle, 1024);
+        return 'none';
+      } catch (e) {
+        return e instanceof Error ? `${e.name}:${(e as Error & { code?: string }).code ?? ''}` : 'untyped';
+      }
+    });
+    expect(fallbackCode).toBe('RenderExportError:WEBGL_UNAVAILABLE');
+    await disposeHandle(page);
+  });
+
+  test('renderCrystalThumbnail(geometry, 256) creates 256x256 WebP, rejects oversized budgets, and returns null without WebGL', async ({ page }) => {
+    const ok = await page.evaluate(async ([seed, confidence]) => {
+      const g = globalThis as unknown as {
+        VoiceCrystalRender: {
+          generateCrystalGeometry: (s: readonly number[], c: readonly number[], v: string) => { bodies: unknown[] };
+          renderCrystalThumbnail: (geom: unknown, size?: number) => Promise<Blob | null>;
+        };
+        __webglTakeContexts: () => { lost: boolean; counts: Record<string, number> }[];
+      };
+      const geometry = g.VoiceCrystalRender.generateCrystalGeometry(seed, confidence, 'habit-1');
+      const blob = await g.VoiceCrystalRender.renderCrystalThumbnail(geometry, 256);
+      if (blob === null) return { isNull: true };
+
+      const bmp = await createImageBitmap(blob);
+      const width = bmp.width;
+      const height = bmp.height;
+      const inspectCanvas = document.createElement('canvas');
+      inspectCanvas.width = width;
+      inspectCanvas.height = height;
+      const ctx = inspectCanvas.getContext('2d');
+      ctx?.drawImage(bmp, 0, 0);
+      const data = ctx?.getImageData(0, 0, width, height).data ?? new Uint8ClampedArray();
+      const corner = [data[0], data[1], data[2]];
+      let distinctPixels = 0;
+      for (let i = 0; i < data.length; i += 8) {
+        if (
+          Math.abs((data[i] ?? 0) - (corner[0] ?? 0)) > 20 ||
+          Math.abs((data[i + 1] ?? 0) - (corner[1] ?? 0)) > 20 ||
+          Math.abs((data[i + 2] ?? 0) - (corner[2] ?? 0)) > 20
+        ) {
+          distinctPixels++;
+        }
+      }
+      bmp.close();
+
+      let budgetError = 'none';
+      try {
+        await g.VoiceCrystalRender.renderCrystalThumbnail({ ...geometry, bodies: [] }, 256);
+      } catch (e) {
+        budgetError = e instanceof Error ? `${e.name}:${(e as Error & { code?: string }).code ?? ''}` : 'untyped';
+      }
+
+      const contexts = g.__webglTakeContexts();
+      return {
+        isNull: false,
+        type: blob.type,
+        byteSize: blob.size,
+        width,
+        height,
+        distinctPixels,
+        budgetError,
+        livingContexts: contexts.filter((c) => !c.lost).length,
+        contextCounts: contexts.map((c) => c.counts),
+      };
+    }, [RICH, FULL] as const);
+
+    expect(ok).toMatchObject({
+      isNull: false,
+      type: 'image/webp',
+      width: 256,
+      height: 256,
+      budgetError: 'RenderInputError:BUDGET_EXCEEDED',
+      livingContexts: 0,
+      contextCounts: [{ Buffer: 0, Texture: 4, Program: 0, Shader: 0, Framebuffer: 3, Renderbuffer: 0, VertexArray: 0 }],
+    });
+    if ('distinctPixels' in ok && 'byteSize' in ok) {
+      expect(ok.distinctPixels).toBeGreaterThan(100);
+      console.log(`[render] thumbnail webp 256x256: ${ok.byteSize} bytes`);
+    }
+
+    allowedConsole = [/WebGL context could not be created|Error creating WebGL context/i];
+    await page.evaluate(() => {
+      const original: HTMLCanvasElement['getContext'] = Reflect.get(HTMLCanvasElement.prototype, 'getContext');
+      HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+        if (type === 'webgl2' || type === 'webgl') return null;
+        return (original as (...a: unknown[]) => unknown).call(this, type, ...rest);
+      } as typeof original;
+    });
+    const noWebgl = await page.evaluate(async ([seed, confidence]) => {
+      const g = globalThis as unknown as {
+        VoiceCrystalRender: {
+          generateCrystalGeometry: (s: readonly number[], c: readonly number[], v: string) => unknown;
+          renderCrystalThumbnail: (geom: unknown, size?: number) => Promise<Blob | null>;
+        };
+      };
+      const geometry = g.VoiceCrystalRender.generateCrystalGeometry(seed, confidence, 'habit-1');
+      return g.VoiceCrystalRender.renderCrystalThumbnail(geometry, 256);
+    }, [RICH, FULL] as const);
+    expect(noWebgl).toBeNull();
+  });
 });

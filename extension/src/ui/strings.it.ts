@@ -7,6 +7,7 @@ import type {
   DescriptorKey,
   QualityWarning,
 } from '@voicecrystal/contracts';
+import type { VaultErrorCode } from '@voicecrystal/vault';
 
 /** Names of the six descriptors (docs/GLOSSARY.md, SPEC §7.4). */
 const descriptorNames = {
@@ -34,6 +35,20 @@ const analysisFailures = {
   ANALYSIS_FAILED: 'L’analisi non è riuscita.',
   ANALYSIS_TIMEOUT: 'L’analisi ha impiegato troppo tempo ed è stata interrotta.',
 } satisfies Record<CaptureAnalysisFailure, string>;
+
+const vaultErrors = {
+  INVALID_INPUT: 'Controlla i dati inseriti: evita caratteri non ammessi (<, > o di controllo) e rispetta i limiti di lunghezza.',
+  INVALID_JSON: 'Il file selezionato non è un JSON UTF-8 valido.',
+  INVALID_SCHEMA: 'Il file JSON non rispetta lo schema VoiceCrystal v1 o contiene campi non ammessi.',
+  UNSUPPORTED_VERSION: 'Versione dell’archivio o del formato non supportata.',
+  IMPORT_TOO_LARGE: 'Il file supera il limite massimo consentito di 20 MB.',
+  QUOTA_EXCEEDED: 'Spazio esaurito nel browser: gli esemplari già salvati sono intatti. Esporta un backup ed elimina alcuni cristalli.',
+  GEOMETRY_HASH_MISMATCH: 'Verifica crittografica della geometria non superata (geometryHash): esemplare rifiutato.',
+  BUDGET_EXCEEDED: 'La geometria dell’esemplare supera il budget di sicurezza del renderer e non può essere mostrata.',
+  CORRUPT_RECORD: 'I dati salvati per questo esemplare risultano danneggiati o incompleti.',
+  MIGRATION_FAILED: 'Impossibile aggiornare lo schema dell’archivio locale.',
+  STORAGE_ERROR: 'Errore durante l’accesso all’archivio locale IndexedDB.',
+} satisfies Record<VaultErrorCode, string>;
 
 /** Technical rows of the experimental analysis (I-06b), until the crystal view of I-13. */
 const analysis = {
@@ -175,12 +190,38 @@ export const strings = {
       voiceTitle: 'La tua voce',
       voiceText: 'Parla al microfono o scegli un file audio dal computer.',
       // G0-DOC-01: the approved text of docs/gates/G0-valutazione-2026-11-13.md §5.1,
-      // verbatim (review H-4; a test pins it). Its «nessun … dato viene mai
-      // salvato su disco» must be revisited before I-14 saves crystals.
+      // verbatim (review H-4; tests/unit/g0-notice.test.ts pins it).
       noticeTitle: 'Elaborazione 100% Locale e Sperimentale.',
       noticeText:
-        'VoiceCrystal trasforma 6 parametri acustici della voce in un cristallo 3D decorativo. L\'audio viene analizzato esclusivamente nella memoria RAM del tuo computer per pochi secondi e immediatamente scartato: nessun audio o dato viene mai salvato su disco o inviato in rete. Il cristallo e l\'affinità acustica hanno valore puramente artistico e non costituiscono misura biometrica, analisi delle emozioni o identificazione della persona.',
+        'VoiceCrystal trasforma 6 parametri acustici della voce in un cristallo 3D decorativo. L\'audio viene analizzato esclusivamente nella memoria RAM del tuo computer per pochi secondi e immediatamente scartato: nessun audio viene mai salvato su disco né inviato in rete, e i cristalli che scegli di conservare restano solo nell\'archivio locale del tuo browser. Il cristallo e l\'affinità acustica hanno valore puramente artistico e non costituiscono misura biometrica, analisi delle emozioni o identificazione della persona.',
       licenses: 'Licenze open source',
+      recent: {
+        title: 'Ultimi esemplari',
+        empty: 'Nessun esemplare salvato in questo browser.',
+        untitled: 'Senza titolo',
+        open: 'Apri',
+        deleteBtn: 'Elimina',
+        confirmDelete: (code: string): string => `Eliminare definitivamente l’esemplare ${code}?`,
+        confirmYes: 'Sì, elimina',
+        confirmNo: 'Annulla',
+      },
+      archive: {
+        title: 'Archivio locale',
+        description: 'I cristalli salvati restano solo nel database IndexedDB locale di questo browser.',
+        includeLabels: 'Includi titoli, tag ed etichette parlante nell’export',
+        vc20Warning:
+          'Attenzione: le etichette manuali del parlante possono contenere nomi o dati personali di terzi. Esportale e condividile solo se necessario.',
+        exportBtn: 'Esporta archivio JSON',
+        importBtn: 'Importa archivio JSON',
+        emptyExport: 'Nessun esemplare salvato nell’archivio da esportare.',
+        exportedSummary: (count: number, withLabels: boolean): string =>
+          `Esportati ${String(count)} esemplari (${withLabels ? 'con titoli ed etichette manuali' : 'senza titoli né etichette manuali'}).`,
+        importedSummary: (imported: number, duplicates: number): string =>
+          `Importati ${String(imported)} nuovi esemplari (${String(duplicates)} duplicati già presenti ignorati).`,
+        storageWarning:
+          'L’archivio locale del browser ha raggiunto o superato 200 MB stimati: esporta un backup JSON ed elimina gli esemplari che non ti servono più.',
+        errors: vaultErrors,
+      },
     },
     live: {
       caption: (source: string): string => `In ascolto · ${source}`,
@@ -198,8 +239,16 @@ export const strings = {
     revealed: {
       caption: 'Esemplare raccolto',
       name: 'Nuovo esemplare',
-      nameNote: 'Il numero di collezione arriva con l’archivio.',
+      specimenName: (code: string): string => `Esemplare ${code}`,
+      nameNote: 'Il numero di collezione viene assegnato al salvataggio nell’archivio.',
+      savedNote: 'Conservato nell’archivio locale di questo browser.',
       habit: 'Abito',
+      titleField: 'Titolo',
+      speakerField: 'Parlante',
+      titleLabel: 'Titolo (facoltativo)',
+      titlePlaceholder: 'Es. Voce del mattino',
+      speakerLabel: 'Parlante (facoltativo, solo manuale)',
+      speakerPlaceholder: 'Es. Parlante A',
       provenance: 'Provenienza',
       provenanceTab: 'scheda del browser',
       provenanceMic: 'microfono',
@@ -212,7 +261,12 @@ export const strings = {
       experimental: 'Mappatura sperimentale, non ancora calibrata.',
       discard: 'Scarta',
       exportSvg: 'Esporta tavola SVG',
-      save: 'Salva — arriva con l’archivio',
+      exportPng: 'Esporta PNG',
+      exportingPng: 'Esportazione PNG…',
+      exportPngError: 'Impossibile esportare il PNG dalla vista 3D.',
+      save: 'Salva nell’archivio',
+      saving: 'Salvataggio…',
+      saved: (code: string): string => `Salvato (${code})`,
       showcaseLabel: (habit: string): string => `Cristallo: ${habit}`,
       // I-13b: quality warnings and veiled traits on the label (review M-4 of I-13a; ADR-0014).
       warnings: 'Avvisi',

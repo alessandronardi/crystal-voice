@@ -18,6 +18,7 @@
     "@voicecrystal/dsp-core": "workspace:*",
     "@voicecrystal/renderer-svg": "workspace:*",
     "@voicecrystal/renderer-three": "workspace:*",
+    "@voicecrystal/vault": "workspace:*",
     "tailwindcss": "4.3.3",
     "vite": "8.3.5"
   }

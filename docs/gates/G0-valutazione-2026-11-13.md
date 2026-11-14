@@ -97,14 +97,14 @@ Prima di qualsiasi distribuzione o invio al Chrome Web Store devono essere compl
 - [x] **G0-ACT-03 (Verifica `THIRD_PARTY/`)** — eseguita il 2026-11-14: `THIRD_PARTY/libfvad/PATENTS` presente; nessun file `NOTICE` in `system/lib/compiler-rt` di Emscripten 6.0.13 (la versione della build di `fvad.wasm`) né in `compiler-rt` di LLVM, elenchi dei file letti da GitHub: niente da aggiungere (registrato dal progetto): Verificare la presenza del file `PATENTS` di WebRTC per `libfvad` e dell'eventuale file `NOTICE` di LLVM per `compiler-rt` dentro `THIRD_PARTY/`.
 
 ### 4.2 Modifiche Tecniche e di Specifica (Esito A Ottimizzato)
-- [ ] **G0-TECH-01 (Rimozione Metadati YouTube da Storage/Export):** Aggiornare `docs/SPEC_v0.3.md` (§12) e il codice affinché l'archivio locale (`storage`) e l'export JSON **non salvino mai `videoId`, URL o titolo del video YouTube**, conservando solo i 6 interi, la versione dell'algoritmo, la miniatura 3D generata e un'etichetta testuale opzionale inserita dall'utente.
-- [ ] **G0-TECH-02 (Minimizzazione Export JSON):** Fare in modo che l'export JSON condivisibile dall'utente ometta di default l'etichetta testuale (o richieda un opt-in esplicito con avviso).
+- [x] **G0-TECH-01 (Rimozione Metadati YouTube da Storage/Export)** — eseguita con ADR-0029 / I-14 (2026-11-14): `VaultSource` per `tab` salva esclusivamente `{ kind: 'tab' }` senza `videoId`, URL o titolo YouTube; indice `videoId` rimosso da IndexedDB; SPEC §§9, 12, 13 aggiornati (registrato dal progetto): Aggiornare `docs/SPEC_v0.3.md` (§12) e il codice affinché l'archivio locale (`storage`) e l'export JSON **non salvino mai `videoId`, URL o titolo del video YouTube**, conservando solo i 6 interi, la versione dell'algoritmo, la miniatura 3D generata e un'etichetta testuale opzionale inserita dall'utente.
+- [x] **G0-TECH-02 (Minimizzazione Export JSON)** — eseguita con ADR-0029 / I-14 (2026-11-14): l'export JSON omette di default `title`, `speakerLabel` e `tags`, offrendo opt-in esplicito con avviso `VC-20` sui dati personali di terzi (registrato dal progetto): Fare in modo che l'export JSON condivisibile dall'utente ometta di default l'etichetta testuale (o richieda un opt-in esplicito con avviso).
 - [ ] **G0-TECH-03 (Disaccoppiamento da `youtube.com` per CWS):** Rimuovere preferibilmente `"matches": ["https://www.youtube.com/*"]` dai `content_scripts` statici di `extension/manifest.json`, sostituendolo con l'iniezione on-demand tramite `activeTab` + `scripting` su qualsiasi elemento `<video>` HTML5 al clic dell'utente (e non menzionando il marchio YouTube nella scheda dello Store).
 
 ### 4.3 Documentazione, UI e Dataset
-- [x] **G0-DOC-01 (Disclaimer UI)** — eseguita con I-13a (PR crystal-voice#18, `739fb03`): testo §5.1 verbatim nella Home, verificato da `tests/unit/g0-notice.test.ts`, e link ai file di `THIRD_PARTY/` (registrato dal progetto): Inserire nel Side Panel dell'estensione l'avviso sintetico sulla natura 100% locale, artistica e non biometrica dell'analisi (testo in §5.1) e il link ai file in `THIRD_PARTY/`.
+- [x] **G0-DOC-01 (Disclaimer UI)** — eseguita con I-13a (PR crystal-voice#18, `739fb03`) e chiarita su salvataggio locale con ADR-0029 / I-14 (H-4): testo §5.1 verbatim nella Home, verificato da `tests/unit/g0-notice.test.ts`, e link ai file di `THIRD_PARTY/` (registrato dal progetto): Inserire nel Side Panel dell'estensione l'avviso sintetico sulla natura 100% locale, artistica e non biometrica dell'analisi (testo in §5.1) e il link ai file in `THIRD_PARTY/`.
 - [ ] **G0-DOC-02 (Terminologia Confronto):** Assicurarsi che nella UI il confronto fra cristalli sia denominato esclusivamente «Affinità acustica / geometrica» e mai come riconoscimento o verifica della persona.
-- [x] **G0-DOC-03 (Privacy Policy Pubblica)** — eseguita il 2026-11-14: `PRIVACY.md` con il testo §5.3 verbatim; una frase sullo storage è da correggere prima della distribuzione (`docs/STATUS.md`, «Proposte») (registrato dal progetto): Aggiungere `PRIVACY.md` nel repository (testo in §5.3) per il collegamento nella scheda del Chrome Web Store.
+- [x] **G0-DOC-03 (Privacy Policy Pubblica)** — eseguita il 2026-11-14 e allineata su `chrome.storage` + IndexedDB `voicecrystal` con ADR-0029 / I-14 (D-AK) (registrato dal progetto): Aggiungere `PRIVACY.md` nel repository (testo in §5.3) per il collegamento nella scheda del Chrome Web Store.
 - [ ] **G0-DOC-04 (Consenso Calibrazione):** Raccogliere la firma del modulo di consenso informato (§5.4) per ciascuno dei 15 volontari prima di registrare i campioni di calibrazione e cancellare gli audio entro 90 giorni.
 
 ---
@@ -113,7 +113,7 @@ Prima di qualsiasi distribuzione o invio al Chrome Web Store devono essere compl
 
 ### 5.1 Testo Avviso Interfaccia (Side Panel / Onboarding)
 
-> **Elaborazione 100% Locale e Sperimentale.** VoiceCrystal trasforma 6 parametri acustici della voce in un cristallo 3D decorativo. L'audio viene analizzato esclusivamente nella memoria RAM del tuo computer per pochi secondi e immediatamente scartato: nessun audio o dato viene mai salvato su disco o inviato in rete. Il cristallo e l'affinità acustica hanno valore puramente artistico e non costituiscono misura biometrica, analisi delle emozioni o identificazione della persona.
+> **Elaborazione 100% Locale e Sperimentale.** VoiceCrystal trasforma 6 parametri acustici della voce in un cristallo 3D decorativo. L'audio viene analizzato esclusivamente nella memoria RAM del tuo computer per pochi secondi e immediatamente scartato: nessun audio viene mai salvato su disco né inviato in rete, e i cristalli che scegli di conservare restano solo nell'archivio locale del tuo browser. Il cristallo e l'affinità acustica hanno valore puramente artistico e non costituiscono misura biometrica, analisi delle emozioni o identificazione della persona.
 
 ### 5.2 Giustificazioni dei Permessi per il Chrome Web Store
 
@@ -150,7 +150,7 @@ VoiceCrystal opera esclusivamente in locale sul dispositivo dell'utente:
 - Nessun frammento audio viene mai salvato su disco o esportato.
 
 ## 3. Dati salvati in locale
-- L'estensione utilizza lo spazio di archiviazione locale del browser (`chrome.storage`) esclusivamente per conservare lo stato della sessione e l'archivio personale dei cristalli dell'utente (composto dai 6 numeri interi del seme geometrico, versione dell'algoritmo, miniatura 3D ed eventuale etichetta inserita dall'utente).
+- L'estensione utilizza lo spazio di archiviazione locale del browser: `chrome.storage` esclusivamente per lo stato temporaneo della sessione e la preferenza sulla resa grafica semplificata, e `IndexedDB` (database locale `voicecrystal`) per i cristalli che l'utente sceglie esplicitamente di salvare (i 6 numeri interi del seme geometrico, parametri e versioni dell'algoritmo, miniatura 3D generata in locale, eventuale titolo o etichetta manuale e nome del file locale se usato come sorgente; nessun ID, URL o titolo di video YouTube).
 - Tali dati risiedono unicamente sul computer dell'utente e possono essere cancellati in qualsiasi momento tramite l'interfaccia dell'estensione o disinstallando l'estensione.
 
 ## 4. Natura non biometrica

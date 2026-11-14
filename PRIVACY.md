@@ -15,7 +15,7 @@ VoiceCrystal opera esclusivamente in locale sul dispositivo dell'utente:
 - Nessun frammento audio viene mai salvato su disco o esportato.
 
 ## 3. Dati salvati in locale
-- L'estensione utilizza lo spazio di archiviazione locale del browser (`chrome.storage`) esclusivamente per conservare lo stato della sessione e l'archivio personale dei cristalli dell'utente (composto dai 6 numeri interi del seme geometrico, versione dell'algoritmo, miniatura 3D ed eventuale etichetta inserita dall'utente).
+- L'estensione utilizza lo spazio di archiviazione locale del browser: `chrome.storage` esclusivamente per lo stato temporaneo della sessione e la preferenza sulla resa grafica semplificata, e `IndexedDB` (database locale `voicecrystal`) per i cristalli che l'utente sceglie esplicitamente di salvare (i 6 numeri interi del seme geometrico, parametri e versioni dell'algoritmo, miniatura 3D generata in locale, eventuale titolo o etichetta manuale e nome del file locale se usato come sorgente; nessun ID, URL o titolo di video YouTube).
 - Tali dati risiedono unicamente sul computer dell'utente e possono essere cancellati in qualsiasi momento tramite l'interfaccia dell'estensione o disinstallando l'estensione.
 
 ## 4. Natura non biometrica

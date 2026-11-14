@@ -1,5 +1,5 @@
-// I-13a: the view machine of SPEC §6.2 (HOME → LIVE → REVEALED | OUTCOME → HOME), pure.
-import { isCaptureDiag, type CaptureDiag, type QualitySummary } from '@voicecrystal/contracts';
+// I-13a / I-14: the view machine of SPEC §6.2 (HOME → LIVE → REVEALED | OUTCOME → HOME, plus saved vault reopen/mark), pure.
+import { isCaptureDiag, type CaptureDiag, type CrystalRecordV1, type QualitySummary } from '@voicecrystal/contracts';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { INITIAL_VIEW, viewTransition, type ViewEvent, type ViewState } from '../src/sidepanel/view-machine.ts';
@@ -135,6 +135,64 @@ describe('view machine (SPEC §6.2)', () => {
     const live = run([{ type: 'FILE_STARTED', fileName: 'x.wav' }]);
     const r = viewTransition(live, { type: 'FILE_DONE', result: { seed: [1, 1, 1, 1, 1, 1], quality: { ...QUALITY, validSpeechMs: 7990 }, extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental', rawMeasures: null } });
     expect(r.screen).toBe('OUTCOME');
+  });
+
+  it('I-14: MARK_SAVED marks the active REVEALED specimen; OPEN_SAVED opens verified vault records without breaking LIVE', () => {
+    const record: CrystalRecordV1 = {
+      id: A,
+      specimenNumber: 7,
+      schemaVersion: 1,
+      createdAt: '2026-11-14T12:00:00Z',
+      title: 'Campione salvato',
+      speakerLabel: 'Parlante A',
+      source: { kind: 'file', fileName: 'voce.wav', durationSeconds: 20, offsetStartSeconds: 0, offsetEndSeconds: 20 },
+      seed: [1000, 2000, 3000, 4000, 5000, 6000],
+      confidence: [1, 1, 1, 1, 1, 1],
+      rawMeasures: [120, 2.5, 11, 0.2, 1400, 4],
+      extractorVersion: 'extractor-0-experimental',
+      mappingVersion: 'mapping-0-experimental',
+      geometryVersion: 'habit-1',
+      comparatorVersion: 'comparator-0-experimental',
+      captureExitReason: 'MAX_VALID_SPEECH',
+      quality: QUALITY,
+      geometryHash: 'a'.repeat(64),
+      tags: [],
+    };
+
+    const opened = viewTransition(INITIAL_VIEW, { type: 'OPEN_SAVED', record });
+    expect(opened.screen).toBe('REVEALED');
+    if (opened.screen === 'REVEALED') {
+      expect(opened.result.source).toBe('file');
+      expect(opened.result.fileName).toBe('voce.wav');
+      expect(opened.result.exitReason).toBeNull();
+      expect(opened.result.saved).toEqual({
+        id: A,
+        specimenNumber: 7,
+        createdAt: '2026-11-14T12:00:00Z',
+        title: 'Campione salvato',
+        speakerLabel: 'Parlante A',
+      });
+    }
+
+    // Invariant [F]: non-accepted saved record cannot force REVEALED.
+    const invalidOpen = viewTransition(INITIAL_VIEW, {
+      type: 'OPEN_SAVED',
+      record: { ...record, quality: { ...QUALITY, accepted: false } },
+    });
+    expect(invalidOpen).toBe(INITIAL_VIEW);
+
+    // A live capture cannot be interrupted by OPEN_SAVED.
+    const live = run([{ type: 'CAPTURE_DIAG', diag: diag(A, 0), source: 'mic' }]);
+    expect(viewTransition(live, { type: 'OPEN_SAVED', record })).toBe(live);
+
+    // MARK_SAVED enriches a fresh revealed session without changing its screen.
+    const freshRevealed = run([{ type: 'CAPTURE_DIAG', diag: ready(B, 1), source: 'tab' }]);
+    const marked = viewTransition(freshRevealed, { type: 'MARK_SAVED', record: { ...record, source: { kind: 'tab' }, specimenNumber: 8 } });
+    expect(marked.screen).toBe('REVEALED');
+    if (marked.screen === 'REVEALED') {
+      expect(marked.result.saved?.specimenNumber).toBe(8);
+    }
+    expect(viewTransition(INITIAL_VIEW, { type: 'MARK_SAVED', record })).toBe(INITIAL_VIEW);
   });
 
   it('REVEALED is reached only with an accepted seed, whatever the events (property)', () => {

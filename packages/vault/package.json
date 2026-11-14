@@ -9,5 +9,13 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@voicecrystal/contracts": "workspace:*",
+    "@voicecrystal/crystal-core": "workspace:*",
+    "@voicecrystal/renderer-three": "workspace:*"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "6.2.7"
   }
 }

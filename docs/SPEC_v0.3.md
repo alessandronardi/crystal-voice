@@ -504,6 +504,8 @@ interface AnalysisResult {
 
 **File locali [H]:** si analizzano al massimo i primi 120 s di audio decodificato (`FILE_TOO_LONG` oltre 30 minuti di durata totale); l'utente può scegliere il punto di partenza. Il PCM decodificato resta in memoria solo per la durata dell'analisi.
 
+> **Modificato da ADR-0029 (accettato il 2026-11-14, G0-TECH-01):** nel vault e nell'export JSON (`VaultSource`), per la sorgente `tab` non si conservano `videoId`, piattaforma, URL né titolo del video YouTube; si registra soltanto `{ kind: 'tab' }` (per `'mic'`: `{ kind: 'mic' }`; per `'file'`: nome e intervallo in secondi).
+
 **Contratto di errore:** `CAPTURE_FAILED` non equivale a un risultato incompleto valido. `CAPTURE_RESULT` deve essere emesso una sola volta e solo dopo la pulizia della sessione audio. Per eventi inattesi, log locale di errore senza audio o stream ID. Sanitizzare `title` e dati importati come testo, non come HTML.
 
 ## 10. Generatore di cristalli: determinismo verificabile
@@ -607,6 +609,8 @@ Testo UI: «Più vicini del N% delle coppie di voci diverse di riferimento». Pr
 
 ## 12. Vault IndexedDB: schema, migrazioni, export
 
+> **Modificato da ADR-0029 (accettato il 2026-11-14, G0-TECH-01 / G0-TECH-02):** l'indice `videoId` sullo store `crystals` è rimosso (restano `createdAt`, `sourceKind`, `mappingVersion`); `source` in vault ed export non conserva `videoId`, URL, piattaforma o titolo YouTube (`{ kind: 'tab' }` per la sorgente scheda); nessun link sorgente esterno viene ricostruito; l'export JSON omette di default le etichette testuali inserite dall'utente (`title`, `speakerLabel`, `tags`) e richiede opt-in esplicito con avviso `VC-20` quando è presente `speakerLabel`.
+
 Database `voicecrystal`, schema v1. Store `crystals` (key `id` UUID), indici `createdAt`, `sourceKind`, `videoId`, `mappingVersion`. Store `thumbnails` (key `id`, valore `Blob` WebP 256×256). Store `settings` opzionale. Niente PNG nel record (Δ18): l'immagine si rigenera dal seed; il codice di tutte le `geometryVersion` pubblicate resta nel bundle.
 
 ```ts
@@ -649,6 +653,8 @@ interface CrystalRecordV1 {
 5. **Confronto (scheda dedicata):** due esemplari sullo stesso piatto, stessa scala e camera; percentile di vicinanza; sei contributi affiancati.
 
 **Cartellino da collezione [F]:** «Esemplare VC-0042 · Abito: prisma diesagonale · Provenienza: youtube.com/watch?v=… a 1:23 (oppure: microfono / file `nome`) · Raccolto il 9 nov 2026 · Estrattore `extractor-0-experimental`». Serif per il nome dell'esemplare, monospace per i dati, un solo colore d'accento. Font inclusi nel bundle con licenza OFL.
+
+> **Modificato da ADR-0029 (accettato il 2026-11-14, G0-TECH-01):** per la sorgente scheda il cartellino mostra `Provenienza: scheda del browser` e non ricostruisce né mostra `videoId`, URL o titoli YouTube.
 
 **Legenda viva [F]:** selezionando un tratto del cristallo (o la riga corrispondente nella legenda testuale accessibile) si legge la misura che l'ha generato, es. «Zonatura: 4,1 onset/s, 68° percentile». I tratti velati riportano «confidenza bassa».
 

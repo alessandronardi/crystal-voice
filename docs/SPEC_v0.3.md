@@ -314,6 +314,8 @@ COLLECTION ─ select A,B ─▶ COMPARING ─▶ COLLECTION
 - **Scelta del VAD [G1]:** WebRTC VAD (libfvad) e Silero VAD vengono confrontati in I-05 sulle stesse fixture; la scelta è registrata in un ADR con licenza, dimensione del bundle e falsi positivi su musica.
 - **Euristica musica [H]:** indizi di musica sono altezza stabile entro ±25 cent per oltre 200 ms, energia armonica sostenuta fra le sillabe e flusso spettrale periodico. Se la quota di frame utili con indizi musicali supera il 20%, warning `MIXED_AUDIO_UNCERTAIN`.
 - **Euristica più voci [H] (D4, Δ19):** distribuzione di log2(f0) bimodale (coefficiente di bimodalità > 0,555 su almeno 4 s di voce) oppure salti ripetuti del centroide mediano fra blocchi di 1 s. Esito: warning `MULTI_SPEAKER_SUSPECTED`. La UI chiede all'utente «Parla una sola persona in questo tratto?»; se risponde sì il cristallo è valido e porta il warning; se no la sessione termina con `INSUFFICIENT_DATA`.
+
+> **Precisato da I-13b (decisioni del product owner del 2026-11-14):** con «No, interrompi» la sessione termina con `INTERRUPTED` / `MULTI_SPEAKER_DECLINED` (arco già presente nella macchina di ADR-0011), non con `INSUFFICIENT_DATA` (D-AT). «Sì, continua» vale per tutta la sessione (D-AM, nota in ADR-0026). Un avviso visto durante l'ascolto resta fra i warning del risultato, anche senza risposta: all'arresto il cristallo nasce e il cartellino lo segnala (D-AR). Per un file locale l'analisi è già finita: nessuna domanda, solo l'avviso sul cartellino (D-AS).
 - **Confidenza per parametro [F] (D3):** ogni descrittore ha `confidence ∈ [0,1]` calcolata dalla quota di frame utilizzabili e dalla presenza di warning pertinenti. Un parametro con confidenza < 0,5 [H] non invalida il cristallo: il tratto visivo corrispondente è reso «velato» e il cartellino lo dichiara. Il cristallo è `INSUFFICIENT_DATA` solo se un descrittore non è calcolabile affatto o se più di due hanno confidenza < 0,5.
 
 ### 7.3 Caratteristiche frame-level
@@ -649,6 +651,8 @@ interface CrystalRecordV1 {
 **Cartellino da collezione [F]:** «Esemplare VC-0042 · Abito: prisma diesagonale · Provenienza: youtube.com/watch?v=… a 1:23 (oppure: microfono / file `nome`) · Raccolto il 9 nov 2026 · Estrattore `extractor-0-experimental`». Serif per il nome dell'esemplare, monospace per i dati, un solo colore d'accento. Font inclusi nel bundle con licenza OFL.
 
 **Legenda viva [F]:** selezionando un tratto del cristallo (o la riga corrispondente nella legenda testuale accessibile) si legge la misura che l'ha generato, es. «Zonatura: 4,1 onset/s, 68° percentile». I tratti velati riportano «confidenza bassa».
+
+> **Modificato da ADR-0028 (accettato il 2026-11-14):** si seleziona un tratto dalle righe della legenda, e il tratto si evidenzia sulla vetrina; il clic sul cristallo non seleziona nulla. Colore e zonatura riguardano tutto il cristallo e non si evidenziano.
 
 **Avviso più voci [F] (D4):** dialogo non bloccante «Sembrano esserci più voci. Parla una sola persona in questo tratto?» con «Sì, continua» e «No, interrompi».
 

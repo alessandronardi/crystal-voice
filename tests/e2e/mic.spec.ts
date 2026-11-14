@@ -279,6 +279,8 @@ test('microphone listening on the synthetic voice stops at 18 s of valid speech 
   // I-13a: the listening screen, with the germ drawn from the provisional seed.
   await expect.poll(() => h.inSidePanel(`document.querySelector('[data-testid="shell-screen"]')?.dataset.screen ?? ''`)).toBe('LIVE');
   await expect.poll(() => h.inSidePanel(`document.querySelector('[data-testid="shell-germ"] svg') !== null`), { timeout: 20_000 }).toBe(true);
+  // I-13b: no serious accessibility violation on the listening screen (axe-core).
+  expect(await h.axeSidePanel()).toEqual([]);
   // Review H-2: «Interrompi» keeps the focus across the progress ticks (it is updated in place, not rebuilt).
   expect(await h.inSidePanel(`(() => { const b = document.querySelector('[data-testid="shell-stop"]'); b?.focus(); return document.activeElement === b; })()`)).toBe(true);
   await new Promise((r) => setTimeout(r, 1_600));

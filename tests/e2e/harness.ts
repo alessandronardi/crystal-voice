@@ -11,6 +11,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium, expect, type BrowserContext, type CDPSession, type Page, type Worker } from '@playwright/test';
+import axe from 'axe-core';
 
 export const EXTENSION_PATH = resolve(import.meta.dirname, '../../dist/extension');
 export const HEADLESS = process.env['VC_E2E_HEADLESS'] === '1';
@@ -315,6 +316,28 @@ export class ExtensionHarness {
     } finally {
       await this.browserSession.send('Target.detachFromTarget', { sessionId }).catch(() => undefined);
     }
+  }
+
+  /**
+   * I-13b: axe-core in the one open side panel (SPEC §13 accessibility,
+   * BACKLOG I-13 «axe-core senza violazioni serie»). The side panel is not a
+   * Playwright Page, so axe's source goes in through CDP (which the page CSP
+   * does not apply to: nothing of axe is in the bundle). Returns the serious
+   * and critical violations, with the elements they concern.
+   */
+  async axeSidePanel(): Promise<{ id: string; impact: string; targets: string[] }[]> {
+    return this.withSidePanel(async (send) => {
+      await send('Runtime.evaluate', { expression: `if (globalThis.axe === undefined) { ${axe.source} }`, returnByValue: true });
+      const run = (await send('Runtime.evaluate', {
+        expression: `axe.run(document, { resultTypes: ['violations'] }).then((r) => r.violations
+          .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+          .map((v) => ({ id: v.id, impact: v.impact, targets: v.nodes.map((n) => n.target.join(' ')) })))`,
+        returnByValue: true,
+        awaitPromise: true,
+      })) as { result?: { value?: unknown }; exceptionDetails?: unknown };
+      if (run.exceptionDetails !== undefined) throw new Error(`axe failed: ${JSON.stringify(run.exceptionDetails)}`);
+      return run.result?.value as { id: string; impact: string; targets: string[] }[];
+    });
   }
 
   /**

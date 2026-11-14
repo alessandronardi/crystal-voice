@@ -5,6 +5,18 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 ## [Unreleased]
 
 ### Aggiunto
+- I-13b: completamento del pannello (SPEC §13). Non distribuibile prima che le prescrizioni di G0 siano completate.
+  - **Legenda viva** (ADR-0028, accettato il 2026-11-14, D-AU): sei righe con misura grezza e percentile della taratura sperimentale; scegliendo una riga il tratto si evidenzia sulla vetrina (prisma, terminazioni, secondari, inclusioni), mai un elemento che non esiste.
+  - **Avviso più voci** (`MULTI_SPEAKER_ANSWER`): dialogo non bloccante nel pannello, «No» interrompe con `MULTI_SPEAKER_DECLINED`, «Sì» vale per tutta la sessione (D-AM, nota in ADR-0026); l'avviso visto in ascolto resta fra i warning del risultato, anche senza risposta (D-AR); per i file solo il cartellino (D-AS); «No» termina con `INTERRUPTED` (D-AT). Note in SPEC §7.2 e §13.
+  - **Cartellino:** avvisi di qualità e tratti velati, anche quando il velo non ha un elemento da mostrare.
+  - **`chooseProfile`** e `probeGpu` in `renderer-three`: economy con GPU software, contesto lento o primi fotogrammi oltre 33 ms al p95 (D-AN); opzione «Resa semplificata» ricordata in `chrome.storage.local` (permesso già presente).
+  - **Contratti interni:** `CaptureDiag.multiSpeaker`, `CaptureAnalysis.rawMeasures`, guardia `isMultiSpeakerAnswer`. `CaptureMessage` di SPEC §9 invariato.
+  - **Aspetto:** fondo della vetrina «inchiostro caldo» (D-AP); font Spectral e IBM Plex Mono (OFL) nel pacchetto (D-AQ).
+  - **Licenze:** Tailwind CSS, Spectral e IBM Plex Mono nell'elenco della Home; test che confronta `THIRD_PARTY/three/LICENSE` e `THIRD_PARTY/tailwindcss/LICENSE` con i pacchetti installati (L-6).
+  - **Accessibilità:** controlli axe-core negli E2E (Home, ascolto, avviso più voci, rivelazione, esito); `axe-core` 4.14.0 come dipendenza di sviluppo (MPL-2.0, non nel bundle).
+  - **Test:** E2E `multi-speaker.spec.ts` con il microfono finto su `a-then-b.wav`; `preview.spec.ts` per le schermate (solo con `VC_PREVIEW_DIR`); prove manuali M38–M42.
+
+- G0: `LICENSE` (MIT) nella radice (prescrizione G0-ACT-02) e `PRIVACY.md` con il testo approvato in §5.3 della valutazione G0 (G0-DOC-03). G0-ACT-03 verificata: il `PATENTS` di libfvad è in `THIRD_PARTY/`, compiler-rt (LLVM) non ha un file `NOTICE` da includere.
 - I-13a: le schermate del pannello (SPEC §13), stile «Gabinetto di mineralogia» (D-AJ). Non distribuibile prima che le prescrizioni di G0 siano completate.
   - **Macchina della vista** pura (SPEC §6.2): `HOME → LIVE → REVEALED | OUTCOME → HOME` in `extension/src/sidepanel/view-machine.ts`, con property test (mai un cristallo senza qualità accettata e 8 s di voce valida).
   - **Home:** le tre sorgenti, l'avviso «elaborazione locale e sperimentale» (prescrizione G0-DOC-01) e i link alle licenze nel pacchetto.
@@ -141,6 +153,9 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
   - D-P: rifiuto dei file senza durata.
 
   ADR-0022 accettato dal product owner (D-M).
+
+### Corretto
+- I-13b, rilievo L-10 di I-13a: tornando alla Home, la card «La tua voce» non mostra più le righe tecniche della sessione chiusa.
 
 ### Misurato
 - I-18 (Chromium 156 contro Node 26.13, Windows 11):

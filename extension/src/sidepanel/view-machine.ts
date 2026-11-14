@@ -8,7 +8,7 @@
 // Invariants [F]: no REVEALED without quality.accepted and a seed; old seqs
 // and other sessions while one is live are ignored; a session closed by the
 // user (discard, dismiss) never comes back from a late diagnostic.
-import type { CaptureDiag, CaptureErrorCode, CaptureExitReason, CaptureState, CrystalSeed, QualitySummary, SessionId } from '@voicecrystal/contracts';
+import type { CaptureDiag, CaptureErrorCode, CaptureExitReason, CaptureState, CrystalSeed, QualitySummary, RawMeasureTuple, SessionId } from '@voicecrystal/contracts';
 import { CAPTURE_LIMITS } from '../offscreen/capture-machine.ts';
 
 export type ViewSource = 'tab' | 'mic' | 'file';
@@ -22,6 +22,8 @@ export interface RevealedResult {
   extractorVersion: string | null;
   mappingVersion: string | null;
   exitReason: CaptureExitReason | null;
+  /** I-13b: raw measures for the live legend (SPEC §13); null when not available. */
+  rawMeasures: RawMeasureTuple | null;
 }
 
 export interface ViewOutcome {
@@ -47,6 +49,7 @@ export interface FileAnalysisOutcome {
   quality: QualitySummary;
   extractorVersion: string | null;
   mappingVersion: string | null;
+  rawMeasures: RawMeasureTuple | null;
 }
 
 export type ViewEvent =
@@ -92,6 +95,7 @@ function endOf(diag: CaptureDiag, source: ViewSource, closed: readonly SessionId
         extractorVersion: a.extractorVersion,
         mappingVersion: a.mappingVersion,
         exitReason: diag.exitReason,
+        rawMeasures: a.rawMeasures,
       },
     };
   }
@@ -150,6 +154,7 @@ export function viewTransition(view: ViewState, event: ViewEvent): ViewState {
             extractorVersion: r.extractorVersion,
             mappingVersion: r.mappingVersion,
             exitReason: null,
+            rawMeasures: r.rawMeasures,
           },
         };
       }

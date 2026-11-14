@@ -1,6 +1,6 @@
 // CaptureSession: watchdog (ADR-0004), machine wiring, single exit. Fake clock
 // and timers: the real offscreen injects performance.now() and setTimeout.
-import { isCaptureDiag, type CaptureDiag, type HeartbeatMessage } from '@voicecrystal/contracts';
+import { isCaptureDiag, type CaptureDiag, type HeartbeatMessage, type MultiSpeakerAnswerMessage } from '@voicecrystal/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   ANALYSIS_TIMEOUT_MS,
@@ -36,6 +36,7 @@ const NO_VOICE: SessionAnalysis = {
     mappingVersion: 'mapping-0-experimental',
     failure: null,
     analysedMs: 45_000,
+    rawMeasures: [7.5, 3.4, 12.1, 0.21, 10.5, null],
   },
   accepted: false,
   validSpeechMs: 0,
@@ -580,7 +581,7 @@ describe('FINALIZING and the end-of-session analysis (I-06b, ADR-0025)', () => {
     expect(h.session.state).toBe('FINALIZING');
     await h.advance(ANALYSIS_TIMEOUT_MS + 200);
     expect(h.last).toMatchObject({ state: 'INSUFFICIENT_DATA', exitReason: 'WALL_TIMEOUT' });
-    expect(h.last?.analysis).toEqual({ quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure: 'ANALYSIS_TIMEOUT', analysedMs: null });
+    expect(h.last?.analysis).toEqual({ quality: null, seed: null, extractorVersion: null, mappingVersion: null, failure: 'ANALYSIS_TIMEOUT', analysedMs: null, rawMeasures: null });
     expect(isCaptureDiag(h.last)).toBe(true);
     expect(h.session.state).toBe('IDLE');
   });
@@ -664,7 +665,7 @@ describe('FINALIZING captures nothing (review C-1, R8, ADR-0004)', () => {
 
 describe('split-half progress from the worker (I-07, ADR-0026)', () => {
   function progress(over: Partial<StreamProgress> = {}): StreamProgress {
-    return { audioSeconds: 14, validSpeechMs: 8_410, evaluations: 0, last: null, converged: false, provisionalSeed: null, analysisMs: 200, failure: null, ...over };
+    return { audioSeconds: 14, validSpeechMs: 8_410, evaluations: 0, last: null, converged: false, provisionalSeed: null, analysisMs: 200, failure: null, multiSpeakerPending: false, ...over };
   }
   const passed = (seconds: number, consecutive: number): StreamProgress['last'] => ({
     seconds,
@@ -673,6 +674,78 @@ describe('split-half progress from the worker (I-07, ADR-0026)', () => {
     passed: true,
     blockedBy: null,
     consecutive,
+  });
+
+  const answer = (singleSpeaker: boolean, seq: number, sessionId: string = SESSION): MultiSpeakerAnswerMessage => ({ v: 1, type: 'MULTI_SPEAKER_ANSWER', singleSpeaker, sessionId, seq });
+
+  it('I-13b: a several-voices warning is PENDING in the diagnostics until the user answers', async () => {
+    const h = listening();
+    expect(h.last?.multiSpeaker).toBe('NONE');
+    // An answer with no notice pending changes nothing.
+    expect(h.session.answerMultiSpeaker(answer(true, 0))).toBe(false);
+    h.session.onProgress(progress({ multiSpeakerPending: true }));
+    await h.advance(500);
+    h.heartbeat();
+    expect(h.last?.multiSpeaker).toBe('PENDING');
+    // «Sì, continua»: CONFIRMED at once, the worker must be told; later PENDING progress does not undo it (D-AM).
+    expect(h.session.answerMultiSpeaker(answer(true, 1))).toBe(true);
+    expect(h.last?.multiSpeaker).toBe('CONFIRMED');
+    h.session.onProgress(progress({ multiSpeakerPending: true }));
+    await h.advance(500);
+    expect(h.last?.multiSpeaker).toBe('CONFIRMED');
+    expect(h.session.state).toBe('LISTENING');
+    // A second answer has nothing left to do.
+    expect(h.session.answerMultiSpeaker(answer(false, 2))).toBe(false);
+    expect(h.session.state).toBe('LISTENING');
+    for (const d of h.diags) expect(isCaptureDiag(d), d.state).toBe(true);
+  });
+
+  it('I-13b: «No, interrompi» ends the session with MULTI_SPEAKER_DECLINED', async () => {
+    const h = listening();
+    h.session.onProgress(progress({ multiSpeakerPending: true }));
+    expect(h.session.answerMultiSpeaker(answer(false, 0))).toBe(false);
+    await h.advance(1_000);
+    expect(h.last).toMatchObject({ state: 'INTERRUPTED', exitReason: 'MULTI_SPEAKER_DECLINED' });
+    expect(h.releases).toBe(1);
+  });
+
+  it('I-13b, review H-1: after «Sì» the result carries MULTI_SPEAKER_SUSPECTED even if the final analysis drops it', async () => {
+    const h = listening();
+    h.analysisOutcome = voice(18_000);
+    h.session.onProgress(progress({ multiSpeakerPending: true }));
+    expect(h.session.answerMultiSpeaker(answer(true, 0))).toBe(true);
+    h.session.onProgress(progress({ validSpeechMs: 18_000 }));
+    await h.advance(1_000);
+    expect(h.last?.state).toBe('RESULT_READY');
+    expect(h.last?.analysis?.quality?.warnings).toContain('MULTI_SPEAKER_SUSPECTED');
+    expect(isCaptureDiag(h.last)).toBe(true);
+  });
+
+  it('I-13b, review H-1: a notice left unanswered stays in the result too', async () => {
+    const h = listening();
+    h.analysisOutcome = voice(18_000);
+    h.session.onProgress(progress({ multiSpeakerPending: true }));
+    h.session.onProgress(progress({ validSpeechMs: 18_000, multiSpeakerPending: true }));
+    await h.advance(1_000);
+    expect(h.last?.analysis?.quality?.warnings).toContain('MULTI_SPEAKER_SUSPECTED');
+  });
+
+  it('I-13b, review L-1: a refused answer does not use up the seq', () => {
+    const h = listening();
+    expect(h.session.answerMultiSpeaker(answer(true, 7))).toBe(false); // nothing pending yet
+    h.session.onProgress(progress({ multiSpeakerPending: true }));
+    expect(h.session.answerMultiSpeaker(answer(true, 0))).toBe(true); // a reopened panel starts again from 0
+  });
+
+  it('I-13b: answers for another session or with an old seq are ignored and counted', () => {
+    const h = listening();
+    h.session.onProgress(progress({ multiSpeakerPending: true }));
+    expect(h.session.answerMultiSpeaker(answer(false, 5, '00000000-0000-4000-8000-000000000000'))).toBe(false);
+    expect(h.session.ignored.wrongSession).toBe(1);
+    expect(h.session.answerMultiSpeaker(answer(true, 5))).toBe(true);
+    expect(h.session.answerMultiSpeaker(answer(false, 5))).toBe(false);
+    expect(h.session.ignored.staleSeq).toBe(1);
+    expect(h.session.state).toBe('LISTENING');
   });
 
   it('a converged evaluation stops the session at once with CONVERGED, and the seed comes from the final analysis', async () => {

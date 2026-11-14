@@ -38,6 +38,7 @@ function diag(sessionId: string, seq: number, over: Partial<CaptureDiag> = {}): 
     validSpeechMs: 0,
     stability: null,
     provisionalSeed: null,
+    multiSpeaker: 'NONE',
     ...over,
   };
 }
@@ -46,7 +47,7 @@ const ready = (sessionId: string, seq: number): CaptureDiag =>
   diag(sessionId, seq, {
     state: 'RESULT_READY',
     exitReason: 'MAX_VALID_SPEECH',
-    analysis: { quality: QUALITY, seed: [1, 2, 3, 4, 5, 6], extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental', failure: null, analysedMs: 30_000 },
+    analysis: { quality: QUALITY, seed: [1, 2, 3, 4, 5, 6], extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental', failure: null, analysedMs: 30_000, rawMeasures: [7.5, 3.4, 12.1, 0.21, 10.5, 4.1] },
   });
 
 const run = (events: ViewEvent[], from: ViewState = INITIAL_VIEW): ViewState => events.reduce(viewTransition, from);
@@ -121,10 +122,10 @@ describe('view machine (SPEC §6.2)', () => {
     expect(live).toMatchObject({ screen: 'LIVE', source: 'file', fileName: 'voce.wav' });
     const done = viewTransition(live, {
       type: 'FILE_DONE',
-      result: { seed: [9, 8, 7, 6, 5, 4], quality: QUALITY, extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental' },
+      result: { seed: [9, 8, 7, 6, 5, 4], quality: QUALITY, extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental', rawMeasures: [7.5, 3.4, 12.1, 0.21, 10.5, 4.1] },
     });
-    expect(done).toMatchObject({ screen: 'REVEALED', result: { source: 'file', fileName: 'voce.wav', seed: [9, 8, 7, 6, 5, 4] } });
-    const short = viewTransition(live, { type: 'FILE_DONE', result: { seed: null, quality: { ...QUALITY, validSpeechMs: 6000 }, extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental' } });
+    expect(done).toMatchObject({ screen: 'REVEALED', result: { source: 'file', fileName: 'voce.wav', seed: [9, 8, 7, 6, 5, 4], rawMeasures: [7.5, 3.4, 12.1, 0.21, 10.5, 4.1] } });
+    const short = viewTransition(live, { type: 'FILE_DONE', result: { seed: null, quality: { ...QUALITY, validSpeechMs: 6000 }, extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental', rawMeasures: null } });
     expect(short).toMatchObject({ screen: 'OUTCOME', outcome: { source: 'file', state: 'INSUFFICIENT_DATA' } });
     expect(viewTransition(live, { type: 'FILE_FAILED', code: 'FILE_DECODE_FAILED', message: 'Troppo lungo' })).toMatchObject({ screen: 'OUTCOME', outcome: { state: 'ERROR', code: 'FILE_DECODE_FAILED', message: 'Troppo lungo' } });
     expect(viewTransition(live, { type: 'FILE_CANCELLED' })).toEqual(INITIAL_VIEW);
@@ -132,7 +133,7 @@ describe('view machine (SPEC §6.2)', () => {
 
   it('a file result with less than 8 s of valid speech is never revealed (D-AA)', () => {
     const live = run([{ type: 'FILE_STARTED', fileName: 'x.wav' }]);
-    const r = viewTransition(live, { type: 'FILE_DONE', result: { seed: [1, 1, 1, 1, 1, 1], quality: { ...QUALITY, validSpeechMs: 7990 }, extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental' } });
+    const r = viewTransition(live, { type: 'FILE_DONE', result: { seed: [1, 1, 1, 1, 1, 1], quality: { ...QUALITY, validSpeechMs: 7990 }, extractorVersion: 'extractor-0-experimental', mappingVersion: 'mapping-0-experimental', rawMeasures: null } });
     expect(r.screen).toBe('OUTCOME');
   });
 
@@ -150,7 +151,7 @@ describe('view machine (SPEC §6.2)', () => {
               exitReason: terminal ? 'WALL_TIMEOUT' : null,
               analysis:
                 r.state === 'RESULT_READY'
-                  ? { quality: { ...QUALITY, accepted: r.accepted }, seed: r.seed ? [1, 2, 3, 4, 5, 6] : null, extractorVersion: 'x', mappingVersion: 'm', failure: null, analysedMs: 1 }
+                  ? { quality: { ...QUALITY, accepted: r.accepted }, seed: r.seed ? [1, 2, 3, 4, 5, 6] : null, extractorVersion: 'x', mappingVersion: 'm', failure: null, analysedMs: 1, rawMeasures: [1, 1, 1, 1, 1, 1] }
                   : null,
             }),
           };

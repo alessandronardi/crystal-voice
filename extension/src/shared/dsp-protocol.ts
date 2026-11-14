@@ -10,7 +10,7 @@
 //  - I-07 (ADR-0026): while the stream runs, the worker analyses the audio so
 //    far once per whole second and answers STREAM_PROGRESS (valid speech and
 //    the split-half evaluations, numbers only).
-import { isCrystalSeed, SPLIT_HALF_BLOCKS, type CrystalSeed } from '@voicecrystal/contracts';
+import { isCrystalSeed, isRawMeasureTuple, SPLIT_HALF_BLOCKS, type CrystalSeed } from '@voicecrystal/contracts';
 import type { DspInputErrorCode } from '@voicecrystal/dsp-core';
 import type { DescriptorAnalysis } from './descriptor-analysis.ts';
 import type { PcmAnalysis } from './pcm-analysis.ts';
@@ -34,7 +34,12 @@ export interface StreamEndRequest {
   type: 'STREAM_END';
 }
 
-export type DspWorkerRequest = AnalyzePcmRequest | StreamBeginRequest | StreamEndRequest;
+/** I-13b: the user confirmed one speaker; the several-voices warning no longer blocks the stop (D-AM). */
+export interface SpeakerConfirmedRequest {
+  type: 'SPEAKER_CONFIRMED';
+}
+
+export type DspWorkerRequest = AnalyzePcmRequest | StreamBeginRequest | StreamEndRequest | SpeakerConfirmedRequest;
 
 /** One block from the AudioWorklet: one array per channel, all the same length (transferred). */
 export interface PcmBlock {
@@ -66,6 +71,8 @@ export interface StreamProgress {
   analysisMs: number;
   /** Set when the evaluation failed: no further evaluation runs, the session goes on to its limits. */
   failure: DspFailureCode | null;
+  /** I-13b: a several-voices warning is waiting for the user's answer (ADR-0026 point 4.3). */
+  multiSpeakerPending: boolean;
 }
 
 export type DspWorkerReply =
@@ -99,6 +106,10 @@ export function isStreamEndRequest(value: unknown): value is StreamEndRequest {
   return isRecord(value) && value['type'] === 'STREAM_END';
 }
 
+export function isSpeakerConfirmedRequest(value: unknown): value is SpeakerConfirmedRequest {
+  return isRecord(value) && value['type'] === 'SPEAKER_CONFIRMED';
+}
+
 /** A block is well formed when it has 1–8 channels of one common, non-zero length. */
 export function isPcmBlock(value: unknown): value is PcmBlock {
   if (!isRecord(value)) return false;
@@ -114,7 +125,7 @@ function isDescriptorAnalysis(value: unknown): boolean {
     isRecord(value) &&
     (value['status'] === 'OK' || value['status'] === 'INSUFFICIENT_DATA') &&
     typeof value['mappingVersion'] === 'string' &&
-    Array.isArray(value['raw']) &&
+    isRawMeasureTuple(value['raw']) &&
     (value['seed'] === null || Array.isArray(value['seed'])) &&
     isRecord(value['quality'])
   );
@@ -150,7 +161,8 @@ export function isStreamProgress(value: unknown): value is StreamProgress {
     typeof value['converged'] === 'boolean' &&
     (value['provisionalSeed'] === null || isCrystalSeed(value['provisionalSeed'])) &&
     nonNegative(value['analysisMs']) &&
-    (value['failure'] === null || typeof value['failure'] === 'string')
+    (value['failure'] === null || typeof value['failure'] === 'string') &&
+    typeof value['multiSpeakerPending'] === 'boolean'
   );
 }
 

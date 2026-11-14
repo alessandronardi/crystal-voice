@@ -371,6 +371,7 @@ describe('session routing (I-03)', () => {
 
 
       provisionalSeed: null,
+      multiSpeaker: 'NONE' as const,
     };
     await routing.onDiag({ ...base, sessionId: session, state: 'LISTENING', exitReason: null });
     expect(mock.store.has('activeSession')).toBe(true);

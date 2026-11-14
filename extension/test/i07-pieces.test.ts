@@ -181,6 +181,7 @@ describe('STREAM_PROGRESS guard', () => {
     provisionalSeed: null,
     analysisMs: 212,
     failure: null,
+    multiSpeakerPending: false,
   };
 
   it('accepts a well-formed progress and refuses broken ones', () => {

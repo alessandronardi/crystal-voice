@@ -13,7 +13,7 @@ import { join, resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { decodeWav, encodeWav } from '../../scripts/fixtures/wav.ts';
 import { analyzePcm, float32Bytes, sha256Hex, type PcmAnalysis } from '../../extension/src/shared/pcm-analysis.ts';
-import { ExtensionHarness, OTHER_URL } from './harness.ts';
+import { ExtensionHarness, HEADLESS, OTHER_URL } from './harness.ts';
 import { loadFvad } from '../benchmarks/fvad-loader.ts';
 
 /** libfvad in Node, same committed module as the bundle (SHA-256 checked by the loader). */
@@ -379,6 +379,61 @@ test('I-13a screens: a tone ends in an outcome, a long voice file is revealed wi
   expect(await h.inSidePanel(exists('shell-export-svg'))).toBe(true);
   expect(await h.inSidePanel(click('shell-discard'))).toBe(true);
   await expect.poll(screen).toBe('HOME');
+});
+
+test('I-13b: legend, highlight, profile, simplified rendering, L-10 and axe on home, outcome and revealed', async () => {
+  test.setTimeout(90_000);
+  const screen = (): Promise<unknown> => h.inSidePanel(`${q('shell-screen')}?.dataset.screen ?? ''`);
+  const showcase = (key: string): Promise<unknown> => h.inSidePanel(`${q('shell-showcase')}?.dataset.${key} ?? ''`);
+  const row = (key: string): string => `document.querySelector('[data-testid="legend-row"][data-key="${key}"]')`;
+  await h.inSidePanel(`(() => { (${q('shell-discard')} ?? ${q('shell-back')})?.click(); return true; })()`);
+  await expect.poll(screen).toBe('HOME');
+  expect(await h.axeSidePanel()).toEqual([]);
+  // An outcome, checked by axe, then home: review L-10, the rows of the closed analysis are gone.
+  expect(await choose(join(FIXTURES, 'tone-200hz.wav'))).toBe('ready');
+  await setStart(0);
+  expect(await analyze()).toBe('done');
+  await expect.poll(screen).toBe('OUTCOME');
+  expect(await h.axeSidePanel()).toEqual([]);
+  expect(await h.inSidePanel(click('shell-back'))).toBe(true);
+  await expect.poll(screen).toBe('HOME');
+  expect(await h.inSidePanel(exists('file-analysis'))).toBe(false);
+  expect(await phase()).toBe('ready');
+  // The crystal: six legend rows with measure and percentile.
+  expect(await choose(join(FIXTURES, 'voice-a-long.wav'))).toBe('ready');
+  expect(await analyze()).toBe('done');
+  await expect.poll(screen).toBe('REVEALED');
+  expect(await h.inSidePanel(`document.querySelectorAll('[data-testid="legend-row"]').length`)).toBe(6);
+  expect(String(await h.inSidePanel(`${row('p6_rhythm')}.textContent`))).toMatch(/onset\/s · \d+° percentile/);
+  expect(String(await h.inSidePanel(`${row('p1_pitch')}.textContent`))).toMatch(/\d+ Hz · \d+° percentile/);
+  // The profile chosen on this machine is recorded, not assumed: measured on 2026-11-14, headless
+  // Chromium here gave «vetrina / DEFAULT» (no software rasterizer), like the windowed run.
+  const reason = String(await showcase('profileReason'));
+  expect(['vetrina', 'economy']).toContain(String(await showcase('profile')));
+  test.info().annotations.push({ type: `profile${HEADLESS ? ' (headless)' : ''}`, description: `${String(await showcase('profile'))} / ${reason}` });
+  // A row lights its trait; again, it turns it off; colour lights nothing (ADR-0028).
+  expect(await h.inSidePanel(`(() => { ${row('p1_pitch')}.click(); return true; })()`)).toBe(true);
+  expect(await showcase('highlight')).toBe('prism');
+  expect(await h.inSidePanel(`${row('p1_pitch')}.getAttribute('aria-pressed')`)).toBe('true');
+  expect(await h.inSidePanel(`(() => { ${row('p1_pitch')}.click(); return true; })()`)).toBe(true);
+  expect(await showcase('highlight')).toBe('');
+  expect(await h.inSidePanel(`(() => { ${row('p5_brightness')}.click(); return true; })()`)).toBe(true);
+  expect(await showcase('highlight')).toBe('');
+  expect(await h.inSidePanel(`${row('p5_brightness')}.getAttribute('aria-pressed')`)).toBe('true');
+  expect(await h.axeSidePanel()).toEqual([]);
+  // «Resa semplificata»: economy at once, remembered in chrome.storage.local, and back.
+  expect(await h.inSidePanel(click('shell-simplified'))).toBe(true);
+  await expect.poll(() => showcase('profileReason')).toBe('USER_SIMPLIFIED');
+  expect(await showcase('profile')).toBe('economy');
+  expect(await h.inSidePanel(`chrome.storage.local.get('renderSimplified').then((v) => v.renderSimplified)`)).toBe(true);
+  expect(await h.inSidePanel(`document.activeElement?.dataset?.testid ?? ''`)).toBe('shell-simplified');
+  expect(await h.inSidePanel(click('shell-simplified'))).toBe(true);
+  await expect.poll(() => showcase('profileReason')).toBe(reason);
+  // Off: nothing is kept in chrome.storage.local.
+  expect(await h.inSidePanel(`chrome.storage.local.get(null).then((v) => Object.keys(v).length)`)).toBe(0);
+  expect(await h.inSidePanel(click('shell-discard'))).toBe(true);
+  await expect.poll(screen).toBe('HOME');
+  expect(await h.inSidePanel(exists('file-analysis'))).toBe(false);
 });
 
 test('decodeAudioData keeps the samples at the file rate and resamples at another (documented in README)', async () => {

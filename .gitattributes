@@ -12,3 +12,5 @@ tests/fixtures/plates/*.json text eol=lf
 # Third-party license texts (I-06b, D-X): compared byte for byte with the CI
 # build and pinned by SHA-256 in the bundle guard; never convert line endings.
 THIRD_PARTY/** -text
+# OFL fonts (I-13b, D-AQ): bundled unchanged and pinned by SHA-256 in the bundle guard.
+*.woff2 binary

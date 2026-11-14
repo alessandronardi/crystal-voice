@@ -9,7 +9,7 @@
 
 import { assertNever, type CrystalAppearance, type CrystalGeometry, type DescriptorKey } from '@voicecrystal/contracts';
 import { mixRgb, oklchToLinearSrgb, type Rgb } from './color.ts';
-import type { FaceClass } from './mesh-arrays.ts';
+import { boundingRadius, type FaceClass } from './mesh-arrays.ts';
 
 export type RenderProfile = 'vetrina' | 'economy';
 
@@ -113,11 +113,14 @@ export function veilFromTraits(traits: readonly DescriptorKey[]): Veil {
 /** [H] Surface roughness: polished vs frosted (frosting also blurs what is seen through the face). */
 export const ROUGHNESS_POLISHED = 0.04;
 export const ROUGHNESS_FROSTED = 0.32;
-/** [H] Chroma kept when p5 is veiled. */
+/** [H] Chroma boost for look 1A (D-AV) and chroma kept when p5 is veiled. */
+export const CHROMA_FACTOR = 1.55;
 export const VEILED_CHROMA_FACTOR = 0.1;
-/** [H] Contrast of the zoning bands (0 = invisible, 1 = full). */
-export const BAND_CONTRAST = 0.12;
-export const BAND_CONTRAST_VEILED = 0.035;
+/** [H] Contrast of the zoning bands (0 = invisible, 1 = full): body map and milky transmission stripes. */
+export const BAND_CONTRAST = 0.18;
+export const BAND_CONTRAST_VEILED = 0.04;
+export const BAND_TRANSMISSION_CONTRAST = 0.45;
+export const BAND_TRANSMISSION_CONTRAST_VEILED = 0.135;
 /** [H] Needles: radius factor and how far their colour moves toward the body colour. */
 export const NEEDLE_RADIUS_FACTOR_VEILED = 2.5;
 export const INCLUSION_FADE = 0.15;
@@ -140,7 +143,7 @@ const PHANTOM_BASE: Rgb = [0.92, 0.92, 0.95];
 
 export function paletteFor(appearance: CrystalAppearance, veil: Veil): Palette {
   const [l, c, h] = appearance.colorOklch;
-  const body = oklchToLinearSrgb(l, c, h, veil.colorDesaturated ? VEILED_CHROMA_FACTOR : 1);
+  const body = oklchToLinearSrgb(l, c, h, (veil.colorDesaturated ? VEILED_CHROMA_FACTOR : 1) * CHROMA_FACTOR);
   const fade = veil.inclusionsBlurred ? INCLUSION_FADE_VEILED : INCLUSION_FADE;
   return { body, inclusion: mixRgb(INCLUSION_BASE, body, fade), phantom: mixRgb(PHANTOM_BASE, body, fade) };
 }
@@ -173,19 +176,63 @@ export function veilIsVisible(trait: DescriptorKey, geometry: CrystalGeometry): 
   }
 }
 
-/**
- * 1-D zoning texture, RGBA8: `bands` alternating light/dark stripes along c.
- * Light stripes are 1, dark ones are 1 − contrast, so the texture only
- * modulates the body colour. Size is one texel per stripe (nearest filtering).
- */
-export function zoningTexels(bands: number, veil: Veil): Uint8Array {
+function stripeTexels(bands: number, contrast: number): Uint8Array {
   const n = Math.max(1, Math.floor(bands)) * 2 - 1;
-  const contrast = veil.bandsLowContrast ? BAND_CONTRAST_VEILED : BAND_CONTRAST;
   const dark = Math.round(255 * (1 - contrast));
   const out = new Uint8Array(n * 4);
   for (let i = 0; i < n; i++) {
     const v = i % 2 === 0 ? 255 : dark;
     out.set([v, v, v, 255], i * 4);
+  }
+  return out;
+}
+
+/**
+ * 1-D zoning texture, RGBA8: `bands` alternating light/dark stripes along c.
+ * Light stripes are 1, dark ones are 1 − contrast, so the texture only
+ * modulates the body colour. Size is one texel per stripe.
+ */
+export function zoningTexels(bands: number, veil: Veil): Uint8Array {
+  return stripeTexels(bands, veil.bandsLowContrast ? BAND_CONTRAST_VEILED : BAND_CONTRAST);
+}
+
+/**
+ * 1-D zoning transmission texture, RGBA8: light stripes stay clear (1) and
+ * dark stripes become milky (1 − contrast) in the transmission pass (look 1A, D-AV).
+ */
+export function zoningTransmissionTexels(bands: number, veil: Veil): Uint8Array {
+  return stripeTexels(bands, veil.bandsLowContrast ? BAND_TRANSMISSION_CONTRAST_VEILED : BAND_TRANSMISSION_CONTRAST);
+}
+
+/** [H] Radial warm glow behind the crystal, ending in warm ink #2b2620 at the corners (D-AP, D-AV). */
+export const GLOW_SIZE = 256;
+const GLOW_EDGE: readonly [number, number, number] = [43, 38, 32];
+const GLOW_CENTRE: readonly [number, number, number] = [121, 104, 84];
+const BAYER_4X4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5] as const;
+
+/**
+ * 2-D sRGB radial glow texture, RGBA8, with deterministic 4×4 Bayer dithering
+ * (±0.5 LSB) to avoid 8-bit banding while keeping exact corner bytes (#2b2620).
+ */
+export function glowTexels(size = GLOW_SIZE): Uint8Array {
+  const n = Math.max(1, Math.floor(size));
+  const out = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const dx = (x + 0.5) / n - 0.5;
+      const dy = (y + 0.5) / n - 0.45;
+      const t = Math.min(1, Math.hypot(dx, dy) / 0.6);
+      const k = (1 - t) * (1 - t);
+      const bayer = BAYER_4X4[((y & 3) << 2) | (x & 3)] ?? 0;
+      const dither = bayer / 16 - 0.5;
+      const i = (y * n + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        const edge = GLOW_EDGE[c] ?? 0;
+        const centre = GLOW_CENTRE[c] ?? 0;
+        out[i + c] = Math.max(0, Math.min(255, Math.round(edge + (centre - edge) * k + dither)));
+      }
+      out[i + 3] = 255;
+    }
   }
   return out;
 }
@@ -196,25 +243,47 @@ export const TURNTABLE_PERIOD_MS = 40_000;
 export const turntableAngle = (elapsedMs: number): number =>
   ((elapsedMs % TURNTABLE_PERIOD_MS) / TURNTABLE_PERIOD_MS) * 2 * Math.PI;
 
-/** [H] Physical material of the showcase. */
+/** [H] Physical material of the showcase (look 1A, D-AV). */
 export const VETRINA_MATERIAL = Object.freeze({
-  transmission: 0.92,
+  bodyColorMix: 0.85,
+  transmission: 0.9,
   ior: 1.57,
   dispersion: 0.25,
   /** Thickness and attenuation distance, as a fraction of the body's bounding radius. */
   thicknessFactor: 0.6,
-  attenuationFactor: 3,
+  attenuationFactor: 0.9,
   specularIntensity: 1,
-  envMapIntensity: 1,
+  envMapIntensity: 1.8,
+  clearcoat: 1,
+  clearcoatRoughness: 0.05,
+  emissiveIntensity: 0.08,
 });
+
+/** [H] Edge highlight lines and warm rim light for showcase depth (look 1A, D-AV). */
+export const EDGE_FRONT_OPACITY = 0.24;
+export const EDGE_THROUGH_OPACITY = 0.12;
+export const RIM_LIGHT_INTENSITY = 2.5;
 
 /** [H] Economy: standard material, see-through by plain alpha. */
 export const ECONOMY_OPACITY = 0.82;
 
 /**
- * [H] Fixed framing radius in length units, so sizes stay comparable across
- * crystals (like PLATE_SCALE_512). Measured: largest vertex distance from the
- * origin over all bodies of 2000 random seeds = 2.9026 (test "framing",
- * fast-check seed 0x11e3); 3.1 leaves about 7% margin.
+ * [H] Fixed framing radius in length units (like PLATE_SCALE_512). Measured:
+ * largest vertex distance from the origin over all bodies of 2000 random
+ * seeds = 2.9026 (test "framing", fast-check seed 0x11e3); 3.1 leaves about 7% margin.
  */
 export const FRAMING_RADIUS = 3.1;
+
+/** [H] Fraction of FRAMING_RADIUS filled by each crystal in single showcase view (D-AV). */
+export const SHOWCASE_FIT = 0.8;
+
+/**
+ * Uniform scale factor for the crystal group: adapts each crystal to fill
+ * `fit * FRAMING_RADIUS` in single showcase view, or keeps scale 1 (`fit = null`)
+ * for comparable sizes (e.g. side-by-side comparison, I-15).
+ */
+export function crystalScale(geometry: CrystalGeometry, fit: number | null = SHOWCASE_FIT): number {
+  const reach = Math.max(0, ...geometry.bodies.map((b) => boundingRadius(b)));
+  if (fit === null || reach <= 0) return 1;
+  return (fit * FRAMING_RADIUS) / reach;
+}

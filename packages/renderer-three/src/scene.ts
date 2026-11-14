@@ -1,13 +1,13 @@
-// Showcase scene (SPEC §10 "Profilo visivo vetrina", ADR-0012), Three.js 0.186.1.
+// Showcase scene (SPEC §10 "Profilo visivo vetrina", ADR-0012, D-AV), Three.js 0.186.1.
 //
 // Everything created here is registered in `disposables` and released by
 // `dispose()`. No external asset: the environment is RoomEnvironment through
-// PMREM, the zoning texture is generated from texels.
+// PMREM, and both the zoning bands and the radial warm-ink glow are DataTextures.
 //
 // What the transmission pass sees: in 0.186.1 the transmission render target
 // holds opaque objects only (WebGLRenderer.renderTransmissionPass), so needles
 // and phantom outlines are opaque to stay visible through the crystal; the
-// zoning bands are a texture on the crystal itself.
+// zoning bands are textures on the crystal itself (colour and transmissionMap).
 
 import {
   BufferAttribute,
@@ -20,6 +20,7 @@ import {
   FrontSide,
   Group,
   InstancedMesh,
+  LinearFilter,
   LinearSRGBColorSpace,
   LineBasicMaterial,
   LineSegments,
@@ -29,13 +30,13 @@ import {
   MeshBasicMaterial,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
-  NearestFilter,
   PerspectiveCamera,
   PlaneGeometry,
   PMREMGenerator,
   RGBAFormat,
   Scene,
   ShadowMaterial,
+  SRGBColorSpace,
   type Texture,
   type WebGLRenderer,
   type WebGLRenderTarget,
@@ -45,11 +46,16 @@ import { POSITION_UNITS_PER_LENGTH, type CrystalBody, type CrystalGeometry } fro
 import { featureEdges } from '@voicecrystal/renderer-svg';
 import {
   bodyToMeshArrays,
-  checkBudget,
   boundingRadius,
+  checkBudget,
+  crystalScale,
   ECONOMY_OPACITY,
+  EDGE_FRONT_OPACITY,
+  EDGE_THROUGH_OPACITY,
   FACE_CLASSES,
   FRAMING_RADIUS,
+  GLOW_SIZE,
+  glowTexels,
   HIGHLIGHT_COLOR,
   HIGHLIGHT_OPACITY,
   HIGHLIGHT_TARGETS,
@@ -59,12 +65,16 @@ import {
   paletteFor,
   phantomMatrices,
   RenderInputError,
+  RIM_LIGHT_INTENSITY,
   roughnessFor,
+  ROUGHNESS_POLISHED,
   SECONDARY_VEILED_OPACITY,
   SECONDARY_VEILED_TRANSMISSION,
+  SHOWCASE_FIT,
   veilFromTraits,
   VETRINA_MATERIAL,
   zoningTexels,
+  zoningTransmissionTexels,
   zoningUvs,
   zRange,
   type HighlightTarget,
@@ -75,17 +85,14 @@ import {
   type Veil,
 } from './pure/index.ts';
 
-/**
- * [H] Background (linear sRGB): the panel's warm ink #2b2620, so the showcase
- * belongs to the ivory page (decision D-AP of the product owner, 2026-11-14,
- * chosen on screenshots against the neutral black and a verdigris velvet).
- */
-const BACKGROUND: Rgb = [0.0242, 0.0194, 0.0144];
 /** [H] Camera: narrow field for little perspective distortion, slightly from above. */
 const CAMERA_FOV_DEG = 28;
 const CAMERA_ELEVATION = 0.32;
-/** [H] Key light. */
+/** [H] Key light and warm rim light. */
 const KEY_LIGHT_INTENSITY = 2.4;
+const RIM_LIGHT_COLOR = 0xffe9c8;
+const EDGE_COLOR = 0xfff4e0;
+const ECONOMY_ENV_MAP_INTENSITY = 1.4;
 const SHADOW_OPACITY = 0.38;
 const SHADOW_RADIUS = 8;
 
@@ -109,13 +116,22 @@ export interface ShowcaseScene {
 
 const color = (rgb: Rgb): Color => new Color().setRGB(rgb[0], rgb[1], rgb[2], LinearSRGBColorSpace);
 
-function zoningTexture(bands: number, veil: Veil): DataTexture {
-  const texels = zoningTexels(bands, veil);
+function stripeTexture(texels: Uint8Array): DataTexture {
   const texture = new DataTexture(texels, texels.length / 4, 1, RGBAFormat);
-  texture.magFilter = NearestFilter;
-  texture.minFilter = NearestFilter;
+  texture.magFilter = LinearFilter;
+  texture.minFilter = LinearFilter;
   texture.wrapS = ClampToEdgeWrapping;
   texture.wrapT = ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function backgroundGlowTexture(): DataTexture {
+  const texture = new DataTexture(glowTexels(GLOW_SIZE), GLOW_SIZE, GLOW_SIZE, RGBAFormat);
+  texture.colorSpace = SRGBColorSpace;
+  texture.magFilter = LinearFilter;
+  texture.minFilter = LinearFilter;
   texture.generateMipmaps = false;
   texture.needsUpdate = true;
   return texture;
@@ -139,34 +155,51 @@ function crystalMaterial(
   secondary: boolean,
   veil: Veil,
   radius: number,
+  scale: number,
   zoning: Texture,
+  zoningT: Texture,
 ): Material {
+  const surfaceColor = color(mixRgb([1, 1, 1], palette.body, VETRINA_MATERIAL.bodyColorMix));
   switch (profile) {
     case 'vetrina':
       return new MeshPhysicalMaterial({
-        color: color(mixRgb([1, 1, 1], palette.body, 0.55)),
+        color: surfaceColor,
         map: zoning,
-        // Zoning bands: stripes of lower transmission show the body colour (p6).
-        transmissionMap: zoning,
+        // Zoning bands: milky stripes of lower transmission show the body colour (p6).
+        transmissionMap: zoningT,
         roughness,
         metalness: 0,
+        // Real frosting on veiled faces (p1, p2, p3): no glossy clearcoat over frosted faces.
+        clearcoat: roughness > ROUGHNESS_POLISHED ? 0 : VETRINA_MATERIAL.clearcoat,
+        clearcoatRoughness: VETRINA_MATERIAL.clearcoatRoughness,
+        emissive: color(palette.body),
+        emissiveIntensity: VETRINA_MATERIAL.emissiveIntensity,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
         // Veiled p3: secondaries frosted and milky (less transmission), still present.
         transmission: VETRINA_MATERIAL.transmission * (secondary && veil.secondaryFrosted ? SECONDARY_VEILED_TRANSMISSION : 1),
         ior: VETRINA_MATERIAL.ior,
         dispersion: VETRINA_MATERIAL.dispersion,
         thickness: radius * VETRINA_MATERIAL.thicknessFactor,
         attenuationColor: color(palette.body),
-        attenuationDistance: radius * VETRINA_MATERIAL.attenuationFactor,
+        attenuationDistance: radius * scale * VETRINA_MATERIAL.attenuationFactor,
         specularIntensity: VETRINA_MATERIAL.specularIntensity,
         envMapIntensity: VETRINA_MATERIAL.envMapIntensity,
         side: FrontSide,
       });
     case 'economy':
       return new MeshStandardMaterial({
-        color: color(palette.body),
+        color: surfaceColor,
         map: zoning,
         roughness,
         metalness: 0,
+        emissive: color(palette.body),
+        emissiveIntensity: VETRINA_MATERIAL.emissiveIntensity,
+        envMapIntensity: ECONOMY_ENV_MAP_INTENSITY,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
         transparent: true,
         opacity: secondary && veil.secondaryFrosted ? SECONDARY_VEILED_OPACITY : ECONOMY_OPACITY,
         depthWrite: false,
@@ -190,7 +223,7 @@ function phantomOutline(primary: CrystalBody): BufferGeometry {
   return geometry;
 }
 
-export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderProfile, renderer: WebGLRenderer): ShowcaseScene {
+export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderProfile, renderer: WebGLRenderer, fixedScale = false): ShowcaseScene {
   const disposables: Disposable[] = [];
   const own = <T extends Disposable>(d: T): T => {
     disposables.push(d);
@@ -204,12 +237,13 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
   // geometry throws a typed RenderInputError and leaves nothing to release.
   const veil = veilFromTraits(geometry.appearance.veiledTraits);
   const palette = paletteFor(geometry.appearance, veil);
+  const scale = crystalScale(geometry, fixedScale ? null : SHOWCASE_FIT);
   const range = zRange(primary);
   const bodyArrays = geometry.bodies.map((body) => bodyToMeshArrays(body));
   const needles = needleMatrices(geometry.inclusions, veil.inclusionsBlurred ? NEEDLE_RADIUS_FACTOR_VEILED : 1);
   const phantoms = phantomMatrices(geometry.inclusions);
   const scene = new Scene();
-  scene.background = color(BACKGROUND);
+  scene.background = own(backgroundGlowTexture());
 
   // Procedural environment, no HDR file (ADR-0012).
   const pmrem = new PMREMGenerator(renderer);
@@ -228,10 +262,24 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
   const turntable = new Group();
   const crystal = new Group();
   crystal.rotation.x = -Math.PI / 2;
+  crystal.scale.setScalar(scale);
   turntable.add(crystal);
   scene.add(turntable);
 
-  const zoning = own(zoningTexture(geometry.appearance.zoningBands, veil));
+  const zoning = own(stripeTexture(zoningTexels(geometry.appearance.zoningBands, veil)));
+  const zoningT = profile === 'vetrina' ? own(stripeTexture(zoningTransmissionTexels(geometry.appearance.zoningBands, veil))) : zoning;
+  const edgeMaterials = new Map<number, readonly [LineBasicMaterial, LineBasicMaterial]>();
+  const edgeMaterialsFor = (factor: number): readonly [LineBasicMaterial, LineBasicMaterial] => {
+    let pair = edgeMaterials.get(factor);
+    if (pair === undefined) {
+      pair = [
+        own(new LineBasicMaterial({ color: EDGE_COLOR, transparent: true, opacity: EDGE_FRONT_OPACITY * factor, depthTest: true, depthWrite: false })),
+        own(new LineBasicMaterial({ color: EDGE_COLOR, transparent: true, opacity: EDGE_THROUGH_OPACITY * factor, depthTest: false, depthWrite: false })),
+      ];
+      edgeMaterials.set(factor, pair);
+    }
+    return pair;
+  };
   const materials = new Map<string, Material>();
   const materialFor = (body: CrystalBody, secondary: boolean): Material[] =>
     FACE_CLASSES.map((faceClass) => {
@@ -241,7 +289,7 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
       const key = `${String(secondary)}:${String(roughness)}:${String(radius)}`;
       let material = materials.get(key);
       if (material === undefined) {
-        material = own(crystalMaterial(profile, palette, roughness, secondary, veil, radius, zoning));
+        material = own(crystalMaterial(profile, palette, roughness, secondary, veil, radius, scale, zoning, zoningT));
         materials.set(key, material);
       }
       return material;
@@ -285,6 +333,13 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
     overlay('prism').add(new Mesh(shape, FACE_CLASSES.map((c) => (c === 'prism' ? glow : hidden))));
     overlay('termination').add(new Mesh(shape, FACE_CLASSES.map((c) => (c === 'termination' ? glow : hidden))));
     if (secondary) overlay('secondary').add(new Mesh(shape, glow));
+    const edgeGeo = own(phantomOutline(body));
+    const [frontEdgeMat, throughEdgeMat] = edgeMaterialsFor(secondary && veil.secondaryFrosted ? 0.5 : 1);
+    for (const mat of [throughEdgeMat, frontEdgeMat]) {
+      const lines = new LineSegments(edgeGeo, mat);
+      lines.renderOrder = 5;
+      crystal.add(lines);
+    }
   });
 
   // Needles: opaque instanced cylinders (unit cylinder along z, contract Inclusion 'needle').
@@ -320,10 +375,13 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
     }
   }
 
-  // Key light and soft contact shadow (vetrina only).
+  // Key light, warm rim light and soft contact shadow (vetrina only).
   const key = new DirectionalLight(0xffffff, KEY_LIGHT_INTENSITY);
   key.position.set(2.5, 6, 3.5);
   scene.add(key);
+  const rim = new DirectionalLight(RIM_LIGHT_COLOR, RIM_LIGHT_INTENSITY);
+  rim.position.set(-3.5, 3, -4.5);
+  scene.add(rim);
   if (profile === 'vetrina') {
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
@@ -338,12 +396,12 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
     cam.far = 20;
     const floor = new Mesh(own(new PlaneGeometry(FRAMING_RADIUS * 4, FRAMING_RADIUS * 4)), own(new ShadowMaterial({ opacity: SHADOW_OPACITY })));
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = minZ - 0.002;
+    floor.position.y = minZ * scale - 0.002;
     floor.receiveShadow = true;
     scene.add(floor);
   }
 
-  // Fixed framing: the same scale for every crystal (FRAMING_RADIUS).
+  // Framing camera: FRAMING_RADIUS matches fixedScale = true (or the scaled single showcase).
   const camera = new PerspectiveCamera(CAMERA_FOV_DEG, 1, 0.1, 100);
   const distance = FRAMING_RADIUS / Math.sin((CAMERA_FOV_DEG * Math.PI) / 360);
   camera.position.set(0, distance * CAMERA_ELEVATION, distance);
@@ -366,7 +424,7 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
         const uniforms = (renderer.properties.get(material) as { uniforms?: Record<string, { value: unknown }> }).uniforms;
         for (const uniform of Object.values(uniforms ?? {})) {
           const value = uniform.value;
-          if (value instanceof DataTexture && value !== zoning) shared.add(value);
+          if (value instanceof DataTexture && value !== zoning && value !== zoningT) shared.add(value);
         }
       }
       key.shadow.dispose();
@@ -374,6 +432,7 @@ export function buildShowcaseScene(geometry: CrystalGeometry, profile: RenderPro
       // Frees this context's copy and drops the listeners; the texture stays usable (re-uploaded on next use).
       for (const texture of shared) texture.dispose();
       scene.clear();
+      scene.background = null;
       scene.environment = null;
     },
   };

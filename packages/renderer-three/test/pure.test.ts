@@ -6,7 +6,10 @@ import {
   bodyToMeshArrays,
   checkBudget,
   boundingRadius,
+  crystalScale,
   FRAMING_RADIUS,
+  GLOW_SIZE,
+  glowTexels,
   needleMatrices,
   oklabToLinearSrgb,
   oklchToLinearSrgb,
@@ -16,12 +19,14 @@ import {
   roughnessFor,
   ROUGHNESS_FROSTED,
   ROUGHNESS_POLISHED,
+  SHOWCASE_FIT,
   turntableAngle,
   TURNTABLE_PERIOD_MS,
   veilFromTraits,
   veilIsVisible,
   NEEDLE_RADIUS_FACTOR_VEILED,
   zoningTexels,
+  zoningTransmissionTexels,
   zoningUvs,
   zRange,
 } from '../src/pure/index.ts';
@@ -233,7 +238,12 @@ describe('veiled traits (ADR-0014)', () => {
     if (geometry.inclusions.length > 0) {
       inputs.push(palette.inclusion, palette.phantom, [...needleMatrices(geometry.inclusions, veil.inclusionsBlurred ? NEEDLE_RADIUS_FACTOR_VEILED : 1)]);
     }
-    if (geometry.appearance.zoningBands > 1) inputs.push([...zoningTexels(geometry.appearance.zoningBands, veil)]);
+    if (geometry.appearance.zoningBands > 1) {
+      inputs.push(
+        [...zoningTexels(geometry.appearance.zoningBands, veil)],
+        [...zoningTransmissionTexels(geometry.appearance.zoningBands, veil)],
+      );
+    }
     return JSON.stringify(inputs);
   }
 
@@ -289,16 +299,53 @@ describe('veiled traits (ADR-0014)', () => {
 
   it('lowers the zoning contrast (p6) and draws 2·bands − 1 stripes', () => {
     const contrast = (t: Uint8Array) => 255 - Math.min(...t.filter((_, i) => i % 4 === 0));
-    const plain = zoningTexels(5, veilFromTraits([]));
-    const veiled = zoningTexels(5, veilFromTraits(['p6_rhythm']));
-    expect(plain.length).toBe(9 * 4);
-    expect(contrast(veiled)).toBeLessThan(contrast(plain) / 2);
-    expect(contrast(veiled)).toBeGreaterThan(0);
+    for (const texels of [zoningTexels, zoningTransmissionTexels]) {
+      const plain = texels(5, veilFromTraits([]));
+      const veiled = texels(5, veilFromTraits(['p6_rhythm']));
+      expect(plain.length).toBe(9 * 4);
+      expect(contrast(veiled)).toBeLessThan(contrast(plain) / 2);
+      expect(contrast(veiled)).toBeGreaterThan(0);
+    }
   });
 
   it('ignores order and duplicates', () => {
     const traits: DescriptorKey[] = ['p6_rhythm', 'p1_pitch'];
     expect(veilFromTraits(traits)).toEqual(veilFromTraits(['p1_pitch', 'p6_rhythm', 'p1_pitch']));
+  });
+});
+
+describe('showcase look (D-AV)', () => {
+  it('crystalScale normalizes bounding radius to fit · FRAMING_RADIUS and supports fixed scale', () => {
+    const g = gen([5000, 5000, 5000, 5000, 5000, 5000]);
+    const scale = crystalScale(g);
+    const reach = Math.max(...g.bodies.map((b) => boundingRadius(b)));
+    expect(reach * scale).toBeCloseTo(SHOWCASE_FIT * FRAMING_RADIUS, 6);
+    expect(crystalScale(g, null)).toBe(1);
+    expect(crystalScale({ ...g, bodies: [] })).toBe(1);
+  });
+
+  it('glowTexels is deterministic, ends in #2b2620 at the corners and warms the center', () => {
+    const a = glowTexels();
+    const b = glowTexels();
+    expect(a.length).toBe(GLOW_SIZE * GLOW_SIZE * 4);
+    expect(a).toEqual(b);
+    const px = (x: number, y: number) => {
+      const i = (y * GLOW_SIZE + x) * 4;
+      return [a[i], a[i + 1], a[i + 2], a[i + 3]];
+    };
+    const corner = [43, 38, 32, 255];
+    expect(px(0, 0)).toEqual(corner);
+    expect(px(GLOW_SIZE - 1, 0)).toEqual(corner);
+    expect(px(0, GLOW_SIZE - 1)).toEqual(corner);
+    expect(px(GLOW_SIZE - 1, GLOW_SIZE - 1)).toEqual(corner);
+    const center = px(Math.floor(GLOW_SIZE * 0.5), Math.floor(GLOW_SIZE * 0.45));
+    expect(center[0]).toBeGreaterThanOrEqual(120);
+    expect(center[0]).toBeLessThanOrEqual(121);
+    expect(center[1]).toBeGreaterThanOrEqual(103);
+    expect(center[1]).toBeLessThanOrEqual(104);
+    expect(center[2]).toBeGreaterThanOrEqual(83);
+    expect(center[2]).toBeLessThanOrEqual(84);
+    expect(center[3]).toBe(255);
   });
 });
 

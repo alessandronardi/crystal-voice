@@ -5,6 +5,11 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 ## [Unreleased]
 
 ### Aggiunto
+- I-19: taratura estetica della vetrina sulla resa **1A** (decisione D-AV del product owner, note in SPEC §10 e ADR-0012):
+  - **Materiale «vetrina» e resa 1A:** parametri `VETRINA_MATERIAL` in `packages/renderer-three/src/pure/look.ts` (`transmission = 0,9`, `ior = 1,57`, `dispersion = 0,25`, fattore cromatico `1,55`, bande di zonatura sia su colore sia su `transmissionMap` tramite `zoningTransmissionTexels`), `clearcoat` azzerato sulle facce satinate da un velo (`roughness > ROUGHNESS_POLISHED`) perché `p1`, `p2` e `p3` restino opacizzati, rim light calda (`2,5`) e profilo `economy` aggiornato con emissiva e `envMapIntensity` coerenti.
+  - **Spigoli e fondale:** `LineSegments` in due passate con profondità (spigoli interni `0,12`, frontali `0,24`, dimezzati sui secondari velati) e `DataTexture` 256×256 di bagliore radiale caldo dithered (Bayer 4×4) verso inchiostro caldo `#2b2620` ai bordi (D-AP, `glowTexels`).
+  - **Scala e Confronto (I-15):** scala uniforme adattiva `crystalScale(geometry, SHOWCASE_FIT)` (`SHOWCASE_FIT = 0,8` di `FRAMING_RADIUS`) in vetrina singola, e flag `fixedScale?: boolean` su `RenderConfig` per mantenere scala `1` nel Confronto di I-15.
+  - **Misure e verifiche:** PNG di riferimento rigenerati e verificati (`pnpm test:render` 11/11 su SwiftShader, heap 4,31 → 4,67 MB su 100 cicli), benchmark su GPU reale (`pnpm bench:render` su Radeon RX Vega 10: vetrina p95 **5,00 ms**, entro la soglia D-AN di 33 ms).
 - I-13b: completamento del pannello (SPEC §13). Non distribuibile prima che le prescrizioni di G0 siano completate.
   - **Legenda viva** (ADR-0028, accettato il 2026-11-14, D-AU): sei righe con misura grezza e percentile della taratura sperimentale; scegliendo una riga il tratto si evidenzia sulla vetrina (prisma, terminazioni, secondari, inclusioni), mai un elemento che non esiste.
   - **Avviso più voci** (`MULTI_SPEAKER_ANSWER`): dialogo non bloccante nel pannello, «No» interrompe con `MULTI_SPEAKER_DECLINED`, «Sì» vale per tutta la sessione (D-AM, nota in ADR-0026); l'avviso visto in ascolto resta fra i warning del risultato, anche senza risposta (D-AR); per i file solo il cartellino (D-AS); «No» termina con `INTERRUPTED` (D-AT). Note in SPEC §7.2 e §13.

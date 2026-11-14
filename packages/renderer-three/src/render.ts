@@ -21,6 +21,8 @@ export interface RenderConfig {
   reducedMotion: boolean;
   /** Square canvas side in CSS pixels. */
   sizePx: number;
+  /** Keeps the shared framing scale (1) instead of fitting each crystal to the frame, for side-by-side comparison (I-15). */
+  fixedScale?: boolean;
   /** Called once when the showcase switches to the SVG plate. */
   onFallback?: (reason: FallbackReason) => void;
   /**
@@ -150,7 +152,7 @@ export function renderCrystal(geometry: CrystalGeometry, config: RenderConfig): 
     // 2. The scene: a malformed geometry throws a typed RenderInputError to the
     // caller (it is not a GPU problem), after releasing what was created.
     try {
-      showcase = buildShowcaseScene(geometry, profile, renderer);
+      showcase = buildShowcaseScene(geometry, profile, renderer, config.fixedScale ?? false);
     } catch (error) {
       releaseGpu(false);
       state = 'disposed';

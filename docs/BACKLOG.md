@@ -1,6 +1,6 @@
 # Backlog VoiceCrystal
 
-18 issue in 5 fasi. Ogni issue è indipendente nel suo perimetro, ha una Definition of Done (DoD) verificabile e i test che la dimostrano. Vale sempre anche la DoD globale di `AGENTS.md` §8.
+19 issue in 5 fasi. Ogni issue è indipendente nel suo perimetro, ha una Definition of Done (DoD) verificabile e i test che la dimostrano. Vale sempre anche la DoD globale di `AGENTS.md` §8.
 
 **Ordine consigliato.** La fase 1 (Chrome) e le fasi 2–3 (nucleo puro) possono procedere in parallelo. Le issue di fase 4 e 5 si sviluppano anche prima di G0, ma nulla si distribuisce finché G0 non è chiuso (ADR-0027, decisione D-AG del 2026-11-13; `docs/GATES.md`).
 
@@ -27,6 +27,7 @@
 | I-11 | 3 | renderer-three «vetrina» | I-10 | L | G2 |
 | I-12 | 3 | renderer-svg «tavola cristallografica» | I-10 | M | G2 |
 | I-13 | 4 | Side Panel: home, nucleazione, rivelazione, cartellino | I-03, I-07, I-11, I-12 (G0 solo per la release) | L | Release |
+| I-19 | 3 | Taratura estetica della vetrina (resa 1A, D-AV) | I-11 | S | G2 |
 | I-14 | 4 | Vault, miniature, export/import | I-10 (G0 solo per la release) | M | Release |
 | I-15 | 4 | Comparator a percentile, Collezione, Confronto | I-09, I-14 (G0 solo per la release) | M | Release |
 | I-16 | 5 | Hardening, accessibilità, SBOM, pacchetto | tutte | M | Release |
@@ -325,6 +326,29 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
   - [ ] Tratti velati nel cartellino. Quando il velo non ha un elemento da attenuare (`veilIsVisible` di `renderer-three` è falso: nessun secondario per p3, nessuna inclusione per p4, una sola banda per p6), lo segnala solo il cartellino, per esempio «ruvidità: incerta (nessuna inclusione da mostrare)». Il rendering non inventa elementi (decisione del product owner, 2026-11-10).
   - [ ] Profilo della vetrina scelto da `chooseProfile` (funzione pura in `renderer-three/src/pure`): economy con GPU software (SwiftShader, llvmpipe), se il contesto con `failIfMajorPerformanceCaveat` non si crea, o se il costo dei primi frame supera una soglia [H] fissata dalla misura M17. Opzione utente «Resa semplificata» che forza economy, ricordata fra le sessioni. Il nome della GPU si legge solo in memoria, mai salvato né trasmesso (decisione del product owner, 2026-11-10).
 - **Test:** Playwright sulle schermate; axe-core senza violazioni serie.
+
+### I-19 · Taratura estetica della vetrina (resa 1A, D-AV)
+
+- **Riferimenti:** SPEC §10; ADR-0012, ADR-0014; decisioni D-AN, D-AP, D-AV; `docs/BENCHMARK_PROTOCOL.md` §7.
+- **Obiettivo:** portare in produzione su `packages/renderer-three` la resa visiva **1A** scelta dal product owner (`vetro2`, decisione D-AV del 2026-11-14) con i miglioramenti di leggibilità delle velature e dello sfondo, mantenendo la scala fissa opzionale per `I-15`.
+- **Stato:** implementata, verificata e committata sul branch `issue/vetrina-look-preview` (da `cf0f874`), in PR verso `main` (in attesa di CI e merge).
+- **Perimetro:**
+  - costanti `[H]` della resa 1A in `packages/renderer-three/src/pure/look.ts` (`CHROMA_FACTOR = 1.55`, `VETRINA_MATERIAL`, `BAND_CONTRAST` / `BAND_TRANSMISSION_CONTRAST`, `EDGE_FRONT_OPACITY = 0.24`, `EDGE_THROUGH_OPACITY = 0.12`, `RIM_LIGHT_INTENSITY = 2.5`, `SHOWCASE_FIT = 0.8`);
+  - bande di zonatura applicate anche alla trasmissione (`zoningTransmissionTexels` su `transmissionMap` in `vetrina`);
+  - disattivazione di `clearcoat` (`0`) quando `roughness > ROUGHNESS_POLISHED` perché le facce satinate da un velo (`p1`, `p2`, `p3`) restino opache;
+  - gerarchia spigoli `LineSegments` in due passate (interne dietro a frontali, opacità dimezzata sui secondari velati), `rim` light calda e profilo `economy` allineato (`emissive` ed `envMapIntensity`);
+  - bagliore radiale caldo proceduralmente generato (`glowTexels` 256×256 con dithering Bayer 4×4 verso `#2b2620`, D-AP);
+  - scala adattiva `crystalScale(geometry, SHOWCASE_FIT)` nella vetrina singola (ombra a `minZ * scale - 0,002`) e `RenderConfig.fixedScale?: boolean` per `I-15`;
+  - note `[H]` in SPEC §10 e ADR-0012; rimozione dello script sperimentale `tests/benchmarks/look-preview.ts`.
+- **DoD:**
+  - [x] Parametri puri e costanti `[H]` in `packages/renderer-three/src/pure/look.ts` conformi a R10 (`eslint --max-warnings=0`), coperti da test unitari in `packages/renderer-three/test/pure.test.ts` (`21 passed` su `crystalScale`, `glowTexels`, `zoningTransmissionTexels`).
+  - [x] Vetrina 1A con `clearcoat` disattivato sui tratti satinati e gerarchia degli spigoli verificata visivamente su GPU reale (`ANGLE AMD Radeon RX Vega 10`: screenshot di verifica `look-1a-verified.png` sulle quattro seed di riferimento, profilo vetrina, profilo velato `p1/p3/p4/p6` e profilo `economy`).
+  - [x] Screenshot di riferimento WebGL rigenerati e verificati senza regressioni (`pnpm test:render`: `11/11` verdi; 6 velature `p1…p6` sopra le soglie minime; 100 cicli monta/smonta con residuo WebGL costante e heap JS `4,31 → 4,67 MB`).
+  - [x] Costo dei fotogrammi misurato su GPU reale sotto la soglia D-AN di `33 ms` (`pnpm bench:render` su Radeon RX Vega 10: vetrina p50/p90/p95 `4,20 / 4,80 / 5,00 ms`, primo frame mediana `236,2 ms`; economy p95 `2,50 ms`, `tests/benchmarks/out/render-latest.json` e `docs/BENCHMARK_PROTOCOL.md` §7).
+  - [x] Flag `RenderConfig.fixedScale?: boolean` presente per il confronto su stessa scala in `I-15`.
+  - [x] Note aggiornate in `docs/SPEC_v0.3.md` §10, `docs/ADR/0012-resa-vetrina-museale-con-three-js.md`, `docs/STATUS.md` e `CHANGELOG.md`.
+  - [x] `pnpm typecheck`, `pnpm lint`, `pnpm test` (`50` file, `642 passed | 5 expected fail`) e `pnpm build` (35 file in `dist/extension`, guardia verde) verdi dopo le modifiche.
+- **Test:** unit/property in Node (`pure.test.ts`), Playwright SwiftShader (`render.spec.ts`), benchmark GPU reale (`pnpm bench:render`), build estensione (`pnpm build`).
 
 ### I-14 · Vault, miniature, export/import
 

@@ -42,8 +42,10 @@ export function frameCostP95(costs: readonly number[]): number | null {
 
 export function chooseProfile(input: ProfileInput): ProfileChoice {
   if (input.userSimplified) return { profile: 'economy', reason: 'USER_SIMPLIFIED' };
-  if (input.majorPerformanceCaveat) return { profile: 'economy', reason: 'MAJOR_PERFORMANCE_CAVEAT' };
+  // A software rasterizer also fails the major-performance-caveat context (measured in CI, Linux
+  // SwiftShader, 2026-11-14): its name, when readable, is the clearer reason, so it comes first.
   if (input.rendererName !== null && isSoftwareRenderer(input.rendererName)) return { profile: 'economy', reason: 'SOFTWARE_GPU' };
+  if (input.majorPerformanceCaveat) return { profile: 'economy', reason: 'MAJOR_PERFORMANCE_CAVEAT' };
   const p95 = input.frameCostsMs === null ? null : frameCostP95(input.frameCostsMs);
   if (p95 !== null && p95 > FRAME_COST_P95_LIMIT_MS) return { profile: 'economy', reason: 'SLOW_FRAMES' };
   return { profile: 'vetrina', reason: 'DEFAULT' };

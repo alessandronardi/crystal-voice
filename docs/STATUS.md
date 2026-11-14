@@ -37,6 +37,7 @@
 >   - **Annotati:** L-2 e L-3 in «Proposte»; M-6, `PRIVACY.md` da correggere con I-14 (D-AK, voce nella DoD di I-14).
 >   - **Non corretti:** M-7 (nessun test in Node della scena: serve WebGL; la prova è M38).
 >   - **Decisi dal product owner:** M-4 (D-AS), L-9 (D-AT), avviso senza risposta (D-AR), ADR-0028 (D-AU).
+>   - **M-2 confermato dalla CI della PR (Linux, SwiftShader, 2026-11-14):** la resa partiva «economy / MAJOR_PERFORMANCE_CAVEAT», e spuntando «Resa semplificata» la vetrina non si ricostruiva, quindi il motivo mostrato restava vecchio (1 test E2E fallito, 15 non eseguiti). Correzioni: il motivo entra nella chiave della vetrina; con una GPU software riconoscibile il motivo è `SOFTWARE_GPU`, prima del controllo sul contesto lento. Localmente `file.spec` headless 19/19.
 >   - **Non cambiato:** L-8, `STOP_RULE_VERSION` resta `split-half-0`: senza risposta la regola è invariata, e il «Sì» è un input dell'utente, non una costante (vedi «Proposte»).
 > - **Non eseguito:** prove manuali M38–M42 (product owner, Brave).
 > - **Decisioni del product owner (2026-11-14):**

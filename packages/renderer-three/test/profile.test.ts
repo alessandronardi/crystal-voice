@@ -28,6 +28,8 @@ describe('chooseProfile (I-13b, D-AN)', () => {
 
   it('chooses economy when the context with failIfMajorPerformanceCaveat cannot be created', () => {
     expect(chooseProfile({ ...base, majorPerformanceCaveat: true })).toEqual({ profile: 'economy', reason: 'MAJOR_PERFORMANCE_CAVEAT' });
+    // A software GPU fails that context too: its name is the reason shown (CI, Linux SwiftShader).
+    expect(chooseProfile({ ...base, majorPerformanceCaveat: true, rendererName: 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)' }).reason).toBe('SOFTWARE_GPU');
   });
 
   it('chooses economy when the p95 of the first frames is over the limit, not at it', () => {

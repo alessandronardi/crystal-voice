@@ -307,7 +307,9 @@ export function mountShell(root: HTMLElement): void {
     const input: ProfileInput = { userSimplified: simplified, rendererName: gpu.rendererName, majorPerformanceCaveat: gpu.majorPerformanceCaveat, frameCostsMs: null };
     const base = chooseProfile(input);
     const choice: ProfileChoice = base.profile === 'vetrina' && slow ? { profile: 'economy', reason: 'SLOW_FRAMES' } : base;
-    const key = `${resultKey}|${choice.profile}`;
+    // The reason is part of the key (CI, 2026-11-14): «Resa semplificata» over an economy already
+    // chosen for the GPU changes the reason shown, not the profile.
+    const key = `${resultKey}|${choice.profile}|${choice.reason}`;
     if (selected?.result !== resultKey) selected = null;
     if (showcase?.key !== key) {
       disposeShowcase();

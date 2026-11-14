@@ -5,6 +5,7 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 ## [Unreleased]
 
 ### Aggiunto
+- G0: `LICENSE` (MIT) nella radice (prescrizione G0-ACT-02) e `PRIVACY.md` con il testo approvato in §5.3 della valutazione G0 (G0-DOC-03). G0-ACT-03 verificata: il `PATENTS` di libfvad è in `THIRD_PARTY/`, compiler-rt (LLVM) non ha un file `NOTICE` da includere.
 - I-13a: le schermate del pannello (SPEC §13), stile «Gabinetto di mineralogia» (D-AJ). Non distribuibile prima che le prescrizioni di G0 siano completate.
   - **Macchina della vista** pura (SPEC §6.2): `HOME → LIVE → REVEALED | OUTCOME → HOME` in `extension/src/sidepanel/view-machine.ts`, con property test (mai un cristallo senza qualità accettata e 8 s di voce valida).
   - **Home:** le tre sorgenti, l'avviso «elaborazione locale e sperimentale» (prescrizione G0-DOC-01) e i link alle licenze nel pacchetto.

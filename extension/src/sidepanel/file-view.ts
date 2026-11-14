@@ -429,7 +429,22 @@ export function mountFileView(root: HTMLElement, hooks: FileViewHooks = {}): Fil
       render();
       if (phase === 'done' && result !== null) {
         const d = result.analysis.descriptors;
-        hooks.onEvent?.({ type: 'FILE_DONE', result: { seed: d.seed, quality: d.quality, extractorVersion: d.extractorVersion, mappingVersion: d.mappingVersion, rawMeasures: d.raw } });
+        hooks.onEvent?.({
+          type: 'FILE_DONE',
+          result: {
+            seed: d.seed,
+            quality: d.quality,
+            extractorVersion: d.extractorVersion,
+            mappingVersion: d.mappingVersion,
+            rawMeasures: d.raw,
+            fileSource: {
+              fileName: result.source.fileName,
+              durationSeconds: result.source.durationSeconds,
+              offsetStartSeconds: result.source.offsetStartSeconds,
+              offsetEndSeconds: result.source.offsetEndSeconds,
+            },
+          },
+        });
       } else if (phase === 'failed') {
         // Review M-2: the outcome screen shows the view's own text (refusal reason, what to do).
         hooks.onEvent?.({ type: 'FILE_FAILED', code: failure?.kind === 'code' ? failure.code : 'FILE_DECODE_FAILED', message: failure === null ? null : failureText(failure) });

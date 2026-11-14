@@ -4,10 +4,10 @@
 // start) → 'disposed'. No restore attempt after a context loss (MVP): the
 // plate is the canonical export anyway (ADR-0013).
 
-import { AgXToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer } from 'three';
+import { AgXToneMapping, OrthographicCamera, PCFShadowMap, SRGBColorSpace, WebGLRenderer, type PerspectiveCamera } from 'three';
 import type { CrystalGeometry } from '@voicecrystal/contracts';
 import { showPlateFallback } from './fallback.ts';
-import { PROFILE_SAMPLE_FRAMES, turntableAngle, type HighlightTarget, type RenderProfile } from './pure/index.ts';
+import { FRAMING_RADIUS, PROFILE_SAMPLE_FRAMES, turntableAngle, type HighlightTarget, type RenderProfile } from './pure/index.ts';
 import { buildShowcaseScene, type ShowcaseScene } from './scene.ts';
 
 export type RenderState = 'webgl' | 'fallback-svg' | 'disposed';
@@ -30,6 +30,15 @@ export interface RenderConfig {
    * measured as M17 (render + 1-pixel readPixels). Not called without motion.
    */
   onFrameCosts?: (costsMs: number[]) => void;
+}
+
+export type SnapshotHook = (sizePx: number) => HTMLCanvasElement | null;
+
+const SNAPSHOT_HOOKS = new WeakMap<RenderHandle, SnapshotHook>();
+
+/** Package-internal access for `exportCrystalPng` / `renderCrystalThumbnail` without leaking Three.js types. */
+export function getSnapshotHook(handle: RenderHandle): SnapshotHook | undefined {
+  return SNAPSHOT_HOOKS.get(handle);
 }
 
 export interface RenderHandle {
@@ -164,7 +173,7 @@ export function renderCrystal(geometry: CrystalGeometry, config: RenderConfig): 
     if (spinning) frame = requestAnimationFrame(loop);
   }
 
-  return {
+  const handle: RenderHandle = {
     get state() {
       return state;
     },
@@ -195,10 +204,60 @@ export function renderCrystal(geometry: CrystalGeometry, config: RenderConfig): 
       if (state === 'webgl') draw(angleRad);
     },
     dispose() {
+      SNAPSHOT_HOOKS.delete(handle);
       if (state === 'disposed') return;
       if (state === 'webgl') releaseGpu(false);
       container.replaceChildren();
       state = 'disposed';
     },
   };
+
+  SNAPSHOT_HOOKS.set(handle, (exportSizePx: number) => {
+    if (state !== 'webgl' || renderer === null || showcase === null || canvas === null) return null;
+    const prevPixelRatio = renderer.getPixelRatio();
+    const savedAngle = angle;
+    const savedHighlight = highlighted;
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = exportSizePx;
+    outCanvas.height = exportSizePx;
+    const ctx = outCanvas.getContext('2d');
+    if (ctx === null) return null;
+
+    const ortho = new OrthographicCamera(
+      -FRAMING_RADIUS,
+      FRAMING_RADIUS,
+      FRAMING_RADIUS,
+      -FRAMING_RADIUS,
+      showcase.camera.near,
+      showcase.camera.far,
+    );
+    ortho.position.copy(showcase.camera.position);
+    ortho.lookAt(0, 0, 0);
+    ortho.updateProjectionMatrix();
+
+    // Borrow showcase.camera.id so Three.js WebGLRenderState reuses and resizes the single
+    // transmissionRenderTarget rather than allocating a second target keyed to a new camera ID.
+    const cam = showcase.camera as PerspectiveCamera & { isOrthographicCamera?: boolean };
+    try {
+      if (savedHighlight !== null) showcase.setHighlight(null);
+      cam.projectionMatrix.copy(ortho.projectionMatrix);
+      cam.projectionMatrixInverse.copy(ortho.projectionMatrixInverse);
+      cam.isOrthographicCamera = true;
+      renderer.setPixelRatio(1);
+      renderer.setSize(exportSizePx, exportSizePx, false);
+      renderer.render(showcase.scene, showcase.camera);
+      // Copy synchronously before returning to the event loop (preserveDrawingBuffer is false).
+      ctx.drawImage(canvas, 0, 0, exportSizePx, exportSizePx);
+      return outCanvas;
+    } finally {
+      delete cam.isOrthographicCamera;
+      showcase.camera.updateProjectionMatrix();
+      renderer.setPixelRatio(prevPixelRatio);
+      renderer.setSize(sizePx, sizePx, false);
+      if (savedHighlight !== null) showcase.setHighlight(savedHighlight);
+      draw(savedAngle);
+    }
+  });
+
+  return handle;
 }

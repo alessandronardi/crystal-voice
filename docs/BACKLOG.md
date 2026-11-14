@@ -352,18 +352,18 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
 
 ### I-14 · Vault, miniature, export/import
 
-- **Riferimenti:** SPEC §12; VC-18, VC-20.
+- **Riferimenti:** SPEC §12; ADR-0029 (G0-TECH-01/02); VC-18, VC-20.
 - **DoD:**
-  - [ ] Schema v1 con migrazioni testate (da v1 a v1 vuota, struttura pronta per v2).
-  - [ ] Import ostile rifiutato: prototipi, HTML, stringhe enormi, file > 20 MB, versioni sconosciute.
-  - [ ] `QuotaExceededError` simulato: nessun record esistente perso.
-  - [ ] 1.000 record sotto 50 MB [H]; `geometryHash` verificato all'apertura.
-  - [ ] Avviso dati personali all'export se presenti `speakerLabel`.
-  - [ ] `PRIVACY.md` §3 coerente con ciò che il vault salva davvero e dove (IndexedDB, non `chrome.storage`; miniatura secondo l'ADR di G0-TECH-01). Decisione del product owner D-AK, 2026-11-14. Da I-13b: `PRIVACY.md` dovrà citare anche la preferenza «Resa semplificata» in `chrome.storage.local` (un solo valore vero/falso, nessun dato sulla GPU).
-  - [ ] **Eredità da I-18:** il record di un'analisi da file contiene solo l'`AnalysisSource` di tipo `file` (`fileName`, `durationSeconds`, `offsetStartSeconds`, `offsetEndSeconds`): nessun contenuto del file, nessun digest del segnale. Il nome è testo non fidato, da validare in scrittura e in import (R17). Test sul record salvato.
-  - [ ] `exportCrystalPng(handle, 1024)` in `renderer-three` (SPEC §10, ADR-0012): PNG 1024×1024 con camera ortografica e preset fissi, `dispose` verificato anche sul render target dell'export. Nessuna promessa di PNG identici fra GPU: l'export canonico resta la tavola SVG (ADR-0013). Assegnato a I-14 dal product owner il 2026-11-10.
-  - [ ] Geometrie da record importati passano dal controllo di budget di `renderer-three` (`checkBudget`, errore `BUDGET_EXCEEDED`).
-- **Test:** unit con `fake-indexeddb`; E2E export/import.
+  - [x] Schema v1 con migrazioni testate (da v1 a v1 vuota, struttura pronta per v2): `packages/vault/src/migrations.ts`, test in `packages/vault/test/vault.test.ts` (v0→v1, v1→v1, v1→v2 simulata, versione futura rifiutata). Indici `createdAt`, `mappingVersion`, `sourceKind` (nessun indice `videoId`, ADR-0029).
+  - [x] Import ostile rifiutato: prototipi (`__proto__`, `constructor`, `prototype`), HTML (`<`/`>`), stringhe enormi, file > 20 MB, versioni sconosciute e campi YouTube vietati (`INVALID_SCHEMA`), verificato in `vault.test.ts` e `tests/e2e/vault.spec.ts`.
+  - [x] `QuotaExceededError` simulato: nessun record esistente perso (`vault.test.ts`).
+  - [x] 1.000 record sotto 50 MB [H] (misurati `9.069.660 B` / `8,65 MiB` con miniature sintetiche da 8 KiB in `vault.test.ts`; miniatura WebP 256×256 reale su SwiftShader = `3.218 B` in `render.spec.ts` #14); `geometryHash` verificato all'apertura e in import (`GEOMETRY_HASH_MISMATCH` testato in unit e E2E).
+  - [x] Avviso dati personali all'export se presenti `speakerLabel`: `exportVaultJson` omette di default `title`, `speakerLabel` e `tags` con opt-in esplicito (ADR-0029 / G0-TECH-02) e avviso visibile `shell-vc20-warning` in Home.
+  - [x] `PRIVACY.md` §3 coerente con ciò che il vault salva davvero e dove (IndexedDB `voicecrystal`, mai `chrome.storage` per il vault; preferenza «Resa semplificata» in `chrome.storage.local` per I-13b; niente metadati YouTube per ADR-0029). Aggiornati anche `G0-valutazione-2026-11-13.md` e l'avviso Home (`G0-DOC-01`/`G0-DOC-03`, testato da `g0-notice.test.ts`).
+  - [x] **Eredità da I-18:** il record di un'analisi da file contiene solo l'`AnalysisSource` di tipo `file` (`fileName`, `durationSeconds`, `offsetStartSeconds`, `offsetEndSeconds`): nessun contenuto del file, nessun digest del segnale; validazione R17 in scrittura e in import; verificato in `vault.test.ts` e `tests/e2e/vault.spec.ts`.
+  - [x] `exportCrystalPng(handle, 1024)` in `renderer-three` (SPEC §10, ADR-0012): PNG 1024×1024 con camera ortografica e preset fissi, `dispose` verificato anche sul render target dell'export riusando `showcase.camera.id` (`render.spec.ts` #12–#13 e 100 cicli senza leak WebGL).
+  - [x] Geometrie da record importati passano dal controllo di budget di `renderer-three` (`checkBudget`, errore `BUDGET_EXCEEDED`), testato in `vault.test.ts` e `packages/vault/src/verify.ts`.
+- **Test:** unit con `fake-indexeddb` (`packages/vault/test/vault.test.ts`, 10/10); E2E export/import (`tests/e2e/vault.spec.ts`).
 
 ### I-15 · Comparator a percentile, Collezione, Confronto
 

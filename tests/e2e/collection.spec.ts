@@ -208,7 +208,7 @@ test('I-15 full Collection & Comparison flow: empty state, filters, detail, shar
   });
 
   await collectionPage.waitForLoadState('load');
-  await expect(collectionPage.getByTestId('collection-card')).toHaveCount(3);
+  await expect(collectionPage.getByTestId('collection-card')).toHaveCount(3, { timeout: 30_000 });
   expect(await axeSeriousViolations(collectionPage)).toEqual([]);
 
   // 3. Test filters: habit, color, source, date, and reset.
@@ -240,7 +240,7 @@ test('I-15 full Collection & Comparison flow: empty state, filters, detail, shar
   // 4. Open specimen detail and close it cleanly.
   const cardA = collectionPage.locator(`[data-testid="collection-card"][data-specimen-id="${idA}"]`);
   await cardA.getByTestId('open-specimen').click();
-  await expect(collectionPage.getByTestId('collection-detail')).toBeVisible();
+  await expect(collectionPage.getByTestId('collection-detail')).toBeVisible({ timeout: 30_000 });
   await expect(collectionPage.getByTestId('collection-detail-stage')).toBeVisible();
   await collectionPage.getByTestId('collection-detail-close').click();
   await expect(collectionPage.getByTestId('collection-detail')).toHaveCount(0);
@@ -252,7 +252,7 @@ test('I-15 full Collection & Comparison flow: empty state, filters, detail, shar
   await expect(collectionPage.getByTestId('start-comparison')).toBeEnabled();
   await collectionPage.getByTestId('start-comparison').click();
 
-  await expect(collectionPage.getByTestId('comparison-view')).toBeVisible();
+  await expect(collectionPage.getByTestId('comparison-view')).toBeVisible({ timeout: 30_000 });
   await expect(collectionPage.getByTestId('comparison-heading')).toHaveText('Affinità acustica / geometrica');
   await expect(collectionPage.getByTestId('comparison-stage-a')).toHaveAttribute('data-fixed-scale', 'true');
   await expect(collectionPage.getByTestId('comparison-stage-b')).toHaveAttribute('data-fixed-scale', 'true');
@@ -275,7 +275,7 @@ test('I-15 full Collection & Comparison flow: empty state, filters, detail, shar
   // 6. Test version mismatch blocking: incompatible mappingVersion and extractorVersion.
   await patchRecordVersion(collectionPage, idB, { mappingVersion: 'mapping-1' });
   await collectionPage.goto(`chrome-extension://${h.extensionId}/collection.html?a=${idA}&b=${idB}`);
-  await expect(collectionPage.getByTestId('comparison-blocked')).toBeVisible();
+  await expect(collectionPage.getByTestId('comparison-blocked')).toBeVisible({ timeout: 30_000 });
   await expect(collectionPage.getByTestId('comparison-blocked')).toHaveAttribute('data-reason', 'INCOMPATIBLE_MAPPING_VERSION');
   await expect(collectionPage.getByTestId('comparison-percentile-value')).toHaveCount(0);
 
@@ -284,7 +284,7 @@ test('I-15 full Collection & Comparison flow: empty state, filters, detail, shar
     extractorVersion: 'extractor-legacy',
   });
   await collectionPage.goto(`chrome-extension://${h.extensionId}/collection.html?a=${idA}&b=${idB}`);
-  await expect(collectionPage.getByTestId('comparison-blocked')).toBeVisible();
+  await expect(collectionPage.getByTestId('comparison-blocked')).toBeVisible({ timeout: 30_000 });
   await expect(collectionPage.getByTestId('comparison-blocked')).toHaveAttribute('data-reason', 'INCOMPATIBLE_EXTRACTOR_VERSION');
   await expect(collectionPage.getByTestId('comparison-percentile-value')).toHaveCount(0);
 

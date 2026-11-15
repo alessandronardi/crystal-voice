@@ -1,4 +1,4 @@
-// Extractor `extractor-0-experimental` (SPEC §7.2–§7.4, I-06a): acoustic
+// Extractor `extractor-0` (SPEC §7.2–§7.4, I-06a, ADR-0030): acoustic
 // frames → six raw measures, confidence per parameter, music and several-voices
 // warnings, and the INSUFFICIENT_DATA decision. Whole-buffer; the block-wise
 // path for tab and microphone is I-06b.
@@ -34,7 +34,7 @@ import { assessSpeakers, type SpeakerAssessment } from './speaker-heuristic.ts';
 import type { VadEngine } from './vad.ts';
 import { WEBRTC_VAD_ID } from './vad-fvad.ts';
 
-export const EXTRACTOR_VERSION = 'extractor-0-experimental';
+export const EXTRACTOR_VERSION = 'extractor-0';
 
 /**
  * Parameters that music moves (D-U, ADR-0024), from the I-06a measurement on
@@ -128,7 +128,6 @@ export function describeFrames(af: AcousticFrames, vad: Pick<VadEngine, 'id'> & 
   if (music.mixedAudioUncertain) warnings.push('MIXED_AUDIO_UNCERTAIN');
   if (speakers.multiSpeakerSuspected) warnings.push('MULTI_SPEAKER_SUSPECTED');
   if (veiledKeys.length > 0) warnings.push('LOW_CONFIDENCE_PARAMETER');
-  warnings.push('EXPERIMENTAL_MAPPING');
 
   const mode = vad.mode ?? null;
   return {

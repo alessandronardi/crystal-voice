@@ -24,17 +24,19 @@ Un gate è superato solo con un **verbale** in `docs/gates/<gate>-<AAAA-MM-GG>.m
 
 **NO-GO se:** impossibile garantire pass-through o stop pulito in Chrome reale (SPEC §16).
 
-## G1 — fine fase 2
+## G1 — fine fase 2 (**CHIUSO PER DEROGA — ADR-0030**)
 
-**Domanda:** i sei descrittori sono abbastanza stabili e informativi da giustificare la promessa del prodotto?
+> **Deroga del product owner (2026-11-15, [ADR-0030](ADR/0030-rinuncia-calibrazione-g1-e-rimozione-stato-sperimentale.md)):** `I-08` (dataset umano) e `I-09` (tabelle `mapping-1` / `comparator-1`) sono rinunciate; le formule `extractor-0`, `mapping-0` e `comparator-0` restano invariate senza designazione «sperimentale». Le voci statistiche su popolazione umana sotto riportate non si eseguono.
 
-- [ ] I-04…I-09 chiuse; report in `docs/reports/G1-report.md`.
-- [ ] Tutte le metriche di `docs/BENCHMARK_PROTOCOL.md` riportate, con dataset e procedura.
-- [ ] Stabilità intra-parlante: cambio di forma principale ≤ 10% delle coppie [H].
-- [ ] Separazione: percentile mediano intra-parlante ≥ 70, inter-parlante ≈ 50 [H].
-- [ ] Arresto anticipato: differenza dal seed a 18 s ≤ 5 punti nel 90% dei casi [H].
-- [ ] Matrice di correlazione dei descrittori: nessuna coppia con |r| > 0,5 [H], o deroga motivata.
-- [ ] `mapping-1`, `comparator-1`, soglie e tempi congelati con motivazione.
+**Domanda storica:** i sei descrittori sono abbastanza stabili e informativi da giustificare la promessa del prodotto?
+
+- [~] I-08, I-09 rinunciate (ADR-0030); I-04…I-07 completate.
+- [~] Metriche di `docs/BENCHMARK_PROTOCOL.md` su fixture sintetiche registrate; dataset umano non raccolto (ADR-0030).
+- [~] Stabilità intra-parlante: non misurata su volontari (rinuncia ADR-0030).
+- [~] Separazione: non misurata su volontari (rinuncia ADR-0030).
+- [~] Arresto anticipato: non misurato su volontari (rinuncia ADR-0030).
+- [~] Matrice di correlazione dei descrittori: non misurata su volontari (rinuncia ADR-0030).
+- [x] `extractor-0`, `mapping-0` e `comparator-0` congelati dal product owner con ADR-0030 (rimossa designazione «sperimentale»).
 
 **Se i risultati sono insufficienti:** ridimensionare la promessa (modalità «sperimentale» esplicita, testi UI rivisti) invece di alzare soglie a posteriori. **NO-GO se** il parlato non si distingue dalla musica al livello minimo, o se i seed cambiano molto per perturbazioni innocue senza spiegazione.
 

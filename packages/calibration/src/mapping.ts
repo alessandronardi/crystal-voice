@@ -6,7 +6,7 @@
 import { DESCRIPTOR_KEYS, type CrystalSeed, type DescriptorKey, type QualityWarning } from '@voicecrystal/contracts';
 import { CalibrationError } from './errors.ts';
 import { toSeedUnits } from './seed-units.ts';
-import mapping0Json from '../mapping-0-experimental.json' with { type: 'json' };
+import mapping0Json from '../mapping-0.json' with { type: 'json' };
 
 export interface ParameterTable {
   measure: string;
@@ -17,7 +17,7 @@ export interface ParameterTable {
 
 export interface MappingTable {
   mappingVersion: string;
-  /** True before G1 (mapping-0): the result carries EXPERIMENTAL_MAPPING. */
+  /** False for frozen v0 baseline (ADR-0030); legacy/custom tables may emit EXPERIMENTAL_MAPPING. */
   experimental: boolean;
   parameters: Readonly<Record<DescriptorKey, ParameterTable>>;
 }
@@ -54,11 +54,11 @@ export function parseMappingTable(value: unknown): MappingTable {
   return Object.freeze({ mappingVersion, experimental, parameters: Object.freeze(out as Record<DescriptorKey, ParameterTable>) });
 }
 
-/** The pre-G1 table (SPEC §7.5). Validated when the module loads: a bad file fails closed. */
+/** The canonical v0 table (SPEC §7.5, ADR-0030). Validated when the module loads: a bad file fails closed. */
 export const MAPPING_0: MappingTable = parseMappingTable(mapping0Json);
-export const MAPPING_0_VERSION = 'mapping-0-experimental';
-if (MAPPING_0.mappingVersion !== MAPPING_0_VERSION || !MAPPING_0.experimental) {
-  throw new CalibrationError('BAD_TABLE', 'mapping-0-experimental.json has the wrong version or flag');
+export const MAPPING_0_VERSION = 'mapping-0';
+if (MAPPING_0.mappingVersion !== MAPPING_0_VERSION || MAPPING_0.experimental) {
+  throw new CalibrationError('BAD_TABLE', 'mapping-0.json has the wrong version or flag');
 }
 
 /**

@@ -38,10 +38,10 @@ function buildRecord(
     seed,
     confidence,
     rawMeasures: [7.2, 2.5, 14, 0.12, 10.1, 4],
-    extractorVersion: 'extractor-0-experimental',
-    mappingVersion: 'mapping-0-experimental',
+    extractorVersion: 'extractor-0',
+    mappingVersion: 'mapping-0',
     geometryVersion: 'habit-1',
-    comparatorVersion: 'comparator-0-experimental',
+    comparatorVersion: 'comparator-0',
     captureExitReason: 'CONVERGED',
     quality: {
       accepted: true,
@@ -52,7 +52,7 @@ function buildRecord(
       clippedFraction: 0,
       confidence,
       missingFeatureKeys: [],
-      warnings: ['EXPERIMENTAL_MAPPING'],
+      warnings: [],
     },
     geometryHash: geom.geometryHash,
     tags: [],
@@ -270,7 +270,7 @@ test('I-15 full Collection & Comparison flow: empty state, filters, detail, shar
 
   // Open technical details and verify Euclidean affinity + comparator version.
   await collectionPage.locator('[data-testid="comparison-technical-details"] summary').click();
-  await expect(collectionPage.getByTestId('comparison-technical-details')).toContainText('comparator-0-experimental');
+  await expect(collectionPage.getByTestId('comparison-technical-details')).toContainText('comparator-0');
 
   // 6. Test version mismatch blocking: incompatible mappingVersion and extractorVersion.
   await patchRecordVersion(collectionPage, idB, { mappingVersion: 'mapping-1' });
@@ -280,7 +280,7 @@ test('I-15 full Collection & Comparison flow: empty state, filters, detail, shar
   await expect(collectionPage.getByTestId('comparison-percentile-value')).toHaveCount(0);
 
   await patchRecordVersion(collectionPage, idB, {
-    mappingVersion: 'mapping-0-experimental',
+    mappingVersion: 'mapping-0',
     extractorVersion: 'extractor-legacy',
   });
   await collectionPage.goto(`chrome-extension://${h.extensionId}/collection.html?a=${idA}&b=${idB}`);

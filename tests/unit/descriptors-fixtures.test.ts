@@ -50,7 +50,7 @@ beforeAll(() => {
   for (const c of LONG_REJECTION_CASES) cases.set(c.name, runLongCase(c));
 }, 300_000);
 
-describe('extractor-0-experimental on the fixtures', () => {
+describe('extractor-0 on the fixtures', () => {
   it('uses the canonical VAD and version', () => {
     expect(get('voice-a').extraction.extractorVersion).toBe(EXTRACTOR_VERSION);
     expect(get('voice-a').extraction.vad).toMatchObject({ id: 'webrtc-fvad-0', mode: 2 });
@@ -78,7 +78,7 @@ describe('extractor-0-experimental on the fixtures', () => {
     expect(x.status).toBe('OK');
     // 22 onsets (minimum 20) → p6 coverage 0.55; × (1 − 12% stable-pitch cues) = 0.48: veiled (D-U, measured).
     expect(x.veiledKeys).toEqual(['p6_rhythm']);
-    expect(x.warnings).toEqual(['LOW_CONFIDENCE_PARAMETER', 'EXPERIMENTAL_MAPPING']);
+    expect(x.warnings).toEqual(['LOW_CONFIDENCE_PARAMETER']);
     expect(get('voice-a-long').extraction.veiledKeys).toEqual([]);
   });
 
@@ -145,7 +145,7 @@ describe('extractor-0-experimental on the fixtures', () => {
     expect(runFixtureInMemory('voice-a')).toEqual(get('voice-a'));
   });
 
-  it('extractor-0-experimental has not changed meaning: result digests are pinned (review M-1)', () => {
+  it('extractor-0 has not changed meaning: result digests are pinned (review M-1, ADR-0030)', () => {
     // Any change to a formula, window, VAD mapping or heuristic changes these
     // digests: bump EXTRACTOR_VERSION and update them deliberately.
     const digest = (name: string): string => {
@@ -160,10 +160,10 @@ describe('extractor-0-experimental on the fixtures', () => {
       'alternating-ab-v1': digest('alternating-ab-v1'),
     }).toMatchInlineSnapshot(`
       {
-        "alternating-ab-v1": "56113a40d2a54f170b9f9523bdd3d2a0ac6f84755e88d1494a198da8aa2bb3f9",
-        "version": "extractor-0-experimental",
-        "voice-a": "5d91cc34a8ff9ac2299f8de05c21510a8819a325707f635e7cfd09c4b42ca199",
-        "voice-music-12db-v1": "c850e7193d4894ebe5bbbb1cf8fa753816633dd37b74d4d2e9176d1a6c03eefc",
+        "alternating-ab-v1": "b6d8c026d6591637f399db7c4271f08610f17932a8553f100acfd6e274248a00",
+        "version": "extractor-0",
+        "voice-a": "83b5b4f648e68dd21dabd2a45333f137b12fbf014002dbb26b61a35d5a3e4365",
+        "voice-music-12db-v1": "81109b4da60f0ab440f1677335c2489643190b26c25862cd8d8b20481453b002",
       }
     `);
   });

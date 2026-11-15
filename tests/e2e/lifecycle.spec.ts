@@ -212,7 +212,7 @@ test('listening to a pure tone ends in INSUFFICIENT_DATA, with the analysis that
   expect(end.stability?.converged ?? false).toBe(false);
   // The tab's DSP worker loaded libfvad (no failure) and found no voice: a tone has no syllables.
   expect(end.analysis?.failure).toBeNull();
-  expect(end.analysis?.extractorVersion).toBe('extractor-0-experimental');
+  expect(end.analysis?.extractorVersion).toBe('extractor-0');
   expect(end.analysis?.seed).toBeNull();
   expect(end.analysis?.quality?.missingFeatureKeys).toContain('p6_rhythm');
   // Review M-3: no block refused (a stable channel count), and as much audio as listened, within 1 s.

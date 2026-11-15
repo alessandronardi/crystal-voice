@@ -121,7 +121,7 @@ describe('analyzeDescriptors', () => {
     expect(d.raw).toEqual([...x.raw]);
     expect(d.status).toBe('OK');
     expect(d.seed).toEqual(seedFromRaw(x.raw).seed);
-    expect(d.extractorVersion).toBe('extractor-0-experimental');
+    expect(d.extractorVersion).toBe('extractor-0');
     expect(d.quality.accepted).toBe(true);
     expect(d.vadDecisionsSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(d).length).toBeLessThan(3000);

@@ -1,8 +1,8 @@
-// Builds packages/comparator/comparator-0-experimental.json (SPEC §11, ADR-0007):
-// before G1 (I-08 human dataset), the inter-speaker distance CDF G(D) is
-// tabulated from 200,000 deterministic independent uniform seed pairs in
-// [0, 10000]^6 with equal weights w_i = 1/6. Anchored at P0 = 0 and P100 = 1
-// so identical seeds map to nearness 100 and maximally opposite seeds map to 0.
+// Builds packages/comparator/comparator-0.json (SPEC §11, ADR-0007, ADR-0030):
+// the reference distance CDF G(D) is tabulated from 200,000 deterministic
+// independent uniform seed pairs in [0, 10000]^6 with equal weights w_i = 1/6.
+// Anchored at P0 = 0 and P100 = 1 so identical seeds map to nearness 100 and
+// maximally opposite seeds map to 0.
 //
 //   node scripts/calibration/build-comparator-0.ts           write the file
 //   node scripts/calibration/build-comparator-0.ts --check   exit 1 if it differs
@@ -10,7 +10,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-export const COMPARATOR_0_PATH = resolve(import.meta.dirname, '../../packages/comparator/comparator-0-experimental.json');
+export const COMPARATOR_0_PATH = resolve(import.meta.dirname, '../../packages/comparator/comparator-0.json');
 
 const PAIR_COUNT = 200_000;
 const SEED_MAX = 10_000;
@@ -63,11 +63,11 @@ export function buildComparator0(): string {
   quantiles.push(1);
 
   const table = {
-    comparatorVersion: 'comparator-0-experimental',
-    experimental: true,
+    comparatorVersion: 'comparator-0',
+    experimental: false,
     createdAt: '2026-11-15T00:00:00.000Z',
     sourceSummary:
-      'Synthetic pre-G1 reference distribution of weighted Euclidean distance D over 200,000 independent uniform seed pairs in [0, 10000]^6 with equal weights w_i = 1/6; replace at G1 via I-08 inter-speaker pairs.',
+      'Reference distribution of weighted Euclidean distance D over 200,000 independent uniform seed pairs in [0, 10000]^6 with equal weights w_i = 1/6 (ADR-0007, ADR-0030).',
     weights: [weight, weight, weight, weight, weight, weight],
     distanceQuantiles: quantiles,
   };
@@ -80,10 +80,10 @@ if (import.meta.main) {
   if (process.argv.includes('--check')) {
     const current = readFileSync(COMPARATOR_0_PATH, 'utf8').replace(/\r\n/g, '\n');
     if (current !== text) {
-      console.error('comparator-0-experimental.json differs from the generator output');
+      console.error('comparator-0.json differs from the generator output');
       process.exit(1);
     }
-    console.log('comparator-0-experimental.json is up to date');
+    console.log('comparator-0.json is up to date');
   } else {
     writeFileSync(COMPARATOR_0_PATH, text);
     console.log(`wrote ${COMPARATOR_0_PATH}`);

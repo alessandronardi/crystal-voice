@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { DESCRIPTOR_KEYS, isCrystalSeed } from '@voicecrystal/contracts';
-import mapping0Json from '../mapping-0-experimental.json' with { type: 'json' };
+import mapping0Json from '../mapping-0.json' with { type: 'json' };
 import {
   CalibrationError,
   MAPPING_0,
@@ -37,10 +37,10 @@ describe('roundHalfEven / toSeedUnits (SPEC §7.5, R12)', () => {
   });
 });
 
-describe('mapping-0-experimental (SPEC §7.5)', () => {
-  it('is experimental, versioned and uses the provisional anchors', () => {
+describe('mapping-0 (SPEC §7.5, ADR-0030)', () => {
+  it('is non-experimental, versioned and uses the canonical anchors', () => {
     expect(MAPPING_0.mappingVersion).toBe(MAPPING_0_VERSION);
-    expect(MAPPING_0.experimental).toBe(true);
+    expect(MAPPING_0.experimental).toBe(false);
     const ends = DESCRIPTOR_KEYS.map((k) => [MAPPING_0.parameters[k].percentiles[0], MAPPING_0.parameters[k].percentiles[100]]);
     expect(ends).toEqual([
       [Math.log2(70), Math.log2(320)],
@@ -96,7 +96,7 @@ describe('mapping-0-experimental (SPEC §7.5)', () => {
 });
 
 describe('seedFromRaw', () => {
-  it('turns six measures into a canonical seed and flags the experimental mapping', () => {
+  it('turns six measures into a canonical seed without experimental warning for mapping-0', () => {
     const r = seedFromRaw([Math.log2(120), 3, 18, 0.25, Math.log2(1200), 4.5]);
     expect(isCrystalSeed(r.seed)).toBe(true);
     expect(r.seed[1]).toBe(3750);
@@ -104,8 +104,10 @@ describe('seedFromRaw', () => {
     expect(r.seed[3]).toBe(5000);
     expect(r.seed[4]).toBe(5000);
     expect(r.seed[5]).toBe(5000);
-    expect(r.mappingVersion).toBe('mapping-0-experimental');
-    expect(r.warnings).toEqual(['EXPERIMENTAL_MAPPING']);
+    expect(r.mappingVersion).toBe('mapping-0');
+    expect(r.warnings).toEqual([]);
+    const customExp = parseMappingTable({ ...mapping0Json, mappingVersion: 'custom-exp', experimental: true });
+    expect(seedFromRaw([Math.log2(120), 3, 18, 0.25, Math.log2(1200), 4.5], customExp).warnings).toEqual(['EXPERIMENTAL_MAPPING']);
   });
 
   it('never maps a null (R13)', () => {

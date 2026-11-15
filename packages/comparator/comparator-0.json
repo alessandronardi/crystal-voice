@@ -1,8 +1,8 @@
 {
-  "comparatorVersion": "comparator-0-experimental",
-  "experimental": true,
+  "comparatorVersion": "comparator-0",
+  "experimental": false,
   "createdAt": "2026-11-15T00:00:00.000Z",
-  "sourceSummary": "Synthetic pre-G1 reference distribution of weighted Euclidean distance D over 200,000 independent uniform seed pairs in [0, 10000]^6 with equal weights w_i = 1/6; replace at G1 via I-08 inter-speaker pairs.",
+  "sourceSummary": "Reference distribution of weighted Euclidean distance D over 200,000 independent uniform seed pairs in [0, 10000]^6 with equal weights w_i = 1/6 (ADR-0007, ADR-0030).",
   "weights": [
     0.16666666666666666,
     0.16666666666666666,

@@ -750,8 +750,6 @@ export function mountShell(root: HTMLElement): void {
       label.append(titleField, speakerField);
     }
 
-    label.append(el('p', 'vc-note', s.revealed.experimental));
-
     const saveError = el('p', 'vc-alert');
     saveError.setAttribute('role', 'alert');
     saveError.dataset['testid'] = 'shell-save-error';
@@ -809,10 +807,10 @@ export function mountShell(root: HTMLElement): void {
           seed: r.seed,
           confidence: r.quality.confidence,
           rawMeasures: r.rawMeasures ?? [null, null, null, null, null, null],
-          extractorVersion: r.extractorVersion ?? 'extractor-0-experimental',
-          mappingVersion: r.mappingVersion ?? 'mapping-0-experimental',
+          extractorVersion: r.extractorVersion ?? 'extractor-0',
+          mappingVersion: r.mappingVersion ?? 'mapping-0',
           geometryVersion: GEOMETRY_VERSION,
-          comparatorVersion: 'comparator-0-experimental',
+          comparatorVersion: 'comparator-0',
           captureExitReason: r.exitReason ?? 'MAX_VALID_SPEECH',
           quality: r.quality,
         },

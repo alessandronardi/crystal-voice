@@ -1,7 +1,7 @@
 {
-  "mappingVersion": "mapping-0-experimental",
-  "experimental": true,
-  "description": "Linear tables between the provisional anchors of SPEC §7.5, before calibration (G1). Not a population quantile table.",
+  "mappingVersion": "mapping-0",
+  "experimental": false,
+  "description": "Linear tables between the quantile anchors of SPEC §7.5 (ADR-0006, ADR-0030).",
   "parameters": {
     "p1_pitch": {
       "measure": "median of log2(f0Hz) over intonated frames",

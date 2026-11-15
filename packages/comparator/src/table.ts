@@ -1,11 +1,11 @@
-// Reference distribution table G(D) (SPEC §11, ADR-0007).
+// Reference distribution table G(D) (SPEC §11, ADR-0007, ADR-0030).
 // Tabulated as 101 quantiles q_0 ... q_100 of weighted Euclidean distance D
-// over inter-speaker pairs (pre-G1: synthetic uniform seed pairs). Pure module.
+// over reference pairs (synthetic uniform seed pairs). Pure module.
 
-import comparator0Json from '../comparator-0-experimental.json' with { type: 'json' };
+import comparator0Json from '../comparator-0.json' with { type: 'json' };
 import { ComparatorError } from './errors.ts';
 
-export const COMPARATOR_0_VERSION = 'comparator-0-experimental' as const;
+export const COMPARATOR_0_VERSION = 'comparator-0' as const;
 
 export type ComparatorWeights = readonly [number, number, number, number, number, number];
 
@@ -103,10 +103,10 @@ export function parseComparatorTable(raw: unknown): ComparatorTable {
   });
 }
 
-/** Pre-G1 comparator table (synthetic reference distribution). Validated on load. */
+/** Canonical comparator-0 table (SPEC §11, ADR-0030). Validated on load. */
 export const COMPARATOR_0: ComparatorTable = parseComparatorTable(comparator0Json);
-if (COMPARATOR_0.comparatorVersion !== COMPARATOR_0_VERSION || !COMPARATOR_0.experimental) {
-  throw new ComparatorError('BAD_TABLE', 'comparator-0-experimental.json has unexpected version or experimental flag');
+if (COMPARATOR_0.comparatorVersion !== COMPARATOR_0_VERSION || COMPARATOR_0.experimental) {
+  throw new ComparatorError('BAD_TABLE', 'comparator-0.json has unexpected version or experimental flag');
 }
 
 /**

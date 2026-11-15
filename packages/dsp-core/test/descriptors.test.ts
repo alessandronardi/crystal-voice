@@ -292,10 +292,10 @@ describe('extractDescriptors', () => {
   it('gives extractorVersion only with the canonical VAD', () => {
     const x = extractDescriptors([voiceLike(3)], SR, alwaysSpeech());
     expect(x.extractorVersion).toBeNull();
-    expect(EXTRACTOR_VERSION).toBe('extractor-0-experimental');
+    expect(EXTRACTOR_VERSION).toBe('extractor-0');
   });
 
-  it('summarizes quality per SPEC §9 and always flags the experimental mapping', () => {
+  it('summarizes quality per SPEC §9 without emitting EXPERIMENTAL_MAPPING (ADR-0030)', () => {
     const x = extractDescriptors([voiceLike(12)], SR, alwaysSpeech());
     const q = qualitySummary(x);
     // Fail closed (review M-3): a non-canonical VAD is never accepted, whatever the status.
@@ -303,12 +303,12 @@ describe('extractDescriptors', () => {
     expect(q.accepted).toBe(false);
     expect(q.validSpeechMs).toBe(x.amounts.usefulFrames * 10);
     expect(q.droppedFrames).toBe(0);
-    expect(q.warnings).toContain('EXPERIMENTAL_MAPPING');
+    expect(q.warnings).not.toContain('EXPERIMENTAL_MAPPING');
     expect(q.confidence.every((c) => c >= 0 && c <= 1)).toBe(true);
   });
 });
 
-describe('extractor-0-experimental fingerprint', () => {
+describe('extractor-0 fingerprint', () => {
   // Every [H] threshold, window and the VAD are part of extractor-0-experimental
   // (SPEC §7.4, packages/dsp-core/CLAUDE.md). If this test fails, a value
   // changed: bump EXTRACTOR_VERSION and update the fingerprint deliberately.
@@ -385,7 +385,7 @@ describe('extractor-0-experimental fingerprint', () => {
           "YIN_SEARCH_MAX_HZ": 2200,
           "YIN_THRESHOLD": 0.15,
         },
-        "version": "extractor-0-experimental",
+        "version": "extractor-0",
       }
     `);
   });

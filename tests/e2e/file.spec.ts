@@ -357,7 +357,7 @@ test('I-13a screens: a tone ends in an outcome, a long voice file is revealed wi
   // From wherever the earlier tests left the panel, back home.
   await h.inSidePanel(`(() => { (${q('shell-discard')} ?? ${q('shell-back')})?.click(); return true; })()`);
   await expect.poll(screen).toBe('HOME');
-  expect(await h.inSidePanel(`${q('shell-notice')}?.textContent ?? ''`)).toContain('Elaborazione 100% Locale e Sperimentale.');
+  expect(await h.inSidePanel(`${q('shell-notice')}?.textContent ?? ''`)).toContain('Elaborazione 100% Locale.');
   // A pure tone first (the previous test chose voice-a-long, and choosing the
   // same file again fires no change): no crystal, an outcome that says why.
   expect(await choose(join(FIXTURES, 'tone-200hz.wav'))).toBe('ready');
@@ -373,7 +373,8 @@ test('I-13a screens: a tone ends in an outcome, a long voice file is revealed wi
   await expect.poll(screen).toBe('REVEALED');
   const label = String(await h.inSidePanel(`${q('shell-label')}?.textContent ?? ''`));
   expect(label).toContain('voice-a-long.wav');
-  expect(label).toContain('extractor-0-experimental');
+  expect(label).toContain('extractor-0');
+  expect(label).not.toContain('sperimentale');
   // The showcase: a WebGL canvas, or the SVG plate without WebGL (SPEC §13).
   expect(await h.inSidePanel(`document.querySelectorAll('[data-testid="shell-showcase"] canvas, [data-testid="shell-showcase"] svg').length`)).toBe(1);
   expect(await h.inSidePanel(exists('shell-export-svg'))).toBe(true);

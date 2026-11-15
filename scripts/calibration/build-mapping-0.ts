@@ -1,6 +1,6 @@
-// Builds packages/calibration/mapping-0-experimental.json (SPEC §7.5, ADR-0006):
-// before G1 each table is linear between provisional anchors, tabulated as the
-// 101 percentiles P0…P100 like the real quantile tables of mapping-1 (I-09).
+// Builds packages/calibration/mapping-0.json (SPEC §7.5, ADR-0006, ADR-0030):
+// linear quantile table between the anchors tabulated as 101 percentiles
+// P0…P100.
 //
 //   node scripts/calibration/build-mapping-0.ts           write the file
 //   node scripts/calibration/build-mapping-0.ts --check   exit 1 if it differs
@@ -12,7 +12,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-export const MAPPING_0_PATH = resolve(import.meta.dirname, '../../packages/calibration/mapping-0-experimental.json');
+export const MAPPING_0_PATH = resolve(import.meta.dirname, '../../packages/calibration/mapping-0.json');
 
 interface ParameterSpec {
   measure: string;
@@ -38,9 +38,9 @@ export function buildMapping0(): string {
     parameters[key] = { measure: p.measure, unit: p.unit, anchors: [p.low, p.high], percentiles };
   }
   const table = {
-    mappingVersion: 'mapping-0-experimental',
-    experimental: true,
-    description: 'Linear tables between the provisional anchors of SPEC §7.5, before calibration (G1). Not a population quantile table.',
+    mappingVersion: 'mapping-0',
+    experimental: false,
+    description: 'Linear tables between the quantile anchors of SPEC §7.5 (ADR-0006, ADR-0030).',
     parameters,
   };
   return `${JSON.stringify(table, null, 2)}\n`;
@@ -51,10 +51,10 @@ if (import.meta.main) {
   if (process.argv.includes('--check')) {
     const current = readFileSync(MAPPING_0_PATH, 'utf8').replace(/\r\n/g, '\n');
     if (current !== text) {
-      console.error('mapping-0-experimental.json differs from the generator output');
+      console.error('mapping-0.json differs from the generator output');
       process.exit(1);
     }
-    console.log('mapping-0-experimental.json is up to date');
+    console.log('mapping-0.json is up to date');
   } else {
     writeFileSync(MAPPING_0_PATH, text);
     console.log(`wrote ${MAPPING_0_PATH}`);

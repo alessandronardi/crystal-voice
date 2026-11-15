@@ -182,7 +182,20 @@ test('I-15 full Collection & Comparison flow: empty state, filters, detail, shar
   const backupPath = join(tmp, 'collection-seed.json');
   writeFileSync(backupPath, JSON.stringify(exportPayload));
   await h.setPanelFile('shell-import-input', backupPath);
-  await expect.poll(() => h.inSidePanel(`${q('shell-archive-status')}?.hidden`)).toBe(false);
+  await expect
+    .poll(
+      async () => {
+        const state = (await h.inSidePanel(
+          `({ statusHidden: ${q('shell-archive-status')}?.hidden ?? true, errHidden: ${q('shell-vault-error')}?.hidden ?? true, errCode: ${q('shell-vault-error')}?.dataset.code ?? '', errText: ${q('shell-vault-error')}?.textContent ?? '' })`,
+        )) as { statusHidden: boolean; errHidden: boolean; errCode: string; errText: string };
+        if (!state.errHidden) {
+          throw new Error(`Unexpected vault import error [${state.errCode}]: ${state.errText}`);
+        }
+        return state.statusHidden;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(false);
 
   const [collectionPage] = await Promise.all([
     h.context.waitForEvent('page'),

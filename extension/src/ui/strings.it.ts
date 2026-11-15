@@ -27,7 +27,7 @@ const warningNames = {
   CLIPPING: 'audio saturato',
   LOW_LEVEL: 'volume basso',
   PLAYER_MUTED: 'player muto',
-  EXPERIMENTAL_MAPPING: 'mappatura sperimentale, non calibrata',
+  EXPERIMENTAL_MAPPING: 'mappatura di riferimento v0',
   PHASE_CANCELLATION: 'canali in controfase: usato un solo canale',
 } satisfies Record<QualityWarning, string>;
 
@@ -51,10 +51,10 @@ const vaultErrors = {
   STORAGE_ERROR: 'Errore durante l’accesso all’archivio locale IndexedDB.',
 } satisfies Record<VaultErrorCode, string>;
 
-/** Technical rows of the experimental analysis (I-06b), until the crystal view of I-13. */
+/** Technical rows of the acoustic analysis (shared by local file and capture views). */
 const analysis = {
-  heading: 'Analisi sperimentale',
-  note: 'Valori tecnici provvisori: la mappatura non è ancora calibrata (mapping-0).',
+  heading: 'Analisi acustica',
+  note: 'Valori tecnici di riferimento dei sei descrittori (mapping-0).',
   outcome: 'Esito',
   outcomeOk: 'cristallo possibile',
   outcomeInsufficient: 'dati insufficienti',
@@ -192,7 +192,7 @@ export const strings = {
       voiceText: 'Parla al microfono o scegli un file audio dal computer.',
       // G0-DOC-01: the approved text of docs/gates/G0-valutazione-2026-11-13.md §5.1,
       // verbatim (review H-4; tests/unit/g0-notice.test.ts pins it).
-      noticeTitle: 'Elaborazione 100% Locale e Sperimentale.',
+      noticeTitle: 'Elaborazione 100% Locale.',
       noticeText:
         'VoiceCrystal trasforma 6 parametri acustici della voce in un cristallo 3D decorativo. L\'audio viene analizzato esclusivamente nella memoria RAM del tuo computer per pochi secondi e immediatamente scartato: nessun audio viene mai salvato su disco né inviato in rete, e i cristalli che scegli di conservare restano solo nell\'archivio locale del tuo browser. Il cristallo e l\'affinità acustica hanno valore puramente artistico e non costituiscono misura biometrica, analisi delle emozioni o identificazione della persona.',
       licenses: 'Licenze open source',
@@ -260,7 +260,6 @@ export const strings = {
       ending: 'Fine',
       extractor: 'Estrattore',
       seed: 'Seme',
-      experimental: 'Mappatura sperimentale, non ancora calibrata.',
       discard: 'Scarta',
       exportSvg: 'Esporta tavola SVG',
       exportPng: 'Esporta PNG',
@@ -293,7 +292,7 @@ export const strings = {
     legend: {
       title: 'Legenda',
       hint: 'Scegli una riga per vedere il tratto sul cristallo.',
-      note: 'Percentile della taratura sperimentale (mapping-0), su voci sintetiche: non è un confronto con altre persone.',
+      note: 'Percentile rispetto alla scala di riferimento (mapping-0): non è un confronto con altre persone.',
       traits: {
         p1_pitch: 'Prisma',
         p2_intonation: 'Terminazioni',
@@ -360,9 +359,9 @@ export const strings = {
     milliseconds: 'ms',
     // I-07 (SPEC §8): technical rows of the stopping rule. «Stabilità del
     // campionamento», never a percentage of «saturazione» of a voice.
-    validSpeech: 'Voce valida (sperimentale)',
+    validSpeech: 'Voce valida',
     validSpeechOf: (seconds: string, max: string): string => `${seconds} / ${max} s`,
-    stability: 'Stabilità del campionamento (sperimentale)',
+    stability: 'Stabilità del campionamento',
     stabilityNone: 'nessuna valutazione: servono 8 s di voce valida',
     stabilityValue: (reason: string, s: string, run: string): string => `${reason} · s = ${s} punti · ${run}`,
     stabilityNoS: '—',
@@ -473,7 +472,7 @@ export const strings = {
     rotationLabel: 'Angolo del piatto',
     primaryPercentile: (pct: number): string =>
       `Più vicini del ${String(pct)}% delle coppie di voci diverse di riferimento`,
-    experimentalBadge: 'Stima sperimentale (pre-G1, comparator-0)',
+    experimentalBadge: 'Scala di riferimento v0 (comparator-0)',
     nonBiometricNotice:
       'Questa misura confronta esclusivamente la vicinanza matematica e geometrica dei sei descrittori acustici tra due segmenti di parlato. Ha carattere artistico ed esplorativo: non verifica né identifica una persona e non stabilisce se due cristalli provengano dallo stesso parlante.',
     contributionsTitle: 'Contributi dei sei descrittori alla distanza',
@@ -502,7 +501,7 @@ export const strings = {
     contextWarningsTitle: 'Avvisi di contesto',
     contextWarnings: {
       EXPERIMENTAL_COMPARATOR:
-        'Distribuzione di riferimento sintetica (comparator-0-experimental): prima del gate G1 i percentili di vicinanza non derivano da un campione di voci umane.',
+        'Distribuzione di riferimento sintetica (comparator-0).',
       DIFFERENT_SOURCE_KIND:
         'I due esemplari provengono da sorgenti diverse (es. microfono contro file o scheda): il canale di acquisizione può influenzare i descrittori.',
       LOW_CONFIDENCE_TRAITS:

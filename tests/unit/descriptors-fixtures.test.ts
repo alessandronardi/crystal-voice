@@ -50,7 +50,7 @@ beforeAll(() => {
   for (const c of LONG_REJECTION_CASES) cases.set(c.name, runLongCase(c));
 }, 300_000);
 
-describe('extractor-0-experimental on the fixtures', () => {
+describe('extractor-0 on the fixtures', () => {
   it('uses the canonical VAD and version', () => {
     expect(get('voice-a').extraction.extractorVersion).toBe(EXTRACTOR_VERSION);
     expect(get('voice-a').extraction.vad).toMatchObject({ id: 'webrtc-fvad-0', mode: 2 });
@@ -76,9 +76,9 @@ describe('extractor-0-experimental on the fixtures', () => {
     expect(2 ** (x.raw[0] ?? 0) / truth.f0MedianHz).toBeCloseTo(1, 2);
     expect(Math.abs((x.raw[1] ?? 0) - truth.intonationIqrSemitones)).toBeLessThan(0.1);
     expect(x.status).toBe('OK');
-    // 22 onsets (minimum 20) → p6 coverage 0.55; × (1 − 12% stable-pitch cues) = 0.48: veiled (D-U, measured).
-    expect(x.veiledKeys).toEqual(['p6_rhythm']);
-    expect(x.warnings).toEqual(['LOW_CONFIDENCE_PARAMETER', 'EXPERIMENTAL_MAPPING']);
+    // 22 onsets (minimum 15, Var D2) → p6 coverage 0.733; × (1 − 12% stable-pitch cues) = 0.645 ≥ 0.5: not veiled.
+    expect(x.veiledKeys).toEqual([]);
+    expect(x.warnings).toEqual([]);
     expect(get('voice-a-long').extraction.veiledKeys).toEqual([]);
   });
 
@@ -145,7 +145,7 @@ describe('extractor-0-experimental on the fixtures', () => {
     expect(runFixtureInMemory('voice-a')).toEqual(get('voice-a'));
   });
 
-  it('extractor-0-experimental has not changed meaning: result digests are pinned (review M-1)', () => {
+  it('extractor-0 has not changed meaning: result digests are pinned (review M-1, ADR-0030)', () => {
     // Any change to a formula, window, VAD mapping or heuristic changes these
     // digests: bump EXTRACTOR_VERSION and update them deliberately.
     const digest = (name: string): string => {
@@ -160,10 +160,10 @@ describe('extractor-0-experimental on the fixtures', () => {
       'alternating-ab-v1': digest('alternating-ab-v1'),
     }).toMatchInlineSnapshot(`
       {
-        "alternating-ab-v1": "56113a40d2a54f170b9f9523bdd3d2a0ac6f84755e88d1494a198da8aa2bb3f9",
-        "version": "extractor-0-experimental",
-        "voice-a": "5d91cc34a8ff9ac2299f8de05c21510a8819a325707f635e7cfd09c4b42ca199",
-        "voice-music-12db-v1": "c850e7193d4894ebe5bbbb1cf8fa753816633dd37b74d4d2e9176d1a6c03eefc",
+        "alternating-ab-v1": "0935643187bd43511e55b38e9c1a415597c2820487610a675a32704adddde68d",
+        "version": "extractor-0",
+        "voice-a": "c27374e6273ae12f19383d658de90fb91845d5584b7ad9712b4225ad30228ab6",
+        "voice-music-12db-v1": "3a3bec3dec6668071cbf365bf2537b0ccb0c1654adc1edfeda7d77abd7b47bb5",
       }
     `);
   });

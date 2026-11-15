@@ -345,7 +345,7 @@ I `null` significano **non misurabile** e non vengono trasformati implicitamente
 
 ### 7.4 Sei descrittori `EXPERIMENTAL v0` [F per la definizione; H per soglie e calibrazione] (Δ10)
 
-> **Modificato da ADR-0024 (accettato il 2026-11-12):** il segnale si normalizza a un livello di riferimento prima dell'analisi; p3 e p6 si calcolano sui frame intonati, con i minimi dell'ADR. Dove questa sezione e l'ADR differiscono, prevale l'ADR.
+> **Modificato da ADR-0024 (accettato il 2026-11-12) e ADR-0030 (Var D2, 2026-11-15):** il segnale si normalizza a un livello di riferimento prima dell'analisi; `p3` si calcola sui frame intonati; `p6` si calcola sui frame utili (`onset / usefulSeconds`, distanza minima 120 ms, soglia flusso 0,35, minimo 15 onset + 4 s utili + 2 s intonati). Dove questa sezione e gli ADR differiscono, prevalgono gli ADR.
 
 I nomi descrivono **cosa si misura**, non come si disegna (Δ21); la resa visiva è nel §10. Definizioni:
 
@@ -359,9 +359,9 @@ I nomi descrivono **cosa si misura**, non come si disegna (Δ21); la resa visiva
 | `p3_dynamics` | Dinamica | `P90 − P10` di `rmsDbfs` sui frame utili | 4 s di frame utili |
 | `p4_roughness` | Ruvidità | mediana di `1 − periodicity` (aperiodicità YIN) sui frame intonati | 2 s di frame intonati |
 | `p5_brightness` | Brillantezza | mediana di `log2(centroide 300–4000 Hz)` sui frame utili; da `mapping-1` residuo rispetto alla retta su `log2(f0)` stimata in calibrazione | 4 s di frame utili |
-| `p6_rhythm` | Ritmo | onset per secondo di voce valida (picchi del flusso spettrale, distanza minima 80 ms) | 20 onset |
+| `p6_rhythm` | Ritmo | onset per secondo di voce valida (picchi del flusso spettrale, distanza minima 120 ms, soglia 0,35) | 15 onset, 4 s utili, 2 s intonati |
 
-Le formule sono versionate da `extractorVersion` (prima versione: `extractor-0-experimental`). Ogni modifica di formula, finestra o soglia incrementa la versione.
+Le formule sono versionate da `extractorVersion` (versione v0 congelata da **ADR-0030**: `extractor-0`, ex `extractor-0-experimental`). Ogni modifica di formula, finestra o soglia incrementa la versione.
 
 **Avvertenza:** questi sei descrittori sono una rappresentazione artistica di proprietà acustiche, non fattori fisici indipendenti e non una metrica certificata di identità del parlante. Alcuni sono fortemente dipendenti dal contenuto fonetico e dalla catena di registrazione. La calibratura serve a contenere, non a eliminare, tali dipendenze.
 
@@ -373,7 +373,7 @@ Le formule sono versionate da `extractorVersion` (prima versione: `extractor-0-e
 p_i = 100 · F_i(x_i)        con F_i monotona non decrescente, valori fuori range saturati a 0 o 100
 ```
 
-Così `p_i = 75` significa «più alto del 75% delle voci di riferimento» e le collezioni occupano tutto lo spazio delle forme. Le tabelle stanno in `packages/calibration/<mappingVersion>.json`. Non vengono mai stimate per singola clip. Prima di G1 si usa `mapping-0-experimental`: tabelle lineari fra ancoraggi provvisori (p1: 70–320 Hz in log2; p2: 0–8 semitoni; p3: 6–30 dB; p4: 0,05–0,45; p5: 600–2400 Hz in log2; p6: 2–7 onset/s), marcate `EXPERIMENTAL` anche in UI.
+Così `p_i = 75` significa «più alto del 75% delle voci di riferimento» e le collezioni occupano tutto lo spazio delle forme. Le tabelle stanno in `packages/calibration/<mappingVersion>.json`. Non vengono mai stimate per singola clip. **Aggiornato da ADR-0030 (2026-11-15):** con la rinuncia a `I-08`/`I-09`, `mapping-0` (ancoraggi lineari p1: 70–320 Hz in log2; p2: 0–8 semitoni; p3: 6–30 dB; p4: 0,05–0,45; p5: 600–2400 Hz in log2; e log-lineare p6: 1,5–8,5 onset/s su frame utili, Var D2) è congelata come mappatura v0 senza designazione `EXPERIMENTAL` né badge UI.
 
 **Regole canoniche [F] (Δ12):** ordine dei parametri immutabile; il seed canonico è una tupla di **sei interi in [0, 10000]** (centesimi di punto), ottenuti con arrotondamento half-even da `100 · p_i`; i decimali esistono solo in visualizzazione. Niente `NaN`, `Infinity`, default a zero per feature mancanti o array di lunghezza variabile. Se un descrittore non è calcolabile, il risultato è `INSUFFICIENT_DATA` (§7.2 per la confidenza).
 
@@ -597,7 +597,7 @@ Vicinanza(A,B) = 100 · (1 − G(D(A,B)))
 G = funzione di ripartizione empirica di D sulle coppie di parlanti diversi del dataset di riferimento
 ```
 
-Testo UI: «Più vicini del N% delle coppie di voci diverse di riferimento». Prima di G1 `G` deriva da seed uniformi indipendenti e la UI mostra «stima sperimentale». La tabella di `G` è parte di `comparatorVersion`. `Affinity` e i sei contributi `w_i·((A_i − B_i)/100)²` restano visibili nei dettagli.
+Testo UI: «Più vicini del N% delle coppie di voci diverse di riferimento». **Aggiornato da ADR-0030 (2026-11-15):** con la rinuncia a `I-08`/`I-09`, `G` in `comparator-0` deriva dalle `200.000` coppie uniformi indipendenti ed è congelata senza badge «stima sperimentale». La tabella di `G` è parte di `comparatorVersion`. `Affinity` e i sei contributi `w_i·((A_i − B_i)/100)²` restano visibili nei dettagli.
 
 **Invarianti matematiche:** simmetria; identità `Affinity(A,A)=100`; estremi opposti 0 e 100 su tutte le dimensioni con pesi positivi -> 0; valori finiti e sempre `[0,100]`; monotonia rispetto all'aumento della differenza assoluta in una singola componente, a parità di altre componenti. Vietato interpretare la percentuale come «probabilità che sia la stessa persona».
 
@@ -684,6 +684,8 @@ interface CrystalRecordV1 {
 
 ## 15. Validazione scientifica e banco di prova [G1]
 
+> **Modificato da ADR-0030 (accettato il 2026-11-15):** il product owner ha formalmente rinunciato alla raccolta del dataset umano (`I-08`) e al ricalcolo delle tabelle `mapping-1`/`comparator-1` (`I-09`), congelando `extractor-0`, `mapping-0` e `comparator-0` senza la designazione «sperimentale». Restano validi i criteri deterministici e le fixture sintetiche.
+
 **Non usare la sola riproduzione in tempo reale come oracolo.** Il cuore DSP deve accettare PCM da fixture offline con sample rate e metadata espliciti, producendo gli stessi risultati a input equivalenti, senza dipendere dal clock del browser.
 
 ### Dataset preliminare proposto [H]
@@ -743,7 +745,7 @@ Target preliminari **[H], da misurare su un PC di riferimento esplicitamente doc
 |---|---|---|
 | 0 | Revisione avversariale ✅ (9 nov 2026) + avvio valutazione legale | Decisioni D1–D5 ✅; G0 in corso |
 | 1 | PoC cattura scheda e microfono, pass-through, watchdog, ciclo di vita | [G-PoC] la cattura non compromette il player; errori governati |
-| 2 | DSP offline, fixture, dataset, quantili | [G1] report quantitativo + `mapping-1` congelato |
+| 2 | DSP offline, fixture, quantili | [G1] chiuso per deroga ADR-0030; `extractor-0`, `mapping-0` e `comparator-0` congelati |
 | 3 | Crystal core a semispazi, vetrina WebGL, tavola SVG | [G2] geometria riproducibile, continuità dimostrata |
 | — | — | **[G0] obbligatorio prima della fase 4** |
 | 4 | Side Panel, Collezione, Vault, Comparator | Test integrazione e persistenza superati |

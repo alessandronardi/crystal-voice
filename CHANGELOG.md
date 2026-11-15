@@ -4,6 +4,12 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 
 ## [Unreleased]
 
+### Modificato
+- **ADR-0030 (non distribuibile prima di G0, ADR-0027):** formalizzata la rinuncia a `I-08` (campionatura vocale umana, moduli di consenso) e `I-09` (`mapping-1` / `comparator-1`), con chiusura di **G1 per rinuncia** e marcatura di `G0-DOC-04` come non applicabile in [G0-valutazione-2026-11-13.md](docs/gates/G0-valutazione-2026-11-13.md).
+  - Mantenute invariate al bit le tabelle matematiche di `p1…p5` in `mapping-0` e di `comparator-0` rimuovendo la designazione sperimentale (`extractorVersion` -> `'extractor-0'`, `mappingVersion` -> `'mapping-0'`, `comparatorVersion` -> `'comparator-0'`, `experimental: false`), e applicata sul sesto seme (`p6_rhythm`) la ricalibrazione **Var D2** (`onset / usefulSeconds`, distanza minima `120 ms`, soglia flusso `0,35`, `MIN_ONSETS = 15`, percentili log-lineari `1,5…8,5` onset/s in `mapping-0.json`) per eliminare la saturazione a `10000` sul parlato reale.
+  - Rimossa l'emissione runtime di `EXPERIMENTAL_MAPPING` e `EXPERIMENTAL_COMPARATOR` (i tipi restano in `@voicecrystal/contracts` per retrocompatibilità v1) e aggiornati i testi UI (`extension/src/ui/strings.it.ts`, `shell.ts`) e `G0-DOC-01` §5.1 (`Elaborazione 100% Locale.`).
+  - Registrato in [tests/e2e/MANUAL_CHECKLIST.md](tests/e2e/MANUAL_CHECKLIST.md) l'esito positivo delle prove manuali `M0–M44` segnalato dal product owner (2026-11-15).
+
 ### Aggiunto
 - I-15: comparator a percentile, Collezione a tutta scheda e Confronto su piatto condiviso (non distribuibile prima del completamento di G0, ADR-0027):
   - pacchetto puro `@voicecrystal/comparator` (`packages/comparator/src/{errors,table,compare,index}.ts`) con tabella sperimentale pre-G1 `comparator-0-experimental.json` generata deterministicamente da `scripts/calibration/build-comparator-0.ts` (`200.000` coppie uniformi in `[0, 10000]⁶`, PRNG `mulberry32(0x56433037)`, pesi uguali `w_i = 1/6`), distanza euclidea pesata normalizzata per `weightSum`, `Affinity` euclidea, 6 contributi percentuali per asse, percentile di vicinanza empirico `[0, 100]` e blocco tipizzato per `mappingVersion` / `extractorVersion` incompatibili (`SPEC` §11, `VC-06`); `geometryVersion` diversa non blocca il confronto;

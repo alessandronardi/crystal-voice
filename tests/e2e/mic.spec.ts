@@ -295,7 +295,7 @@ test('microphone listening on the synthetic voice stops at 18 s of valid speech 
   expect(end.stability?.evaluations ?? 0).toBeGreaterThan(0);
   const analysis = end.analysis;
   expect(analysis?.failure).toBeNull();
-  expect(analysis?.extractorVersion).toBe('extractor-0-experimental');
+  expect(analysis?.extractorVersion).toBe('extractor-0');
   expect(analysis?.seed).toHaveLength(6);
   expect(analysis?.quality?.droppedFrames).toBe(0);
   // Review H-2: the worker kept as much audio as the session listened (sample clock), within 1 s.

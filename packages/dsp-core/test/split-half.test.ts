@@ -102,14 +102,14 @@ describe('splitHalfAt', () => {
   });
 
   it('counts the onsets of the whole prefix, each in the half of its block (none lost at a block edge)', () => {
-    // A flux peak every 30 frames, plus frames 99 (end of block 0) and 201
-    // (start of block 2): 102 frames apart in the audio, but next to each other
-    // once half A is glued together, where the 80 ms distance would drop one.
-    const peak = (i: number): boolean => i % 30 === 0 || i === 99 || i === 201;
+    // A flux peak every 50 frames (at 25, 75, …), plus frames 99 (end of block 0)
+    // and 201 (start of block 2): 102 frames apart in the audio, but next to each
+    // other once half A is glued together, where the 120 ms distance would drop one.
+    const peak = (i: number): boolean => i % 50 === 25 || i === 99 || i === 201;
     const f = frames(1000, (i) => ({ spectralFlux: i === 0 ? null : peak(i) ? 20 : 0.1 }));
     const s = splitHalfAt(f, 10);
     const onsets = detectOnsets(f.slice(0, s?.prefixFrames ?? 0));
-    expect(onsets.length).toBe(35);
+    expect(onsets.length).toBe(22);
     expect(onsets).toContain(99);
     expect(onsets).toContain(201);
     expect((s?.a.amounts.onsets ?? 0) + (s?.b.amounts.onsets ?? 0)).toBe(onsets.length);

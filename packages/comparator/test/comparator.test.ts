@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { DESCRIPTOR_KEYS, SEED_UNITS_MAX, type CrystalSeed } from '@voicecrystal/contracts';
-import comparator0Json from '../comparator-0-experimental.json' with { type: 'json' };
+import comparator0Json from '../comparator-0.json' with { type: 'json' };
 import {
   COMPARATOR_0,
   COMPARATOR_0_VERSION,
@@ -33,22 +33,22 @@ function makeSpecimen(
 ): ComparableSpecimen {
   return {
     seed,
-    extractorVersion: 'extractor-0-experimental',
-    mappingVersion: 'mapping-0-experimental',
+    extractorVersion: 'extractor-0',
+    mappingVersion: 'mapping-0',
     geometryVersion: 'habit-1',
     source: { kind: 'file' },
     quality: {
-      warnings: ['EXPERIMENTAL_MAPPING'],
+      warnings: [],
       confidence: [0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
     },
     ...overrides,
   };
 }
 
-describe('COMPARATOR_0 reference table (SPEC §11, ADR-0007)', () => {
-  it('loads comparator-0-experimental with validated monotonic quantiles', () => {
+describe('COMPARATOR_0 reference table (SPEC §11, ADR-0007, ADR-0030)', () => {
+  it('loads comparator-0 with validated monotonic quantiles', () => {
     expect(COMPARATOR_0.comparatorVersion).toBe(COMPARATOR_0_VERSION);
-    expect(COMPARATOR_0.experimental).toBe(true);
+    expect(COMPARATOR_0.experimental).toBe(false);
     expect(COMPARATOR_0.weights).toEqual(EQUAL_WEIGHTS);
     expect(COMPARATOR_0.distanceQuantiles).toHaveLength(101);
     expect(COMPARATOR_0.distanceQuantiles[0]).toBe(0);
@@ -217,7 +217,7 @@ describe('Comparator mathematical properties (fast-check, SPEC §11)', () => {
 describe('Specimen compatibility checks & context warnings (SPEC §11)', () => {
   it('blocks comparison when mappingVersion differs', () => {
     const a = makeSpecimen([1000, 2000, 3000, 4000, 5000, 6000], {
-      mappingVersion: 'mapping-0-experimental',
+      mappingVersion: 'mapping-0',
     });
     const b = makeSpecimen([1000, 2000, 3000, 4000, 5000, 6000], {
       mappingVersion: 'mapping-1',
@@ -226,16 +226,16 @@ describe('Specimen compatibility checks & context warnings (SPEC §11)', () => {
     expect(outcome).toEqual({
       status: 'blocked',
       reason: 'INCOMPATIBLE_MAPPING_VERSION',
-      mappingVersionA: 'mapping-0-experimental',
+      mappingVersionA: 'mapping-0',
       mappingVersionB: 'mapping-1',
-      extractorVersionA: 'extractor-0-experimental',
-      extractorVersionB: 'extractor-0-experimental',
+      extractorVersionA: 'extractor-0',
+      extractorVersionB: 'extractor-0',
     });
   });
 
   it('blocks comparison when extractorVersion differs', () => {
     const a = makeSpecimen([1000, 2000, 3000, 4000, 5000, 6000], {
-      extractorVersion: 'extractor-0-experimental',
+      extractorVersion: 'extractor-0',
     });
     const b = makeSpecimen([1000, 2000, 3000, 4000, 5000, 6000], {
       extractorVersion: 'extractor-2',
@@ -244,19 +244,19 @@ describe('Specimen compatibility checks & context warnings (SPEC §11)', () => {
     expect(outcome).toEqual({
       status: 'blocked',
       reason: 'INCOMPATIBLE_EXTRACTOR_VERSION',
-      mappingVersionA: 'mapping-0-experimental',
-      mappingVersionB: 'mapping-0-experimental',
-      extractorVersionA: 'extractor-0-experimental',
+      mappingVersionA: 'mapping-0',
+      mappingVersionB: 'mapping-0',
+      extractorVersionA: 'extractor-0',
       extractorVersionB: 'extractor-2',
     });
   });
 
-  it('allows comparison when geometryVersion differs and reports context warnings', () => {
+  it('allows comparison when geometryVersion differs and reports context warnings without experimental flag', () => {
     const a = makeSpecimen([3000, 4000, 5000, 6000, 7000, 8000], {
       geometryVersion: 'habit-1',
       source: { kind: 'tab' },
       quality: {
-        warnings: ['EXPERIMENTAL_MAPPING', 'MIXED_AUDIO_UNCERTAIN', 'LOW_CONFIDENCE_PARAMETER'],
+        warnings: ['MIXED_AUDIO_UNCERTAIN', 'LOW_CONFIDENCE_PARAMETER'],
         confidence: [0.9, 0.4, 0.9, 0.9, 0.9, 0.9],
       },
     });
@@ -267,10 +267,11 @@ describe('Specimen compatibility checks & context warnings (SPEC §11)', () => {
     const outcome = compareSpecimens(a, b);
     expect(outcome.status).toBe('ok');
     if (outcome.status === 'ok') {
+      expect(outcome.experimental).toBe(false);
       expect(outcome.geometryVersionDiffers).toBe(true);
       expect(outcome.contributions).toHaveLength(6);
       expect(outcome.contributions.map((c) => c.parameter)).toEqual([...DESCRIPTOR_KEYS]);
-      expect(outcome.contextWarnings).toContain('EXPERIMENTAL_COMPARATOR');
+      expect(outcome.contextWarnings).not.toContain('EXPERIMENTAL_COMPARATOR');
       expect(outcome.contextWarnings).toContain('DIFFERENT_SOURCE_KIND');
       expect(outcome.contextWarnings).toContain('LOW_CONFIDENCE_TRAITS');
       expect(outcome.contextWarnings).toContain('QUALITY_WARNINGS_PRESENT');

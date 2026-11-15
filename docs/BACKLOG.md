@@ -21,8 +21,8 @@
 | I-06a | 2 | Descrittori, confidenza, euristiche e seed in Node | I-05a, I-05b | M | G1 |
 | I-06b | 2 | Estrazione nell'estensione (VAD nel `dsp-worker`, Node contro pannello) | I-06a, I-18 | M | G1 |
 | I-07 | 2 | Arresto split-half | I-06a, I-06b | S | G1 |
-| I-08 | 2 | Dataset umano + report G1 | I-06a, I-17 | L | G1 |
-| I-09 | 2 | Tabelle quantili `mapping-1` e tabella G del comparator | I-08 | S | G1 |
+| I-08 | 2 | Dataset umano + report G1 *(rinunciata, ADR-0030)* | I-06a, I-17 | L | G1 (deroga) |
+| I-09 | 2 | Tabelle quantili `mapping-1` e tabella G del comparator *(rinunciata, ADR-0030)* | I-08 | S | G1 (deroga) |
 | I-10 | 3 | crystal-core a semispazi | I-01 | L | G2 |
 | I-11 | 3 | renderer-three «vetrina» | I-10 | L | G2 |
 | I-12 | 3 | renderer-svg «tavola cristallografica» | I-10 | M | G2 |
@@ -92,7 +92,7 @@
 ### I-18 · Sorgente file locale
 
 - **Riferimenti:** SPEC §5, §9; ADR-0009, ADR-0022.
-- **Stato:** mergiata il 2026-11-12 ([PR crystal-voice#13](https://github.com/alessandronardi/crystal-voice/pull/13), `d6e1f51`), non chiusa: prove manuali M15 e M24–M28 TO DO, non bloccanti per le issue successive (decisione del product owner). Taglia effettiva M, non S: è la prima issue che fa girare `dsp-core` nell'estensione. Evidenze in `docs/STATUS.md`.
+- **Stato:** mergiata il 2026-11-12 ([PR crystal-voice#13](https://github.com/alessandronardi/crystal-voice/pull/13), `d6e1f51`). Prove manuali M15 e M24–M28 dichiarate positive dal product owner il 2026-11-15 (`tests/e2e/MANUAL_CHECKLIST.md`, trascritto senza osservazione). Taglia effettiva M, non S: è la prima issue che fa girare `dsp-core` nell'estensione. Evidenze in `docs/STATUS.md`.
 - **Decisioni del product owner (2026-11-12):**
   - D1: DSP in un worker del pannello (ADR-0022);
   - D2: il file è una sessione per `CAPTURE_BUSY`;
@@ -207,7 +207,7 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
   - [x] Decisioni del VAD e seed delle fixture caricate come file: uguali fra Node e pannello, con in Node la stessa conversione dei campioni di Chromium (D-AB). Misurato: 35 fixture su 35 con esito, avvisi, confidenza, qualità e decisioni VAD identici, e i 19 seed presenti identici; misure grezze diverse al più di 2 ULP in 8 valori. **Contro il lettore WAV dei benchmark** (int16/32768, diverso da Chromium da I-18) la differenza è misurata e dichiarata, non richiesta: vedi `docs/BENCHMARK_PROTOCOL.md` §7. Il cancello D-N resta in I-07, per la verifica finale.
   - [x] Estrazione a blocchi = estrazione a buffer intero: per costruzione (ADR-0025), con il test unit bit per bit dell'accumulatore.
 - **Test:** unit sui blocchi; E2E Node contro pannello.
-- **Stato:** mergiata il 2026-11-13 ([PR crystal-voice#16](https://github.com/alessandronardi/crystal-voice/pull/16), merge squash `c11a0d4`; CI della PR verde). **Non chiusa:** restano le prove manuali M29–M31 in Brave (`tests/e2e/MANUAL_CHECKLIST.md`), TO DO non bloccante (decisione del product owner, 2026-11-13): I-07 può partire. ADR-0025 accettato.
+- **Stato:** mergiata il 2026-11-13 ([PR crystal-voice#16](https://github.com/alessandronardi/crystal-voice/pull/16), merge squash `c11a0d4`; CI della PR verde). Prove manuali M29–M31 dichiarate positive dal product owner il 2026-11-15 (`tests/e2e/MANUAL_CHECKLIST.md`, trascritto senza osservazione). ADR-0025 accettato.
 
 ### I-07 · Arresto split-half
 
@@ -238,26 +238,28 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
   - [x] **Eredità da I-18 (D4, 2026-11-12):** le fixture di I-04 caricate come file nel pannello danno lo stesso seed dell'harness Node, o una differenza spiegata e documentata. L'E2E di I-18 (`tests/e2e/file.spec.ts`) confronta oggi segnale a 16 kHz, `signalSummary` e traccia di pitch: va esteso al seed. Due differenze sono già note e misurate in I-18: la regola int16 → float del decoder di Chromium, e `Math.log10`, `sin` e `cos` non identici fra le versioni di V8 (`docs/BENCHMARK_PROTOCOL.md` §7). Il seed è quantizzato: va verificato se differenze di 1–2 ULP possono spostarlo di una casella. **Cancello (D-N):** se anche un solo seed differisce fra Node e pannello, prima di proseguire serve un ADR che porti in `dsp-core` implementazioni proprie di `log10`, `log2`, `sin`, `cos`, `sinh` (come ADR-0010).
     - **Esito:** il confronto del seed è in `tests/e2e/file.spec.ts` da I-06b: 19 seed su 19 identici con la conversione di Chromium (D-AB); la differenza dal lettore dei benchmark è misurata e dichiarata. Margine dal confine di arrotondamento: al minimo 0,000354 unità, contro circa 10⁻¹² per ULP. Il cancello non scatta; va ripetuto a ogni Chrome nuovo (VC-24).
 - **Test:** unit su fixture e su sequenze sintetiche di descrittori.
-- **Stato:** mergiata il 2026-11-13 ([PR crystal-voice#17](https://github.com/alessandronardi/crystal-voice/pull/17), merge squash `032ac93`; CI della PR verde). **Non chiusa:** restano le prove manuali M32–M34 in Brave (`tests/e2e/MANUAL_CHECKLIST.md`). ADR-0026 accettato.
+- **Stato:** mergiata il 2026-11-13 ([PR crystal-voice#17](https://github.com/alessandronardi/crystal-voice/pull/17), merge squash `032ac93`; CI della PR verde). Prove manuali M32–M34 dichiarate positive dal product owner il 2026-11-15 (`tests/e2e/MANUAL_CHECKLIST.md`, trascritto senza osservazione). ADR-0026 accettato.
 
 ### I-08 · Dataset umano + report G1
 
+- **Stato:** **rinunciata (fuori perimetro v1 per decisione del product owner, 2026-11-15, [ADR-0030](ADR/0030-rinuncia-calibrazione-g1-e-rimozione-stato-sperimentale.md)).** Non verrà effettuata alcuna raccolta vocale su volontari né firmato alcun modulo di consenso (`G0-DOC-04` non applicabile).
 - **Riferimenti:** SPEC §15; `docs/BENCHMARK_PROTOCOL.md`; `docs/GATES.md` G1.
-- **Perimetro:** raccolta con consenso scritto (almeno 15 parlanti × 4 segmenti × 2 microfoni); conservazione fuori repository; esecuzione del protocollo; report.
+- **Perimetro storico:** raccolta con consenso scritto (almeno 15 parlanti × 4 segmenti × 2 microfoni); conservazione fuori repository; esecuzione del protocollo; report.
 - **DoD:**
-  - [ ] Moduli di consenso archiviati fuori repository; nel repository solo identificativi anonimi e descrittori.
-  - [ ] Report G1 con tutte le metriche del protocollo, casi di fallimento e decisioni motivate.
-  - [ ] Revisione avversariale indipendente del report.
+  - [~] Moduli di consenso archiviati fuori repository; nel repository solo identificativi anonimi e descrittori *(rinunciata, ADR-0030)*.
+  - [~] Report G1 con tutte le metriche del protocollo, casi di fallimento e decisioni motivate *(rinunciata, ADR-0030)*.
+  - [~] Revisione avversariale indipendente del report *(rinunciata, ADR-0030)*.
 - **Nota:** richiede persone reali. **Un agente non può completarla da solo**: prepara script, moduli e procedura; un umano raccoglie.
 
 ### I-09 · Tabelle quantili `mapping-1` e tabella G del comparator
 
-- **Riferimenti:** ADR-0006, ADR-0007.
+- **Stato:** **rinunciata (fuori perimetro v1 per decisione del product owner, 2026-11-15, [ADR-0030](ADR/0030-rinuncia-calibrazione-g1-e-rimozione-stato-sperimentale.md)).** Mantenute e congelate `extractor-0`, `mapping-0` e `comparator-0` senza designazione «sperimentale».
+- **Riferimenti:** ADR-0006, ADR-0007, ADR-0030.
 - **DoD:**
-  - [ ] Tabelle calcolate solo sul set di calibrazione; valutazione sul set separato.
-  - [ ] Distribuzione dei seed sul set di valutazione vicina all'uniforme (test di Kolmogorov-Smirnov riportato).
-  - [ ] Percentile di vicinanza mediano per coppie di parlanti diversi tra 45 e 55.
-  - [ ] `mappingVersion = mapping-1` e `comparatorVersion = comparator-1` congelate.
+  - [~] Tabelle calcolate solo sul set di calibrazione; valutazione sul set separato *(rinunciata, ADR-0030)*.
+  - [~] Distribuzione dei seed sul set di valutazione vicina all'uniforme (test di Kolmogorov-Smirnov riportato) *(rinunciata, ADR-0030)*.
+  - [~] Percentile di vicinanza mediano per coppie di parlanti diversi tra 45 e 55 *(rinunciata, ADR-0030)*.
+  - [x] `extractorVersion = extractor-0`, `mappingVersion = mapping-0` e `comparatorVersion = comparator-0` congelate al posto di `*-1` (ADR-0030).
 
 ## Fase 3 — Crystal core e renderer
 
@@ -373,7 +375,8 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
   - [x] Confronto bloccato per `mappingVersion` o `extractorVersion` diverse, con spiegazione (`compareSpecimens` → `INCOMPATIBLE_MAPPING_VERSION` / `INCOMPATIBLE_EXTRACTOR_VERSION`; `geometryVersion` diversa non blocca il confronto; UI italiana centralizzata e verificata in `tests/e2e/collection.spec.ts`).
   - [x] Collezione a tutta scheda con filtri; confronto sullo stesso piatto e stessa scala (`extension/src/collection/index.html`, `filters.ts`, `app.ts`, pulsante dal Side Panel in `shell.ts`, `renderCrystal` con `fixedScale: true` e piattaforma rotante condivisa via `renderAt`).
   - [x] Nessun testo che suggerisca identità o «stessa persona» (`G0-DOC-02` attuato: dicitura esclusiva «Affinità acustica / geometrica», verificata in `extension/test/collection-filters.test.ts` e `tests/e2e/collection.spec.ts`).
-- **Test:** `packages/comparator/test/comparator.test.ts` (`12/12`), `extension/test/collection-filters.test.ts` (`6/6`), E2E completo `tests/e2e/collection.spec.ts` (headless `6,6s` e con finestra `9,3s`, axe 0 violazioni serie/critiche, 0 errori console, 0 creazione IndexedDB su vault vuoto). Prova manuale `M44` TO DO su hardware reale.
+  - [x] `M44` e prove manuali precedenti dichiarate positive dal product owner il 2026-11-15 (`tests/e2e/MANUAL_CHECKLIST.md`, trascritto senza osservazione).
+- **Test:** `packages/comparator/test/comparator.test.ts` (`12/12`), `extension/test/collection-filters.test.ts` (`6/6`), E2E completo `tests/e2e/collection.spec.ts` (headless `6,6s` e con finestra `9,3s`, axe 0 violazioni serie/critiche, 0 errori console, 0 creazione IndexedDB su vault vuoto). Prove manuali M0–M44 dichiarate positive dal product owner il 2026-11-15 (`tests/e2e/MANUAL_CHECKLIST.md`).
 
 ## Fase 5 — Distribuzione
 

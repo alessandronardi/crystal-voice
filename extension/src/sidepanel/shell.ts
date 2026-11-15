@@ -217,10 +217,22 @@ export function mountShell(root: HTMLElement): void {
   };
   window.addEventListener('unload', revokeThumbUrls);
 
+  const openCollectionPage = (): void => {
+    const url = chrome.runtime.getURL('collection.html');
+    if (typeof chrome.tabs.create === 'function') {
+      void chrome.tabs.create({ url }).catch(() => {
+        window.open(url, '_blank', 'noopener');
+      });
+      return;
+    }
+    window.open(url, '_blank', 'noopener');
+  };
+
   const recentCard = el('div', 'vc-card');
   recentCard.dataset['testid'] = 'shell-recent';
   const recentHost = el('div');
-  recentCard.append(el('p', 'vc-card-title', s.home.recent.title), recentHost);
+  const openCollectionHomeBtn = button(s.home.recent.openCollectionTab, 'vc-btn vc-btn-ghost vc-btn-sm', 'shell-open-collection', openCollectionPage);
+  recentCard.append(el('p', 'vc-card-title', s.home.recent.title), recentHost, openCollectionHomeBtn);
 
   const archiveCard = el('div', 'vc-card');
   archiveCard.dataset['testid'] = 'shell-archive';
@@ -824,7 +836,14 @@ export function mountShell(root: HTMLElement): void {
         });
     });
 
-    return [el('p', 'vc-cap', s.revealed.caption), shown.stage, legendSection(r, resultKey, shown), label, actions, saveBtn, saveError, profileSection(shown.choice, shown.handle?.state === 'webgl')];
+    const openCollectionRevealedBtn = button(
+      s.revealed.openCollectionTab,
+      'vc-btn vc-btn-ghost vc-btn-sm',
+      'shell-revealed-open-collection',
+      openCollectionPage,
+    );
+
+    return [el('p', 'vc-cap', s.revealed.caption), shown.stage, legendSection(r, resultKey, shown), label, actions, saveBtn, saveError, openCollectionRevealedBtn, profileSection(shown.choice, shown.handle?.state === 'webgl')];
   };
 
   /** I-13b: the live legend (SPEC §13, ADR-0028): rows select a trait, the showcase lights it up. */

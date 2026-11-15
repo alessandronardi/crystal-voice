@@ -9,5 +9,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@voicecrystal/calibration": "workspace:*",
+    "@voicecrystal/contracts": "workspace:*"
   }
 }

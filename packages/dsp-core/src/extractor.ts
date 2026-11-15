@@ -86,7 +86,7 @@ function coverageOf(key: DescriptorKey, amounts: DescriptorAmounts): number {
       case 'p5_brightness':
         return useful;
       case 'p6_rhythm':
-        return Math.min(onsets, intonated);
+        return Math.min(onsets, useful, intonated);
     }
   })();
   return Math.min(1, ratio / 2);

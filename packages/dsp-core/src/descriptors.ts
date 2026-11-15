@@ -5,13 +5,14 @@
 //   p1 median log2(f0) · p2 IQR 12·log2(f0) · p4 median (1 − periodicity)   on intonated frames
 //   p3 P90 − P10 of rmsDbfs                                                on intonated frames (D-V)
 //   p5 median log2(centroid)                                               on useful frames
-//   p6 onsets per second of intonated frames (D-V)
-// D-V (ADR-0024, accepted 2026-11-12, overrides SPEC §7.4 here): SPEC §7.4 computes p3 on the useful frames and p6
-// per second of useful frames. Their edges move with the level (VAD hangover,
-// floor), and the ±6 dB invariance failed by up to 7 points (p3). Measured in
-// I-06a: on the intonated frames the change is 0.0 points. Minimums: p3 needs
-// MIN_USEFUL_SECONDS of useful and MIN_INTONATED_SECONDS of intonated frames;
-// p6 needs MIN_ONSETS onsets and MIN_INTONATED_SECONDS of intonated frames.
+//   p6 onsets per second of useful frames (SPEC §7.4, ADR-0030 Var D2)
+// D-V (ADR-0024, updated by ADR-0030 Var D2): p3 is computed on the intonated
+// frames; with level normalization (-20 dBFS before VAD), usefulSeconds is
+// invariant within <= 0.083 points at ±6 dB and 44.1/48 kHz, avoiding the
+// artificial saturation of p6 when unvoiced consonants lower the intonated share.
+// Minimums: p3 needs MIN_USEFUL_SECONDS of useful and MIN_INTONATED_SECONDS of
+// intonated frames; p6 needs MIN_ONSETS onsets, MIN_USEFUL_SECONDS of useful
+// frames and MIN_INTONATED_SECONDS of intonated frames.
 // Onsets: useful frames whose flux, divided by the median band magnitude of
 // the useful frames (independent of gain), reaches ONSET_FLUX_THRESHOLD; the
 // largest are kept first, at least ONSET_MIN_DISTANCE_SECONDS apart (ties:
@@ -131,7 +132,7 @@ export function descriptorsWithOnsets(frames: readonly AcousticFrame[], onsetCou
   const p4 = enoughIntonated ? median(aperiodicity) : null;
   const centroids = useful.filter((f) => f.spectralCentroidHz !== null && f.spectralCentroidHz > 0).map((f) => Math.log2(f.spectralCentroidHz ?? 1));
   const p5 = enoughUseful ? median(centroids) : null;
-  const p6 = onsetCount >= MIN_ONSETS && enoughIntonated ? onsetCount / intonatedSeconds : null;
+  const p6 = onsetCount >= MIN_ONSETS && enoughUseful && enoughIntonated ? onsetCount / usefulSeconds : null;
 
   const raw: RawMeasures = [p1, p2, p3, p4, p5, p6];
   return {

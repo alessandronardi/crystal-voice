@@ -156,10 +156,10 @@ describe('computeDescriptors', () => {
     expect(computeDescriptors(mixed(200, 400)).raw[2]).not.toBeNull();
   });
 
-  it('computes the SPEC §7.4 formulas on intonated frames (p3, p6 per D-V)', () => {
-    // 500 intonated frames (5 s); f0 alternates 100/200 Hz; levels alternate −30/−10 dBFS; onsets every 10 frames.
+  it('computes the SPEC §7.4 formulas (p3 on intonated frames per D-V, p6 on useful frames per Var D2)', () => {
+    // 500 intonated frames (5 s); f0 alternates 100/200 Hz; levels alternate −30/−10 dBFS; onsets every 12 frames (120 ms).
     const fr = Array.from({ length: 500 }, (_, i) =>
-      frame(i, { f0Hz: i % 2 === 0 ? 100 : 200, rmsDbfs: i % 2 === 0 ? -30 : -10, spectralFlux: i === 0 ? null : i % 10 === 0 ? 50 : 0.1 }),
+      frame(i, { f0Hz: i % 2 === 0 ? 100 : 200, rmsDbfs: i % 2 === 0 ? -30 : -10, spectralFlux: i === 0 ? null : i % 12 === 0 ? 50 : 0.1 }),
     );
     const d = computeDescriptors(fr);
     expect(d.raw[0]).toBeCloseTo(Math.log2(Math.sqrt(100 * 200)), 12);
@@ -167,11 +167,11 @@ describe('computeDescriptors', () => {
     expect(d.raw[2]).toBeCloseTo(20, 12);
     expect(d.raw[3]).toBeCloseTo(0.03, 12);
     expect(d.raw[4]).toBeCloseTo(Math.log2(900), 12);
-    expect(d.amounts.onsets).toBe(49);
-    expect(d.raw[5]).toBeCloseTo(49 / 5, 12);
+    expect(d.amounts.onsets).toBe(41);
+    expect(d.raw[5]).toBeCloseTo(41 / 5, 12);
   });
 
-  it('keeps onsets at least 80 ms apart, the largest first', () => {
+  it('keeps onsets at least 120 ms apart, the largest first', () => {
     const fr = Array.from({ length: 40 }, (_, i) => frame(i, { spectralFlux: i === 0 ? null : 0 }));
     const set = (i: number, v: number): void => {
       const f = fr[i];
@@ -179,8 +179,8 @@ describe('computeDescriptors', () => {
     };
     set(10, 50);
     set(14, 80); // 40 ms after 10: only the larger one survives
-    set(22, 50); // 80 ms after 14: kept
-    expect(detectOnsets(fr)).toEqual([14, 22]);
+    set(26, 50); // 120 ms after 14: kept
+    expect(detectOnsets(fr)).toEqual([14, 26]);
   });
 
   it('never yields NaN or Infinity on arbitrary finite frames (property)', () => {
@@ -342,7 +342,7 @@ describe('extractor-0 fingerprint', () => {
           "INTONATED_MIN_HZ": 60,
           "MAX_VEILED_PARAMETERS": 2,
           "MIN_INTONATED_SECONDS": 2,
-          "MIN_ONSETS": 20,
+          "MIN_ONSETS": 15,
           "MIN_USEFUL_SECONDS": 4,
           "MONO_CHECK_FRAME_SECONDS": 0.02,
           "MUSIC_FLUX_MAX_LAG_SECONDS": 2,
@@ -356,8 +356,8 @@ describe('extractor-0 fingerprint', () => {
           "MUSIC_STABLE_MIN_FRAMES": 21,
           "NORMALIZE_MAX_GAIN_DB": 40,
           "NORMALIZE_TARGET_DBFS": -20,
-          "ONSET_FLUX_THRESHOLD": 0.3,
-          "ONSET_MIN_DISTANCE_SECONDS": 0.08,
+          "ONSET_FLUX_THRESHOLD": 0.35,
+          "ONSET_MIN_DISTANCE_SECONDS": 0.12,
           "PHASE_CANCELLATION_DB": 20,
           "PITCH_FRAME_SAMPLES": 640,
           "PITCH_HOP_SAMPLES": 160,

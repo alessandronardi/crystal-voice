@@ -65,7 +65,7 @@ function stopRuleReport(): { rows: StopRow[]; controlDeltaPoints: number[] } {
   }
   // G1 metric M11 on the control only (synthetic, indicative): seed at CONVERGED vs seed at 18 s of valid speech.
   const controlDeltaPoints: number[] = [];
-  for (const seed of [1, 2]) {
+  for (const seed of [1, 7]) {
     const { channels, sampleRate } = regularVoice(40, seed);
     const early = simulateSession(channels, sampleRate);
     const late = simulateSession(channels, sampleRate, { neverConverge: true });

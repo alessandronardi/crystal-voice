@@ -92,18 +92,19 @@ export const NORMALIZE_MAX_GAIN_DB = 40;
 export const FRAME_HOP_SECONDS = PITCH_HOP_SAMPLES / ANALYSIS_SAMPLE_RATE;
 /** "Useful frame": VAD speech, not clipped, level above this. [H] */
 export const USEFUL_MIN_DBFS = -60;
-/** Minimum amounts per descriptor (SPEC §7.4). [H] */
+/** Minimum amounts per descriptor (SPEC §7.4, ADR-0030 Var D2). [H] */
 export const MIN_INTONATED_SECONDS = 2;
 export const MIN_USEFUL_SECONDS = 4;
-export const MIN_ONSETS = 20;
-/** Onsets: peaks of the spectral flux at least 80 ms apart (SPEC §7.4). */
-export const ONSET_MIN_DISTANCE_SECONDS = 0.08;
+export const MIN_ONSETS = 15;
+/** Onsets: peaks of the spectral flux at least 120 ms apart (syllabic rate cap ~8.3/s, ADR-0030 Var D2). [H] */
+export const ONSET_MIN_DISTANCE_SECONDS = 0.12;
 /**
  * Onset threshold on the flux divided by the median band magnitude of the
- * useful frames (a gain-free scale). [H] — I-06a exploration on the fixtures:
- * 22 onsets on voice-a (29 syllables), 7 on white noise, 1 on chords.
+ * useful frames (a gain-free scale). [H] — ADR-0030 Var D2: 0.35 with 120 ms
+ * minimum distance avoids double-counting pre-vocalic consonant bursts while
+ * keeping 22 onsets on voice-a (29 syllables) and 0/19 measurable on rejections.
  */
-export const ONSET_FLUX_THRESHOLD = 0.3;
+export const ONSET_FLUX_THRESHOLD = 0.35;
 
 // --- Music heuristic (SPEC §7.2) ---------------------------------------------
 

@@ -90,10 +90,8 @@ export function simulateSession(channels: readonly Float32Array[], sampleRate: n
 /**
  * Positive control of the stopping mechanism (decision D-AE): voice A with
  * almost no intonation, no jitter, no breath and no phrase pauses, at 5
- * syllables per second, generated in memory. Measured in I-07: it converges,
- * but p6 is saturated at 100 points on both halves with mapping-0 (raw
- * 7.7 and 9.2 onsets per second): it checks the chain end to end, not the
- * threshold τ (docs/BENCHMARK_PROTOCOL.md §7).
+ * syllables per second, generated in memory. Under Var D2 (ADR-0030), p6 is
+ * no longer saturated on the halves (~5.4 onsets/s useful, ~73–75 points).
  */
 export const REGULAR_VOICE: VoiceParams = {
   ...VOICE_A,

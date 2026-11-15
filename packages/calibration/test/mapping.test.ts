@@ -48,7 +48,7 @@ describe('mapping-0 (SPEC §7.5, ADR-0030)', () => {
       [6, 30],
       [0.05, 0.45],
       [Math.log2(600), Math.log2(2400)],
-      [2, 7],
+      [1.5, 8.5],
     ]);
   });
 
@@ -97,7 +97,7 @@ describe('mapping-0 (SPEC §7.5, ADR-0030)', () => {
 
 describe('seedFromRaw', () => {
   it('turns six measures into a canonical seed without experimental warning for mapping-0', () => {
-    const r = seedFromRaw([Math.log2(120), 3, 18, 0.25, Math.log2(1200), 4.5]);
+    const r = seedFromRaw([Math.log2(120), 3, 18, 0.25, Math.log2(1200), Math.sqrt(1.5 * 8.5)]);
     expect(isCrystalSeed(r.seed)).toBe(true);
     expect(r.seed[1]).toBe(3750);
     expect(r.seed[2]).toBe(5000);

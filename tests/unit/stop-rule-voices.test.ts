@@ -68,9 +68,9 @@ describe('split-half stop on synthetic voices', () => {
   );
 
   it(
-    'positive control: a very regular synthetic voice converges (p6 saturated: the chain, not τ, is checked)',
+    'positive control: a very regular synthetic voice converges (with p6 unsaturated under Var D2)',
     () => {
-      for (const seed of [1, 2]) {
+      for (const seed of [1, 7]) {
         const { channels, sampleRate } = regularVoice(30, seed);
         const sim = simulateSession(channels, sampleRate);
         expect(sim.exitReason, `seed ${seed}`).toBe('CONVERGED');

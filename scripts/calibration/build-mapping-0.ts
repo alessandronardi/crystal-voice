@@ -19,28 +19,41 @@ interface ParameterSpec {
   unit: string;
   low: number;
   high: number;
+  scale?: 'linear' | 'log';
 }
 
-/** SPEC §7.5: p1 70–320 Hz in log2; p2 0–8 st; p3 6–30 dB; p4 0.05–0.45; p5 600–2400 Hz in log2; p6 2–7 onsets/s. */
+/** SPEC §7.5 & ADR-0030 (Var D2): p1 70–320 Hz in log2; p2 0–8 st; p3 6–30 dB; p4 0.05–0.45; p5 600–2400 Hz in log2; p6 1.5–8.5 onsets/s (log-spaced). */
 const PARAMETERS: Readonly<Record<string, ParameterSpec>> = {
   p1_pitch: { measure: 'median of log2(f0Hz) over intonated frames', unit: 'log2(Hz)', low: Math.log2(70), high: Math.log2(320) },
   p2_intonation: { measure: 'IQR of 12·log2(f0Hz) over intonated frames', unit: 'semitones', low: 0, high: 8 },
   p3_dynamics: { measure: 'P90 − P10 of normalized rmsDbfs over intonated frames (ADR-0024, D-V)', unit: 'dB', low: 6, high: 30 },
   p4_roughness: { measure: 'median of 1 − periodicity over intonated frames', unit: 'aperiodicity', low: 0.05, high: 0.45 },
   p5_brightness: { measure: 'median of log2(centroid 300–4000 Hz) over useful frames', unit: 'log2(Hz)', low: Math.log2(600), high: Math.log2(2400) },
-  p6_rhythm: { measure: 'onsets per second of intonated frames (ADR-0024, D-V)', unit: 'onsets/s', low: 2, high: 7 },
+  p6_rhythm: {
+    measure: 'onsets per second of useful frames (SPEC §7.4, ADR-0030 Var D2)',
+    unit: 'onsets/s',
+    low: 1.5,
+    high: 8.5,
+    scale: 'log',
+  },
 };
 
 export function buildMapping0(): string {
   const parameters: Record<string, unknown> = {};
   for (const [key, p] of Object.entries(PARAMETERS)) {
-    const percentiles = Array.from({ length: 101 }, (_, k) => (k === 100 ? p.high : p.low + ((p.high - p.low) * k) / 100));
+    const l0 = Math.log(p.low);
+    const l1 = Math.log(p.high);
+    const percentiles = Array.from({ length: 101 }, (_, k) => {
+      if (k === 0) return p.low;
+      if (k === 100) return p.high;
+      return p.scale === 'log' ? Math.exp(l0 + ((l1 - l0) * k) / 100) : p.low + ((p.high - p.low) * k) / 100;
+    });
     parameters[key] = { measure: p.measure, unit: p.unit, anchors: [p.low, p.high], percentiles };
   }
   const table = {
     mappingVersion: 'mapping-0',
     experimental: false,
-    description: 'Linear tables between the quantile anchors of SPEC §7.5 (ADR-0006, ADR-0030).',
+    description: 'Quantile tables between the anchors of SPEC §7.5 and ADR-0030 (ADR-0006, ADR-0030).',
     parameters,
   };
   return `${JSON.stringify(table, null, 2)}\n`;

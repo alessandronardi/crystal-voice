@@ -241,6 +241,9 @@ importers:
       '@voicecrystal/calibration':
         specifier: workspace:*
         version: link:../packages/calibration
+      '@voicecrystal/comparator':
+        specifier: workspace:*
+        version: link:../packages/comparator
       '@voicecrystal/contracts':
         specifier: workspace:*
         version: link:../packages/contracts
@@ -272,7 +275,14 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
-  packages/comparator: {}
+  packages/comparator:
+    dependencies:
+      '@voicecrystal/calibration':
+        specifier: workspace:*
+        version: link:../calibration
+      '@voicecrystal/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/contracts: {}
 

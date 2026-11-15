@@ -103,7 +103,7 @@ Prima di qualsiasi distribuzione o invio al Chrome Web Store devono essere compl
 
 ### 4.3 Documentazione, UI e Dataset
 - [x] **G0-DOC-01 (Disclaimer UI)** — eseguita con I-13a (PR crystal-voice#18, `739fb03`) e chiarita su salvataggio locale con ADR-0029 / I-14 (H-4): testo §5.1 verbatim nella Home, verificato da `tests/unit/g0-notice.test.ts`, e link ai file di `THIRD_PARTY/` (registrato dal progetto): Inserire nel Side Panel dell'estensione l'avviso sintetico sulla natura 100% locale, artistica e non biometrica dell'analisi (testo in §5.1) e il link ai file in `THIRD_PARTY/`.
-- [ ] **G0-DOC-02 (Terminologia Confronto):** Assicurarsi che nella UI il confronto fra cristalli sia denominato esclusivamente «Affinità acustica / geometrica» e mai come riconoscimento o verifica della persona.
+- [x] **G0-DOC-02 (Terminologia Confronto):** Assicurarsi che nella UI il confronto fra cristalli sia denominato esclusivamente «Affinità acustica / geometrica» e mai come riconoscimento o verifica della persona *(attuato in `I-15`: `extension/src/ui/strings.it.ts`, `extension/src/collection/app.ts`, verificato da test unit `extension/test/collection-filters.test.ts` ed E2E `tests/e2e/collection.spec.ts`)*.
 - [x] **G0-DOC-03 (Privacy Policy Pubblica)** — eseguita il 2026-11-14 e allineata su `chrome.storage` + IndexedDB `voicecrystal` con ADR-0029 / I-14 (D-AK) (registrato dal progetto): Aggiungere `PRIVACY.md` nel repository (testo in §5.3) per il collegamento nella scheda del Chrome Web Store.
 - [ ] **G0-DOC-04 (Consenso Calibrazione):** Raccogliere la firma del modulo di consenso informato (§5.4) per ciascuno dei 15 volontari prima di registrare i campioni di calibrazione e cancellare gli audio entro 90 giorni.
 

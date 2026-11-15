@@ -369,10 +369,11 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
 
 - **Riferimenti:** SPEC §11, §13; ADR-0007; VC-06, VC-22.
 - **DoD:**
-  - [ ] Proprietà matematiche del comparator (identità, simmetria, limiti, monotonia) in property test.
-  - [ ] Confronto bloccato per `mappingVersion` o `extractorVersion` diverse, con spiegazione.
-  - [ ] Collezione a tutta scheda con filtri; confronto sullo stesso piatto e stessa scala.
-  - [ ] Nessun testo che suggerisca identità o «stessa persona».
+  - [x] Proprietà matematiche del comparator (identità, simmetria, limiti, monotonia) in property test (`packages/comparator/test/comparator.test.ts`: 12/12 verdi con `fast-check`, inclusa normalizzazione per `weightSum` e tabella pre-G1 `comparator-0-experimental.json` generata da `scripts/calibration/build-comparator-0.ts`).
+  - [x] Confronto bloccato per `mappingVersion` o `extractorVersion` diverse, con spiegazione (`compareSpecimens` → `INCOMPATIBLE_MAPPING_VERSION` / `INCOMPATIBLE_EXTRACTOR_VERSION`; `geometryVersion` diversa non blocca il confronto; UI italiana centralizzata e verificata in `tests/e2e/collection.spec.ts`).
+  - [x] Collezione a tutta scheda con filtri; confronto sullo stesso piatto e stessa scala (`extension/src/collection/index.html`, `filters.ts`, `app.ts`, pulsante dal Side Panel in `shell.ts`, `renderCrystal` con `fixedScale: true` e piattaforma rotante condivisa via `renderAt`).
+  - [x] Nessun testo che suggerisca identità o «stessa persona» (`G0-DOC-02` attuato: dicitura esclusiva «Affinità acustica / geometrica», verificata in `extension/test/collection-filters.test.ts` e `tests/e2e/collection.spec.ts`).
+- **Test:** `packages/comparator/test/comparator.test.ts` (`12/12`), `extension/test/collection-filters.test.ts` (`6/6`), E2E completo `tests/e2e/collection.spec.ts` (headless `6,6s` e con finestra `9,3s`, axe 0 violazioni serie/critiche, 0 errori console, 0 creazione IndexedDB su vault vuoto). Prova manuale `M44` TO DO su hardware reale.
 
 ## Fase 5 — Distribuzione
 

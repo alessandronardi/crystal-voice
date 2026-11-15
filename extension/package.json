@@ -13,6 +13,7 @@
     "@types/chrome": "0.3.7",
     "@types/node": "26.6.6",
     "@voicecrystal/calibration": "workspace:*",
+    "@voicecrystal/comparator": "workspace:*",
     "@voicecrystal/contracts": "workspace:*",
     "@voicecrystal/crystal-core": "workspace:*",
     "@voicecrystal/dsp-core": "workspace:*",

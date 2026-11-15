@@ -7,6 +7,7 @@ import type {
   DescriptorKey,
   QualityWarning,
 } from '@voicecrystal/contracts';
+import type { ComparisonBlockReason, ComparisonContextWarning } from '@voicecrystal/comparator';
 import type { VaultErrorCode } from '@voicecrystal/vault';
 
 /** Names of the six descriptors (docs/GLOSSARY.md, SPEC §7.4). */
@@ -201,6 +202,7 @@ export const strings = {
         untitled: 'Senza titolo',
         open: 'Apri',
         deleteBtn: 'Elimina',
+        openCollectionTab: 'Apri la Collezione a tutta scheda',
         confirmDelete: (code: string): string => `Eliminare definitivamente l’esemplare ${code}?`,
         confirmYes: 'Sì, elimina',
         confirmNo: 'Annulla',
@@ -267,6 +269,7 @@ export const strings = {
       save: 'Salva nell’archivio',
       saving: 'Salvataggio…',
       saved: (code: string): string => `Salvato (${code})`,
+      openCollectionTab: 'Apri la Collezione a tutta scheda',
       showcaseLabel: (habit: string): string => `Cristallo: ${habit}`,
       // I-13b: quality warnings and veiled traits on the label (review M-4 of I-13a; ADR-0014).
       warnings: 'Avvisi',
@@ -398,6 +401,117 @@ export const strings = {
     hertz: 'Hz',
     unavailable: 'non disponibile',
     to: '–',
+  },
+  collection: {
+    caption: 'Gabinetto di mineralogia · Archivio locale',
+    title: 'Collezione',
+    lead: 'Tutti gli esemplari salvati nel database locale di questo browser. Selezionane due per confrontarne la forma e i sei descrittori acustici.',
+    countSummary: (shown: number, total: number): string =>
+      shown === total
+        ? `${String(total)} ${total === 1 ? 'esemplare' : 'esemplari'} in collezione`
+        : `${String(shown)} di ${String(total)} esemplari mostrati`,
+    emptyVault: 'Nessun esemplare salvato in questo browser. Analizza una voce dal pannello laterale oppure importa un archivio JSON.',
+    emptyFiltered: 'Nessun esemplare corrisponde ai filtri selezionati.',
+    refreshBtn: 'Aggiorna elenco',
+    filtersTitle: 'Filtra esemplari',
+    habitLabel: 'Abito cristallino',
+    habits: {
+      all: 'Tutti gli abiti',
+      trigonal: 'Prisma trigonale',
+      bevelledTrigonal: 'Prisma trigonale smussato',
+      hexagonal: 'Prisma esagonale',
+      bevelledHexagonal: 'Prisma esagonale smussato',
+      doubleHexagonal: 'Prisma esagonale doppio',
+    },
+    colorLabel: 'Colore (brillantezza)',
+    colors: {
+      all: 'Tutti i colori',
+      ruby: 'Rubino (< 25° pt)',
+      amber: 'Ambra (25°–49° pt)',
+      cyan: 'Ciano (50°–74° pt)',
+      sapphire: 'Zaffiro (≥ 75° pt)',
+    },
+    sourceLabel: 'Sorgente',
+    sources: {
+      all: 'Tutte le sorgenti',
+      tab: 'Scheda del browser',
+      mic: 'Microfono',
+      file: 'File locale',
+    },
+    dateFromLabel: 'Dal',
+    dateToLabel: 'Al',
+    resetFilters: 'Azzera filtri',
+    compareBarTitle: 'Selezione per il confronto',
+    slotAEmpty: 'Esemplare A: non selezionato',
+    slotBEmpty: 'Esemplare B: non selezionato',
+    slotValue: (slot: 'A' | 'B', code: string, label: string): string =>
+      label === '' ? `Esemplare ${slot}: ${code}` : `Esemplare ${slot}: ${code} · ${label}`,
+    compareBtn: 'Confronta A e B',
+    clearSelectionBtn: 'Svuota selezione',
+    openSpecimen: 'Apri',
+    selectAsA: 'Scegli come A',
+    selectAsB: 'Scegli come B',
+    selectedAsA: 'Scelto come A',
+    selectedAsB: 'Scelto come B',
+    deleteBtn: 'Elimina',
+    confirmDelete: (code: string): string => `Eliminare definitivamente l’esemplare ${code}?`,
+    confirmYes: 'Sì, elimina',
+    confirmNo: 'Annulla',
+    detailCaption: 'Scheda dell’esemplare',
+    closeDetail: 'Chiudi scheda',
+    reopenNotice: 'Questo cristallo viene rigenerato deterministicamente dal seme e verificato tramite geometryHash locale.',
+    untrustedTextLabel: 'Titolo / annotazioni manuali',
+  },
+  comparison: {
+    backToCollection: 'Torna alla Collezione',
+    caption: 'Confronto tra due esemplari',
+    // G0-DOC-02: never name speaker recognition or personal identity.
+    sectionTitle: 'Affinità acustica / geometrica',
+    specimenTag: (slot: 'A' | 'B', code: string): string => `Esemplare ${slot} · ${code}`,
+    platterTitle: 'Piatto condiviso a scala fissa',
+    platterSubtitle: 'I due cristalli condividono camera, scala geometrica assoluta (fixedScale) e rotazione sincronizzata.',
+    rotationLabel: 'Angolo del piatto',
+    primaryPercentile: (pct: number): string =>
+      `Più vicini del ${String(pct)}% delle coppie di voci diverse di riferimento`,
+    experimentalBadge: 'Stima sperimentale (pre-G1, comparator-0)',
+    nonBiometricNotice:
+      'Questa misura confronta esclusivamente la vicinanza matematica e geometrica dei sei descrittori acustici tra due segmenti di parlato. Ha carattere artistico ed esplorativo: non verifica né identifica una persona e non stabilisce se due cristalli provengano dallo stesso parlante.',
+    contributionsTitle: 'Contributi dei sei descrittori alla distanza',
+    columnDescriptor: 'Descrittore e tratto',
+    columnA: 'Esemplare A',
+    columnB: 'Esemplare B',
+    columnDelta: 'Scarto',
+    columnContribution: 'Contributo pesato wᵢ·Δᵢ²',
+    pointValue: (pt: string): string => `${pt} pt`,
+    deltaPoints: (pt: string): string => `${pt} pt`,
+    technicalSummary: 'Dettagli matematici e versioni',
+    euclideanAffinityLabel: 'Affinità euclidea 100·(1 − D)',
+    weightedDistanceLabel: 'Distanza euclidea pesata D(A, B)',
+    comparatorVersionLabel: 'Comparatore',
+    mappingVersionLabel: 'Normalizzazione (mapping)',
+    extractorVersionLabel: 'Estrattore DSP',
+    geometryVersionLabel: 'Geometria (A / B)',
+    blockedTitle: 'Confronto bloccato: versioni incompatibili',
+    blockedReasons: {
+      INCOMPATIBLE_MAPPING_VERSION: (a: string, b: string): string =>
+        `I due esemplari usano tabelle di normalizzazione diverse («${a}» contro «${b}»). I percentili del seme non sono confrontabili tra calibrazioni differenti.`,
+      INCOMPATIBLE_EXTRACTOR_VERSION: (a: string, b: string): string =>
+        `I due esemplari sono stati calcolati con versioni diverse dell’estrattore DSP («${a}» contro «${b}»). Per evitare confronti distorsivi il calcolo di affinità è disabilitato.`,
+    } satisfies Record<ComparisonBlockReason, (a: string, b: string) => string>,
+    blockedHint: 'Puoi comunque osservare entrambi gli esemplari fianco a fianco sullo stesso piatto a scala fissa, oppure confrontare esemplari estratti e mappati con le stesse versioni.',
+    contextWarningsTitle: 'Avvisi di contesto',
+    contextWarnings: {
+      EXPERIMENTAL_COMPARATOR:
+        'Distribuzione di riferimento sintetica (comparator-0-experimental): prima del gate G1 i percentili di vicinanza non derivano da un campione di voci umane.',
+      DIFFERENT_SOURCE_KIND:
+        'I due esemplari provengono da sorgenti diverse (es. microfono contro file o scheda): il canale di acquisizione può influenzare i descrittori.',
+      LOW_CONFIDENCE_TRAITS:
+        'Almeno uno dei due cristalli presenta tratti velati (confidenza inferiore a 0,5): interpreta lo scarto con cautela.',
+      QUALITY_WARNINGS_PRESENT:
+        'Almeno uno dei due esemplari riporta avvisi di qualità audio (es. possibile musica, clipping o volume basso).',
+      DIFFERENT_GEOMETRY_VERSION:
+        'Le versioni geometriche dei due cristalli differiscono: la resa visiva cambia, ma il confronto acustico sui sei descrittori resta valido.',
+    } satisfies Record<ComparisonContextWarning, string>,
   },
 } as const;
 

@@ -35,7 +35,7 @@ test.beforeAll(async () => {
   panelTab = await h.context.newPage();
   await panelTab.goto(OTHER_URL);
   await h.clickAction(panelTab);
-  await expect.poll(() => h.inSidePanel(`${q('file-input')} !== null`)).toBe(true);
+  await expect.poll(() => h.inSidePanel(`${q('file-input')} !== null`), { timeout: 15_000 }).toBe(true);
 });
 
 test.afterAll(async () => {
@@ -58,11 +58,14 @@ test('I-14 full vault flow: save, IndexedDB schema, PNG export, reopen, tamper r
   await expect.poll(screen, { timeout: 30_000 }).toBe('REVEALED');
   expect(await h.axeSidePanel()).toEqual([]);
 
+  expect(await h.inSidePanel(click('shell-label-details-summary'))).toBe(true);
   await setInput('shell-title-input', 'Voce di archivio');
   await setInput('shell-speaker-input', 'Parlante Prova');
-  expect(await h.inSidePanel(click('shell-save'))).toBe(true);
-  await expect.poll(() => h.inSidePanel(`${q('shell-specimen-name')}?.textContent ?? ''`), { timeout: 15_000 }).toBe('Esemplare VC-0001');
-  expect(await h.inSidePanel(`${q('shell-save')}?.disabled`)).toBe(true);
+  expect(await h.inSidePanel(`(() => { const save = ${q('shell-save')}; save.click(); save.click(); return true; })()`)).toBe(true);
+  await expect.poll(() => h.inSidePanel(`${q('shell-specimen-name')}?.textContent ?? ''`), { timeout: 15_000 }).toBe('Voce di archivio');
+  expect(await h.inSidePanel(`${q('shell-save')} === null`)).toBe(true);
+  expect(await h.inSidePanel(`document.activeElement?.dataset.testid`)).toBe('shell-revealed-open-collection');
+  expect(await h.inSidePanel(click('shell-label-details-summary'))).toBe(true);
   expect(String(await h.inSidePanel(`${q('shell-label')}?.textContent ?? ''`))).toContain('Voce di archivio');
   expect(String(await h.inSidePanel(`${q('shell-label')}?.textContent ?? ''`))).toContain('Parlante Prova');
 
@@ -109,11 +112,13 @@ test('I-14 full vault flow: save, IndexedDB schema, PNG export, reopen, tamper r
     description: JSON.stringify({ hasWebglCanvas, thumbCount: idbCheck.thumbCount, stores: idbCheck.stores, indexes: idbCheck.indexes }),
   });
   if (hasWebglCanvas) {
+    expect(await h.inSidePanel(click('shell-reveal-tools-summary'))).toBe(true);
     expect(idbCheck.thumbCount).toBe(1);
     expect(await h.inSidePanel(`${q('shell-export-png')}?.disabled`)).toBe(false);
     expect(await h.inSidePanel(click('shell-export-png'))).toBe(true);
     await expect.poll(() => h.inSidePanel(`Number(${q('shell-export-png')}?.dataset.lastPngSize ?? '0')`), { timeout: 15_000 }).toBeGreaterThan(1000);
   }
+  expect(await h.axeSidePanel()).toEqual([]);
 
   // 4. Return Home: recent list shows VC-0001, VC-20 warning visible, axe clean, reopen restores REVEALED.
   expect(await h.inSidePanel(click('shell-discard'))).toBe(true);
@@ -125,7 +130,9 @@ test('I-14 full vault flow: save, IndexedDB schema, PNG export, reopen, tamper r
 
   expect(await h.inSidePanel(click('shell-recent-open'))).toBe(true);
   await expect.poll(screen).toBe('REVEALED');
-  expect(await h.inSidePanel(`${q('shell-specimen-name')}?.textContent ?? ''`)).toBe('Esemplare VC-0001');
+  expect(await h.inSidePanel(`${q('shell-specimen-name')}?.textContent ?? ''`)).toBe('Voce di archivio');
+  expect(await h.inSidePanel(click('shell-label-details-summary'))).toBe(true);
+  expect(String(await h.inSidePanel(`${q('shell-label')}?.textContent ?? ''`))).toContain('voice-a-long.wav');
 
   // 5. Tamper geometryHash in IndexedDB -> opening refuses with visible GEOMETRY_HASH_MISMATCH alert.
   const originalHash = String(idbCheck.records[0]?.['geometryHash']);

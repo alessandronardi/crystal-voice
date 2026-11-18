@@ -71,7 +71,7 @@ test('«Sì, continua» holds for the rest of the session: the notice does not c
     await expect.poll(screen).toBe('REVEALED');
     // The warning stays on the label (D-AM) when the final analysis keeps it.
     if (end.analysis?.quality?.warnings.includes('MULTI_SPEAKER_SUSPECTED') === true) {
-      expect(String(await h.inSidePanel(`${q('shell-label')}.textContent`))).toContain('forse più di una voce');
+      expect(String(await h.inSidePanel(`${q('shell-reveal-warnings')}.textContent`))).toContain('forse più di una voce');
     }
   }
 });

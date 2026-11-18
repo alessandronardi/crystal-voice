@@ -5,21 +5,22 @@
  * I-13a, «Gabinetto di mineralogia» (decision D-AJ, 2026-11-13): ivory paper,
  * ink, one verdigris accent; serif for names, monospace for data (SPEC §13).
  * I-13b (D-AQ): Spectral and IBM Plex Mono, OFL, bundled in fonts/ (latin
- * subset, weights 400 and 600); never loaded from the network (R2). All
- * colours are [H]: tuned by eye.
+ * subset, weights 400 and 600); never loaded from the network (R2).
+ * I-20: shared limestone surfaces, warm showcase, and deep green actions.
  */
 @font-face { font-family: 'Spectral'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/spectral-latin-400-normal.woff2') format('woff2'); }
 @font-face { font-family: 'Spectral'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/spectral-latin-600-normal.woff2') format('woff2'); }
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); }
 @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2'); }
 :root {
-  --vc-bg: #f6f1e7;
-  --vc-paper: #fbf8f1;
+  --vc-bg: #eff1ed;
+  --vc-paper: #fafbf8;
   --vc-ink: #2b2620;
-  --vc-muted: #6b6155;
-  --vc-line: #d9cfbd;
-  --vc-accent: #2f6f62;
-  --vc-accent-ink: #f6f1e7;
+  --vc-muted: #535c55;
+  --vc-line: #c8cec5;
+  --vc-accent: #27564c;
+  --vc-accent-ink: #eff1ed;
+  --vc-showcase: #2b2620;
   --vc-serif: 'Spectral', Georgia, 'Times New Roman', serif;
   --vc-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
 }
@@ -112,24 +113,41 @@ body.vc-body {
 .vc-danger { border-color: #9e2a2b; color: #8c1d1e; background: transparent; }
 .vc-danger-solid { background: #8c1d1e; border-color: #8c1d1e; color: #ffffff; }
 
-/* I-15: full-tab Collection and side-by-side Comparison workbench. */
-.vc-collection-page { max-width: 1120px; margin: 0 auto; padding: 24px 20px 44px; display: flex; flex-direction: column; gap: 18px; }
+/* Full-tab Collection and side-by-side Comparison. */
+.vc-collection-page { max-width: 1440px; margin: 0 auto; padding: clamp(18px, 2.8vw, 40px); display: flex; flex-direction: column; gap: 18px; }
+.vc-collection-brand { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--vc-ink); padding-bottom: 12px; font-size: 20px; font-weight: 600; line-height: 1.2; }
+.vc-collection-brand::before { content: ''; background: var(--vc-accent); width: 12px; height: 15px; clip-path: polygon(50% 0, 100% 30%, 89% 72%, 50% 100%, 11% 72%, 0 30%); }
 .vc-collection-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; border-bottom: 1px solid var(--vc-line); padding-bottom: 14px; }
+.vc-gallery-header { align-items: center; border: 0; padding: 0; }
+.vc-gallery-header .vc-title { font-size: clamp(36px, 4.4vw, 60px); font-weight: 400; }
 .vc-collection-head-left { display: flex; flex-direction: column; gap: 6px; }
 .vc-collection-head-right { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.vc-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; align-items: end; }
+.vc-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 10px; align-items: end; }
 .vc-compare-bar { background: var(--vc-paper); border: 1px solid var(--vc-accent); padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
-.vc-compare-slots { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font: 13px var(--vc-mono); }
-.vc-compare-slot { background: var(--vc-bg); border: 1px solid var(--vc-line); padding: 4px 10px; }
-.vc-collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; list-style: none; margin: 0; padding: 0; }
-.vc-specimen-card { background: var(--vc-paper); border: 1px solid var(--vc-line); padding: 14px; display: flex; flex-direction: column; gap: 10px; justify-content: space-between; }
-.vc-specimen-card[data-selected-slot="A"], .vc-specimen-card[data-selected-slot="B"] { border-color: var(--vc-accent); box-shadow: inset 3px 0 0 var(--vc-accent); }
-.vc-specimen-preview { height: 148px; background: var(--vc-bg); border: 1px solid var(--vc-line); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.vc-specimen-preview img, .vc-specimen-preview svg { width: 132px; height: 132px; object-fit: contain; display: block; }
-.vc-specimen-title-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.vc-color-badge { font: 600 11px var(--vc-mono); text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border: 1px solid var(--vc-line); background: var(--vc-bg); color: var(--vc-ink); white-space: nowrap; }
-.vc-detail-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; align-items: start; }
+.vc-collection-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 16px; list-style: none; margin: 0; padding: 0; }
+.vc-specimen-button { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; height: 100%; text-align: left; cursor: pointer; }
+.vc-specimen-button:disabled { cursor: default; }
+.vc-specimen-button:focus-visible { outline: 2px solid var(--vc-accent); outline-offset: 4px; }
+.vc-specimen-button[aria-pressed="true"] { outline: 2px solid var(--vc-accent); outline-offset: 4px; }
+.vc-specimen-button[aria-pressed="true"]:focus-visible { outline-style: dashed; }
+.vc-specimen-preview { position: relative; width: 100%; aspect-ratio: 5 / 4; background: var(--vc-showcase); color: var(--vc-accent-ink); }
+.vc-specimen-preview img, .vc-specimen-preview svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.vc-specimen-title { font: 400 clamp(22px, 2.5vw, 34px)/1.18 var(--vc-serif); overflow-wrap: anywhere; max-width: 100%; }
+.vc-specimen-title-long { font-size: 21px; }
+.vc-specimen-button:not(:disabled):hover .vc-specimen-title { text-decoration: underline; text-underline-offset: 0.12em; }
+.vc-specimen-selection { margin-bottom: 4px; color: var(--vc-accent); font: 600 12px var(--vc-mono); }
+.vc-collection-empty { align-items: flex-start; gap: 12px; }
+.vc-collection-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border-top: 1px solid var(--vc-line); padding-top: 12px; font: 12px var(--vc-mono); }
+.vc-collection-detail { display: flex; flex-direction: column; gap: 18px; }
+.vc-collection-detail .vc-title { overflow-wrap: anywhere; min-width: 0; }
+.vc-collection-detail .vc-stage, .vc-platter .vc-stage { background: var(--vc-showcase); color: var(--vc-accent-ink); }
+.vc-detail-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 18px; align-items: start; }
 .vc-detail-col { display: flex; flex-direction: column; gap: 12px; }
+.vc-delete-dialog { margin: auto; max-width: min(420px, calc(100% - 32px)); color: var(--vc-ink); }
+.vc-delete-dialog::backdrop { background: rgb(43 38 32 / 55%); }
+@media (max-width: 560px) {
+  .vc-collection-grid { grid-template-columns: minmax(0, 1fr); }
+}
 .vc-platter { background: var(--vc-paper); border: 1px solid var(--vc-line); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 .vc-platter-stages { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: start; border-bottom: 4px solid var(--vc-line); padding-bottom: 14px; }
 .vc-platter-slot { display: flex; flex-direction: column; gap: 8px; align-items: center; }

@@ -94,17 +94,8 @@ function formatDate(isoUtc: string): string {
   return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function colorBadgeText(bucket: ColorBucket): string {
-  switch (bucket) {
-    case 'ruby':
-      return 'Rubino';
-    case 'amber':
-      return 'Ambra';
-    case 'cyan':
-      return 'Ciano';
-    case 'sapphire':
-      return 'Zaffiro';
-  }
+function specimenTitle(record: CrystalRecordV1): string {
+  return record.title || formatSpecimenCode(record.specimenNumber);
 }
 
 function colorBucketLabel(bucket: ColorBucket): string {
@@ -158,9 +149,10 @@ export function mountCollectionApp(root: HTMLElement): void {
   let items: VaultListItem[] = [];
   let storageEstimate: VaultStorageEstimate = { usageBytes: null, quotaBytes: null, warning: false };
   let filters: CollectionFilterState = { ...INITIAL_COLLECTION_FILTERS };
-  let selectedAId: string | null = null;
-  let selectedBId: string | null = null;
-  let confirmingDeleteId: string | null = null;
+  let filtersOpen = false;
+  let choosingPair = false;
+  let selectedIds: string[] = [];
+  let opening = false;
   let activeDetail: DetailState | null = null;
   let comparison: ComparisonState | null = null;
   let errorBanner: { code: string; message: string } | null = null;
@@ -173,6 +165,19 @@ export function mountCollectionApp(root: HTMLElement): void {
   let compareHandleA: RenderHandle | null = null;
   let compareHandleB: RenderHandle | null = null;
   let compareRaf = 0;
+
+  const focusControl = (testId: string, specimenId?: string): void => {
+    const scope = specimenId === undefined
+      ? root
+      : root.querySelector(`[data-specimen-id="${CSS.escape(specimenId)}"]`);
+    scope?.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.focus();
+  };
+
+  const returnToGrid = (specimenId?: string): void => {
+    render();
+    if (specimenId !== undefined) focusControl('open-specimen', specimenId);
+    if (!root.contains(document.activeElement)) focusControl('collection-heading');
+  };
 
   const revokeThumbs = (): void => {
     for (const url of thumbUrls) URL.revokeObjectURL(url);
@@ -215,9 +220,8 @@ export function mountCollectionApp(root: HTMLElement): void {
     const openId = params.get('id');
     const compA = params.get('a');
     const compB = params.get('b');
-    if (compA !== null && compB !== null && items.some((x) => x.record.id === compA) && items.some((x) => x.record.id === compB)) {
-      selectedAId = compA;
-      selectedBId = compB;
+    if (compA !== null && compB !== null && compA !== compB && items.some((x) => x.record.id === compA) && items.some((x) => x.record.id === compB)) {
+      selectedIds = [compA, compB];
       await startComparison();
       return;
     }
@@ -232,14 +236,11 @@ export function mountCollectionApp(root: HTMLElement): void {
       items = loadedItems;
       storageEstimate = est;
       const presentIds = new Set(items.map((x) => x.record.id));
-      if (selectedAId !== null && !presentIds.has(selectedAId)) selectedAId = null;
-      if (selectedBId !== null && !presentIds.has(selectedBId)) selectedBId = null;
+      selectedIds = selectedIds.filter((id) => presentIds.has(id));
+      if (items.length < 2) choosingPair = false;
       if (activeDetail !== null && !presentIds.has(activeDetail.record.id)) {
         disposeDetailStage();
         activeDetail = null;
-      }
-      if (confirmingDeleteId !== null && !presentIds.has(confirmingDeleteId)) {
-        confirmingDeleteId = null;
       }
     } catch (error: unknown) {
       errorBanner = vaultErrorText(error);
@@ -248,33 +249,35 @@ export function mountCollectionApp(root: HTMLElement): void {
   };
 
   const openDetail = async (id: string): Promise<void> => {
+    if (opening) return;
+    opening = true;
     errorBanner = null;
-    disposeDetailStage();
     try {
       const opened = await openCrystal(id);
       if (opened === null) {
-        errorBanner = vaultErrorText(new VaultError('CORRUPT_RECORD', 'Crystal record missing'));
-        render();
-        return;
+        throw new VaultError('CORRUPT_RECORD', 'Crystal record missing');
       }
       activeDetail = { record: opened.record, geometry: opened.geometry, selectedKey: null };
     } catch (error: unknown) {
       errorBanner = vaultErrorText(error);
+    } finally {
+      opening = false;
     }
     render();
+    if (activeDetail !== null) focusControl('collection-detail-close');
+    else focusControl('open-specimen', id);
   };
 
   const startComparison = async (): Promise<void> => {
-    if (selectedAId === null || selectedBId === null) return;
+    const [idA, idB] = selectedIds;
+    if (opening || idA === undefined || idB === undefined || idA === idB) return;
+    opening = true;
     errorBanner = null;
-    disposeDetailStage();
-    disposeComparisonStages();
     try {
-      const [openedA, openedB] = await Promise.all([openCrystal(selectedAId), openCrystal(selectedBId)]);
+      const [openedA, openedB] = await Promise.all([openCrystal(idA), openCrystal(idB)]);
+      if (selectedIds[0] !== idA || selectedIds[1] !== idB) return;
       if (openedA === null || openedB === null) {
-        errorBanner = vaultErrorText(new VaultError('CORRUPT_RECORD', 'Crystal record missing'));
-        render();
-        return;
+        throw new VaultError('CORRUPT_RECORD', 'Crystal record missing');
       }
       const outcome = compareSpecimens(openedA.record, openedB.record);
       comparison = {
@@ -285,10 +288,14 @@ export function mountCollectionApp(root: HTMLElement): void {
         outcome,
       };
       mode = 'comparing';
+      choosingPair = false;
     } catch (error: unknown) {
       errorBanner = vaultErrorText(error);
+    } finally {
+      opening = false;
     }
     render();
+    focusControl(mode === 'comparing' ? 'comparison-back' : 'start-comparison');
   };
 
   const buildSpecimenLabelCard = (record: CrystalRecordV1, geometry: CrystalGeometry): HTMLElement => {
@@ -328,22 +335,23 @@ export function mountCollectionApp(root: HTMLElement): void {
   const renderDetailSection = (detail: DetailState): HTMLElement => {
     const { record, geometry } = detail;
     const code = formatSpecimenCode(record.specimenNumber);
-    const card = el('section', 'vc-card');
+    const card = el('section', 'vc-collection-detail');
     card.dataset['testid'] = 'collection-detail';
-    card.setAttribute('aria-label', s.shell.revealed.specimenName(code));
+    card.setAttribute('aria-labelledby', 'vc-detail-heading');
 
     const headerRow = el('div', 'vc-collection-header');
+    const heading = el('h1', 'vc-title', specimenTitle(record));
+    heading.id = 'vc-detail-heading';
     headerRow.append(
-      el('h2', 'vc-h2', s.shell.revealed.specimenName(code)),
+      heading,
       btn(c.closeDetail, 'vc-btn vc-btn-ghost vc-btn-sm', 'collection-detail-close', () => {
-        disposeDetailStage();
         activeDetail = null;
-        render();
+        errorBanner = null;
+        returnToGrid(record.id);
       }),
     );
 
     const layout = el('div', 'vc-detail-layout');
-    const leftCol = el('div', 'vc-detail-col');
     const stage = el('div', 'vc-stage vc-reveal');
     stage.dataset['testid'] = 'collection-detail-stage';
     stage.setAttribute('role', 'img');
@@ -379,8 +387,10 @@ export function mountCollectionApp(root: HTMLElement): void {
           downloadBlob(blob, `voicecrystal-${record.seed.join('-')}.png`);
         })
         .catch(() => {
+          if (activeDetail?.record.id !== record.id) return;
           errorBanner = { code: 'EXPORT_FAILED', message: s.shell.revealed.exportPngError };
           render();
+          focusControl('collection-detail-export-png');
         })
         .finally(() => {
           pngBtn.disabled = detailHandle?.state !== 'webgl';
@@ -389,6 +399,45 @@ export function mountCollectionApp(root: HTMLElement): void {
     });
     pngBtn.disabled = detailHandle?.state !== 'webgl';
     detailActions.append(pngBtn);
+
+    const confirm = el('dialog', 'vc-delete-dialog');
+    confirm.dataset['testid'] = 'collection-delete-confirm';
+    confirm.setAttribute('role', 'alertdialog');
+    confirm.setAttribute('aria-labelledby', 'vc-delete-question');
+    const question = el('p', 'vc-text', c.confirmDelete(code));
+    question.id = 'vc-delete-question';
+    const cancelDelete = btn(c.confirmNo, 'vc-btn vc-btn-ghost', 'collection-delete-no', () => {
+      confirm.close();
+    });
+    cancelDelete.autofocus = true;
+    const confirmDelete = btn(c.confirmYes, 'vc-btn vc-danger-solid', 'collection-delete-yes', () => {
+      confirmDelete.disabled = true;
+      cancelDelete.disabled = true;
+      void deleteCrystal(record.id).then(async () => {
+        confirm.close();
+        activeDetail = null;
+        errorBanner = null;
+        await refreshArchive();
+        focusControl('collection-heading');
+      }).catch((error: unknown) => {
+        confirm.close();
+        errorBanner = vaultErrorText(error);
+        render();
+        focusControl('delete-specimen');
+      });
+    });
+    confirm.addEventListener('cancel', (event) => {
+      if (confirmDelete.disabled) event.preventDefault();
+    });
+    const confirmationActions = el('div', 'vc-btns');
+    confirmationActions.append(cancelDelete, confirmDelete);
+    const confirmationContent = el('div', 'vc-dialog');
+    confirmationContent.append(question, confirmationActions);
+    confirm.append(confirmationContent);
+    const deleteBtn = btn(c.deleteBtn, 'vc-btn vc-btn-ghost vc-danger vc-btn-sm', 'delete-specimen', () => {
+      confirm.showModal();
+    });
+    detailActions.append(deleteBtn);
 
     const legendSection = el('section', 'vc-legend');
     legendSection.setAttribute('aria-label', s.shell.legend.title);
@@ -425,19 +474,19 @@ export function mountCollectionApp(root: HTMLElement): void {
     legendSection.append(list);
     applyHighlight();
 
-    leftCol.append(stage, detailActions);
     const rightCol = el('div', 'vc-detail-col');
     rightCol.append(buildSpecimenLabelCard(record, geometry), legendSection);
-    layout.append(leftCol, rightCol);
-    card.append(headerRow, layout);
+    layout.append(stage, rightCol);
+    card.append(headerRow, layout, detailActions, confirm);
     return card;
   };
 
   const renderFilterSection = (habitLookup: Map<string, PrismFormFilter>): HTMLElement => {
     const card = el('section', 'vc-card');
+    card.id = 'vc-collection-filters';
+    card.hidden = !filtersOpen;
     card.dataset['testid'] = 'collection-filters';
     card.setAttribute('aria-label', c.filtersTitle);
-    card.append(el('p', 'vc-card-title', c.filtersTitle));
 
     const grid = el('div', 'vc-filter-grid');
 
@@ -551,6 +600,7 @@ export function mountCollectionApp(root: HTMLElement): void {
     const resetBtn = btn(c.resetFilters, 'vc-btn vc-btn-ghost vc-btn-sm', 'filter-reset', () => {
       filters = { ...INITIAL_COLLECTION_FILTERS };
       render();
+      focusControl('filter-reset');
     });
 
     grid.append(habitField, colorField, sourceField, dateFromField, dateToField, resetBtn);
@@ -560,46 +610,12 @@ export function mountCollectionApp(root: HTMLElement): void {
 
   let gridHost: HTMLElement | null = null;
   let countNode: HTMLElement | null = null;
-  let compareBarHost: HTMLElement | null = null;
+  let selectionStatus: HTMLElement | null = null;
+  let startButton: HTMLButtonElement | null = null;
 
   const updateCompareBar = (): void => {
-    if (compareBarHost === null) return;
-    const recordA = items.find((x) => x.record.id === selectedAId)?.record ?? null;
-    const recordB = items.find((x) => x.record.id === selectedBId)?.record ?? null;
-
-    const slots = el('div', 'vc-compare-slots');
-    const slotAEl = el(
-      'span',
-      'vc-compare-slot',
-      recordA === null
-        ? c.slotAEmpty
-        : c.slotValue('A', formatSpecimenCode(recordA.specimenNumber), recordA.title !== '' ? recordA.title : (recordA.speakerLabel ?? '')),
-    );
-    slotAEl.dataset['testid'] = 'compare-slot-a';
-    const slotBEl = el(
-      'span',
-      'vc-compare-slot',
-      recordB === null
-        ? c.slotBEmpty
-        : c.slotValue('B', formatSpecimenCode(recordB.specimenNumber), recordB.title !== '' ? recordB.title : (recordB.speakerLabel ?? '')),
-    );
-    slotBEl.dataset['testid'] = 'compare-slot-b';
-    slots.append(slotAEl, slotBEl);
-
-    const actions = el('div', 'vc-btns');
-    const startBtn = btn(c.compareBtn, 'vc-btn vc-btn-sm', 'start-comparison', () => {
-      void startComparison();
-    });
-    startBtn.disabled = recordA === null || recordB === null;
-    const clearBtn = btn(c.clearSelectionBtn, 'vc-btn vc-btn-ghost vc-btn-sm', 'clear-comparison', () => {
-      selectedAId = null;
-      selectedBId = null;
-      render();
-    });
-    clearBtn.disabled = recordA === null && recordB === null;
-    actions.append(startBtn, clearBtn);
-
-    compareBarHost.replaceChildren(slots, actions);
+    if (selectionStatus !== null) selectionStatus.textContent = c.selectionCount(selectedIds.length);
+    if (startButton !== null) startButton.disabled = selectedIds.length !== 2;
   };
 
   const renderCollectionCardsOnly = (habitLookup: Map<string, PrismFormFilter>): void => {
@@ -619,178 +635,93 @@ export function mountCollectionApp(root: HTMLElement): void {
       return;
     }
     if (filteredItems.length === 0) {
-      const emptyFiltered = el('p', 'vc-card vc-text vc-muted', c.emptyFiltered);
-      emptyFiltered.dataset['testid'] = 'collection-empty-filtered';
-      gridHost.replaceChildren(emptyFiltered);
+      const empty = el('div', 'vc-card vc-collection-empty');
+      empty.dataset['testid'] = 'collection-empty-filtered';
+      empty.append(
+        el('p', 'vc-text', c.emptyFiltered),
+        btn(c.resetFilters, 'vc-btn vc-btn-ghost vc-btn-sm', 'filter-reset-empty', () => {
+          filters = { ...INITIAL_COLLECTION_FILTERS };
+          render();
+          focusControl('collection-heading');
+        }),
+      );
+      gridHost.replaceChildren(empty);
       return;
     }
 
-    const ul = el('ul', 'vc-collection-grid');
-    ul.dataset['testid'] = 'collection-grid';
+    const grid = el('ul', 'vc-collection-grid');
+    grid.setAttribute('role', 'list');
+    grid.dataset['testid'] = 'collection-grid';
 
-    for (const item of filteredItems) {
-      const { record, thumbnail } = item;
-      const code = formatSpecimenCode(record.specimenNumber);
+    for (const { record, thumbnail } of filteredItems) {
       const li = el('li', 'vc-specimen-card');
       li.dataset['testid'] = 'collection-card';
       li.dataset['specimenId'] = record.id;
-      const slot: '' | 'A' | 'B' = selectedAId === record.id ? 'A' : selectedBId === record.id ? 'B' : '';
-      li.dataset['selectedSlot'] = slot;
+      const selectedIndex = selectedIds.indexOf(record.id);
+      const selected = selectedIndex !== -1;
+      const title = specimenTitle(record);
+      const card = btn('', 'vc-specimen-button', choosingPair ? 'select-specimen' : 'open-specimen', () => {
+        if (!choosingPair) {
+          void openDetail(record.id);
+          return;
+        }
+        if (selected) selectedIds = selectedIds.filter((id) => id !== record.id);
+        else if (selectedIds.length < 2) selectedIds = [...selectedIds, record.id];
+        updateCompareBar();
+        renderCollectionCardsOnly(habitLookup);
+        focusControl('select-specimen', record.id);
+      });
 
-      const top = el('div');
-      const preview = el('div', 'vc-specimen-preview');
+      const preview = el('span', 'vc-specimen-preview');
+      preview.setAttribute('aria-hidden', 'true');
       if (thumbnail !== null) {
         const img = el('img');
         const url = URL.createObjectURL(thumbnail);
         thumbUrls.push(url);
         img.src = url;
         img.alt = '';
+        img.loading = 'lazy';
         preview.append(img);
       } else {
-        const g = safeGeometry(record);
-        if (g !== null) showPlateFallback(preview, g, 128);
+        const geometry = safeGeometry(record);
+        if (geometry !== null) showPlateFallback(preview, geometry, 256);
       }
 
-      const habitInfo = classifyRecordHabit(record);
-      const colorBucket = classifyColorBucket(record.seed[4]);
-      const titleRow = el('div', 'vc-specimen-title-row');
-      titleRow.append(
-        el('strong', 'vc-card-title', s.shell.revealed.specimenName(code)),
-        el('span', 'vc-color-badge', colorBadgeText(colorBucket)),
-      );
-
-      const meta = el('div', 'vc-recent-meta');
-      meta.append(el('p', 'vc-text', habitInfo.habitName));
-      const userTextParts: string[] = [];
-      if (record.title !== '') userTextParts.push(record.title);
-      if (record.speakerLabel !== null) userTextParts.push(record.speakerLabel);
-      if (userTextParts.length > 0) {
-        meta.append(el('p', 'vc-text', userTextParts.join(' · ')));
-      }
-      meta.append(
-        el('p', 'vc-text vc-muted', `${formatSourceSummary(record.source)} · ${formatDate(record.createdAt)}`),
-      );
-
-      top.append(preview, titleRow, meta);
-      li.append(top);
-
-      if (confirmingDeleteId === record.id) {
-        const dialog = el('div', 'vc-dialog');
-        dialog.dataset['testid'] = 'collection-delete-confirm';
-        dialog.setAttribute('role', 'alertdialog');
-        dialog.append(el('p', 'vc-text', c.confirmDelete(code)));
-        const dBtns = el('div', 'vc-btns');
-        dBtns.append(
-          btn(c.confirmYes, 'vc-btn vc-danger-solid vc-btn-sm', 'collection-delete-yes', () => {
-            confirmingDeleteId = null;
-            errorBanner = null;
-            void deleteCrystal(record.id)
-              .then(() => refreshArchive())
-              .catch((error: unknown) => {
-                errorBanner = vaultErrorText(error);
-                render();
-              });
-          }),
-          btn(c.confirmNo, 'vc-btn vc-btn-ghost vc-btn-sm', 'collection-delete-no', () => {
-            confirmingDeleteId = null;
-            renderCollectionCardsOnly(habitLookup);
-          }),
-        );
-        dialog.append(dBtns);
-        li.append(dialog);
-      } else {
-        const actions = el('div', 'vc-btns');
-        const openBtn = btn(c.openSpecimen, 'vc-btn vc-btn-sm', 'open-specimen', () => {
-          void openDetail(record.id);
-        });
-        openBtn.setAttribute('aria-label', `${c.openSpecimen} ${code}`);
-
-        const isA = selectedAId === record.id;
-        const selectABtn = btn(
-          isA ? c.selectedAsA : c.selectAsA,
-          isA ? 'vc-btn vc-btn-sm' : 'vc-btn vc-btn-ghost vc-btn-sm',
-          'select-a',
-          () => {
-            if (selectedAId === record.id) {
-              selectedAId = null;
-            } else {
-              if (selectedBId === record.id) selectedBId = null;
-              selectedAId = record.id;
-            }
-            updateCompareBar();
-            renderCollectionCardsOnly(habitLookup);
-          },
-        );
-        selectABtn.setAttribute('aria-pressed', String(isA));
-        selectABtn.setAttribute('aria-label', `${c.selectAsA} ${code}`);
-
-        const isB = selectedBId === record.id;
-        const selectBBtn = btn(
-          isB ? c.selectedAsB : c.selectAsB,
-          isB ? 'vc-btn vc-btn-sm' : 'vc-btn vc-btn-ghost vc-btn-sm',
-          'select-b',
-          () => {
-            if (selectedBId === record.id) {
-              selectedBId = null;
-            } else {
-              if (selectedAId === record.id) selectedAId = null;
-              selectedBId = record.id;
-            }
-            updateCompareBar();
-            renderCollectionCardsOnly(habitLookup);
-          },
-        );
-        selectBBtn.setAttribute('aria-pressed', String(isB));
-        selectBBtn.setAttribute('aria-label', `${c.selectAsB} ${code}`);
-
-        const delBtn = btn(c.deleteBtn, 'vc-btn vc-btn-ghost vc-danger vc-btn-sm', 'delete-specimen', () => {
-          confirmingDeleteId = record.id;
-          renderCollectionCardsOnly(habitLookup);
-        });
-        delBtn.setAttribute('aria-label', `${c.deleteBtn} ${code}`);
-
-        actions.append(openBtn, selectABtn, selectBBtn, delBtn);
-        li.append(actions);
+      const caption = el('span', 'vc-specimen-title', title);
+      caption.classList.toggle('vc-specimen-title-long', title.length > 80);
+      card.append(preview, caption);
+      if (choosingPair) {
+        card.setAttribute('aria-pressed', String(selected));
+        card.disabled = !selected && selectedIds.length === 2;
+        if (selected) {
+          const slot = selectedIndex === 0 ? 'A' : 'B';
+          const badge = el('span', 'vc-specimen-selection', c.selectedSlot(slot));
+          badge.id = `vc-selected-${slot}`;
+          card.setAttribute('aria-label', title);
+          card.setAttribute('aria-describedby', badge.id);
+          card.append(badge);
+        }
       }
 
-      ul.append(li);
+      li.append(card);
+      grid.append(li);
     }
 
-    gridHost.replaceChildren(ul);
+    gridHost.replaceChildren(grid);
   };
 
   const renderCollectionView = (): HTMLElement => {
     const page = el('div', 'vc-collection-page');
     page.dataset['testid'] = 'collection-view';
 
-    const header = el('header', 'vc-collection-header');
-    const left = el('div', 'vc-collection-head-left');
-    left.append(el('p', 'vc-cap', c.caption), el('h1', 'vc-title', c.title), el('p', 'vc-text vc-muted', c.lead));
-    const right = el('div', 'vc-collection-head-right');
-    countNode = el('span', 'vc-tag', c.countSummary(items.length, items.length));
-    countNode.dataset['testid'] = 'collection-count';
-    right.append(
-      countNode,
-      btn(c.refreshBtn, 'vc-btn vc-btn-ghost vc-btn-sm', 'collection-refresh', () => {
-        errorBanner = null;
-        void refreshArchive();
-      }),
-    );
-    header.append(left, right);
-    page.append(header);
+    const brand = el('p', 'vc-collection-brand', s.shell.brand);
+    page.append(brand);
 
-    if (errorBanner !== null) {
-      const err = el('p', 'vc-alert', errorBanner.message);
-      err.setAttribute('role', 'alert');
-      err.dataset['testid'] = 'collection-error';
-      err.dataset['code'] = errorBanner.code;
-      page.append(err);
-    }
-
-    if (storageEstimate.warning) {
-      const warn = el('p', 'vc-warn', s.shell.home.archive.storageWarning);
-      warn.dataset['testid'] = 'collection-storage-warning';
-      page.append(warn);
+    const error = errorBanner;
+    if (activeDetail !== null) {
+      if (error !== null) page.append(renderError(error));
+      page.append(renderDetailSection(activeDetail));
+      return page;
     }
 
     const habitLookup = new Map<string, PrismFormFilter>();
@@ -798,25 +729,89 @@ export function mountCollectionApp(root: HTMLElement): void {
       habitLookup.set(item.record.id, classifyRecordHabit(item.record).prismForm);
     }
 
-    const compareBar = el('section', 'vc-compare-bar');
-    compareBar.dataset['testid'] = 'collection-compare-bar';
-    compareBar.setAttribute('aria-label', c.compareBarTitle);
-    compareBarHost = compareBar;
-    updateCompareBar();
-    page.append(compareBar);
+    const header = el('header', 'vc-collection-header vc-gallery-header');
+    const heading = el('h1', 'vc-title', c.title);
+    heading.tabIndex = -1;
+    heading.dataset['testid'] = 'collection-heading';
+    const tools = el('div', 'vc-collection-head-right');
+    header.append(heading, tools);
+    page.append(header);
 
-    page.append(renderFilterSection(habitLookup));
+    const filterSection = renderFilterSection(habitLookup);
+    const filterButton = btn(c.filtersTitle, 'vc-btn vc-btn-ghost vc-btn-sm', 'collection-toggle-filters', () => {
+      filtersOpen = !filtersOpen;
+      filterSection.hidden = !filtersOpen;
+      filterButton.setAttribute('aria-expanded', String(filtersOpen));
+    });
+    filterButton.setAttribute('aria-controls', filterSection.id);
+    filterButton.setAttribute('aria-expanded', String(filtersOpen));
+    filterButton.disabled = items.length === 0;
 
-    if (activeDetail !== null) {
-      page.append(renderDetailSection(activeDetail));
+    const compareButton = btn(
+      choosingPair ? c.cancelSelection : c.chooseComparison,
+      'vc-btn vc-btn-sm',
+      'collection-toggle-comparison',
+      () => {
+        choosingPair = !choosingPair;
+        selectedIds = [];
+        render();
+        focusControl('collection-toggle-comparison');
+      },
+    );
+    compareButton.disabled = items.length < 2;
+    tools.append(filterButton, compareButton);
+
+    if (error !== null) page.append(renderError(error));
+    if (storageEstimate.warning) {
+      const warn = el('p', 'vc-warn', s.shell.home.archive.storageWarning);
+      warn.dataset['testid'] = 'collection-storage-warning';
+      page.append(warn);
+    }
+    page.append(filterSection);
+
+    selectionStatus = null;
+    startButton = null;
+    if (choosingPair) {
+      const compareBar = el('section', 'vc-compare-bar');
+      compareBar.dataset['testid'] = 'collection-compare-bar';
+      compareBar.setAttribute('aria-label', c.compareBarTitle);
+      selectionStatus = el('p', 'vc-text');
+      selectionStatus.setAttribute('role', 'status');
+      startButton = btn(c.compareBtn, 'vc-btn vc-btn-sm', 'start-comparison', () => {
+        void startComparison();
+      });
+      compareBar.append(selectionStatus, startButton);
+      updateCompareBar();
+      page.append(compareBar);
     }
 
     gridHost = el('div');
     page.append(gridHost);
+    const footer = el('footer', 'vc-collection-footer');
+    countNode = el('span', 'vc-muted');
+    countNode.dataset['testid'] = 'collection-count';
+    countNode.setAttribute('role', 'status');
+    const refresh = btn(c.refreshBtn, 'vc-link', 'collection-refresh', () => {
+      errorBanner = null;
+      void refreshArchive().then(() => {
+        focusControl('collection-refresh');
+      });
+    });
+    footer.append(countNode, refresh);
+    page.append(footer);
     renderCollectionCardsOnly(habitLookup);
 
     return page;
   };
+
+  const renderError = (error: { code: string; message: string }): HTMLElement => {
+    const err = el('p', 'vc-alert', error.message);
+    err.setAttribute('role', 'alert');
+    err.dataset['testid'] = 'collection-error';
+    err.dataset['code'] = error.code;
+    return err;
+  };
+
 
   const renderComparisonView = (state: ComparisonState): HTMLElement => {
     const { recordA, geometryA, recordB, geometryB, outcome } = state;
@@ -837,10 +832,11 @@ export function mountCollectionApp(root: HTMLElement): void {
     const right = el('div', 'vc-collection-head-right');
     right.append(
       btn(cmp.backToCollection, 'vc-btn vc-btn-ghost vc-btn-sm', 'comparison-back', () => {
-        disposeComparisonStages();
         comparison = null;
         mode = 'collection';
+        selectedIds = [];
         render();
+        focusControl('collection-toggle-comparison');
       }),
     );
     header.append(left, right);

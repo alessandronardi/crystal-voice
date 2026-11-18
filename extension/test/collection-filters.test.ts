@@ -146,7 +146,7 @@ describe('G0-DOC-02 and R3 terminology guard', () => {
       strings.comparison.platterSubtitle,
       strings.comparison.contributionsTitle,
       strings.collection.title,
-      strings.collection.lead,
+      strings.collection.chooseComparison,
     ]
       .join(' ')
       .toLowerCase();

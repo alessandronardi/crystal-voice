@@ -73,7 +73,7 @@ const analysis = {
 
 const captureErrors = {
   NOT_YOUTUBE_WATCH:
-    'Questa scheda non è un video di YouTube: apri una pagina youtube.com/watch e clicca di nuovo l’icona.',
+    'In questa scheda non c’è un video HTML5 riproducibile: apri una pagina con un video e clicca di nuovo l’icona.',
   CAPTURE_BUSY: 'C’è già una cattura in corso, forse in un’altra scheda. Interrompila per avviarne una nuova.',
   PERMISSION_DENIED: 'Chrome non ha concesso la cattura di questa scheda.',
   MIC_PERMISSION_REQUIRED: 'Serve l’autorizzazione al microfono.',
@@ -186,7 +186,7 @@ export const strings = {
     home: {
       title: 'Cristallizza una voce',
       sources: { tab: 'Scheda', mic: 'Microfono', file: 'File' },
-      tabTitle: 'Da un video di YouTube',
+      tabTitle: 'Da un video nella scheda',
       tabText: 'Apri un video e clicca l’icona di VoiceCrystal nella barra del browser.',
       // G0-DOC-01: the approved text of docs/gates/G0-valutazione-2026-11-13.md §5.1,
       // verbatim (review H-4; tests/unit/g0-notice.test.ts pins it).
@@ -194,6 +194,7 @@ export const strings = {
       noticeText:
         'VoiceCrystal trasforma 6 parametri acustici della voce in un cristallo 3D decorativo. L\'audio viene analizzato esclusivamente nella memoria RAM del tuo computer per pochi secondi e immediatamente scartato: nessun audio viene mai salvato su disco né inviato in rete, e i cristalli che scegli di conservare restano solo nell\'archivio locale del tuo browser. Il cristallo e l\'affinità acustica hanno valore puramente artistico e non costituiscono misura biometrica, analisi delle emozioni o identificazione della persona.',
       licenses: 'Licenze open source',
+      licenseNotices: 'Riepilogo attribuzioni e SBOM (NOTICES)',
       recent: {
         title: 'Ultimi esemplari',
         empty: 'Nessun esemplare salvato in questo browser.',
@@ -336,7 +337,7 @@ export const strings = {
     sourcesDetails: 'Comandi e dettagli tecnici',
   },
   capture: {
-    idle: 'Apri un video su YouTube e clicca l’icona di VoiceCrystal per ascoltarlo, oppure usa il microfono.',
+    idle: 'Apri una pagina con un video e clicca l’icona di VoiceCrystal per ascoltarlo, oppure usa il microfono.',
     useMic: 'Usa il microfono',
     openPermission: 'Apri la pagina di autorizzazione',
     micNote: 'Il microfono resta acceso finché questo pannello è aperto, al massimo 45 secondi di ascolto.',

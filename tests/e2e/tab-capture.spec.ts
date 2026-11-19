@@ -3,7 +3,7 @@
 // Lifecycle scenarios (pause, navigation, rate, seek, SW restart) are in
 // lifecycle.spec.ts. Requires `pnpm build` first.
 import { expect, test } from '@playwright/test';
-import { ExtensionHarness, OTHER_URL } from './harness.ts';
+import { ExtensionHarness, OTHER_URL, VIDEO_PAGE } from './harness.ts';
 
 const h = new ExtensionHarness();
 
@@ -27,7 +27,24 @@ test('a non-watch page opens the panel and starts no capture', async () => {
   await expect.poll(async () => (await h.storage('lastStart'))?.['failure']).toBe('NOT_YOUTUBE_WATCH');
   expect(await h.offscreenCount()).toBe(0);
   expect(await h.storage('activeSession')).toBeUndefined();
-  await expect.poll(() => h.inSidePanel(text('capture-error'))).toContain('non è un video di YouTube');
+  await expect.poll(() => h.inSidePanel(text('capture-error'))).toContain('video HTML5');
+  await page.close();
+});
+
+test('G0-TECH-03: toolbar click injects on-demand on any HTTPS page with a playing HTML5 <video>', async () => {
+  const genericUrl = 'https://example.test/generic-lecture';
+  await h.context.route(genericUrl, (route) => route.fulfill({ contentType: 'text/html', body: VIDEO_PAGE }));
+  const page = await h.openWatch(genericUrl);
+  const seen = await h.seenSessions();
+  await h.clickAction(page);
+  const active = await h.waitForSession('LISTENING', seen);
+  expect(active.sampleRate).toBeGreaterThan(0);
+  expect(await h.offscreenCount()).toBe(1);
+  expect(await h.inSidePanel(click('capture-stop'))).toBe(true);
+  const end = await h.waitForEnd(active.sessionId);
+  expect(end).toMatchObject({ state: 'INTERRUPTED', exitReason: 'USER_STOP' });
+  await expect.poll(() => h.offscreenCount(), { timeout: 10_000 }).toBe(0);
+  await expect.poll(() => h.storage('activeSession')).toBeUndefined();
   await page.close();
 });
 

@@ -31,12 +31,11 @@ export function onTabRemoved(tabId: number): void {
 
 /**
  * The captured tab changed. Without the `tabs` permission `status` is always
- * present and `url` only when readable (YouTube, through the content script
- * host). Measured in Chromium 156 (I-03): a pushState inside YouTube gives
- * `status: 'loading'` *with* the new URL; a navigation to another host gives
- * `status: 'loading'` without it. So:
- * - a readable URL off /watch → stop at once;
- * - a readable /watch URL → left to the watchdog (VIDEO_CHANGED or alive);
+ * present and `url` only when readable (through activeTab on the current
+ * origin). A same-origin SPA pushState gives `status: 'loading'` *with* the
+ * new URL; a cross-origin navigation gives `status: 'loading'` without it. So:
+ * - a readable URL outside capturable video pages → stop at once;
+ * - a readable capturable video URL → left to the watchdog (VIDEO_CHANGED or alive);
  * - loading with no readable URL → the document is going away (other host or
  *   reload): stop at once.
  */

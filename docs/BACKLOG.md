@@ -430,9 +430,12 @@ Direzione concordata il 18 novembre 2026. Il cristallo occupa la vetrina, il tit
 
 ### I-16 · Hardening, accessibilità, SBOM, pacchetto
 
+- **Riferimenti:** SPEC §5, §13, §14; ADR-0004, ADR-0027, ADR-0029, ADR-0030, ADR-0031; G0 (`docs/gates/G0-valutazione-2026-11-13.md`), Gate Release (`docs/GATES.md`), VC-01, VC-04.
+- **Stato:** implementazione tecnica e verifiche automatizzate completate nel checkout originale il 2026-11-17 e allineate al redesign nel branch `issue/I-16-integrated-hardening`. Non distribuibile prima di G0 (ADR-0027). Restano aperte le sole verifiche umane/esterne (prove manuali su Chrome stabile su Windows/macOS/Linux e revisione avversariale di release indipendente).
 - **DoD:**
-  - [ ] Esito G0 applicato (sorgenti abilitate, permessi conseguenti).
-  - [ ] SBOM e file di attribuzione delle licenze; font OFL inclusi.
-  - [ ] Informativa privacy coerente con il comportamento reale.
-  - [ ] Verifica manuale completa in Chrome stabile su Windows, macOS, Linux.
-  - [ ] Revisione avversariale di release con verdetto GO.
+  - [x] Esito G0 applicato (sorgenti abilitate, permessi conseguenti): chiuso `G0-TECH-03` con [ADR-0031](ADR/0031-iniezione-on-demand-con-activetab-e-scripting-su-video-html5.md) (`10/10` prescrizioni G0 risolte tra misure attuate e non applicabilità); rimosso `content_scripts` statico su `youtube.com` da `extension/manifest.json`, aggiunto permesso `scripting`, iniezione on-demand di `video-content.js` su qualsiasi `<video>` HTML5, rimossi i riferimenti YouTube dal bundle e dalle stringhe UI (`bundle-guard`, `start-capture`, `player-monitor`, `capture-session`).
+  - [x] SBOM e file di attribuzione delle licenze; font OFL inclusi: `scripts/release/build-sbom.ts` (`pnpm run sbom`, `pnpm sbom:check`) genera `THIRD_PARTY/SBOM.spdx.json` (SPDX 2.3) e `THIRD_PARTY/NOTICES.txt` (copiato in `dist/extension/THIRD_PARTY/NOTICES.txt` e collegato nella lista «Licenze open source» del Side Panel insieme ai font OFL Spectral e IBM Plex Mono e a tutti i testi in `THIRD_PARTY/`), verificati da `extension/test/third-party.test.ts` e `tests/e2e/release-hardening.spec.ts`.
+  - [x] Informativa privacy coerente con il comportamento reale: verificata corrispondenza verbatim tra `PRIVACY.md`, `docs/gates/G0-valutazione-2026-11-13.md` §5.3/§5.1, avviso Home e uso reale di CSP `connect-src 'self'`, `chrome.storage` e IndexedDB `voicecrystal` (`tests/unit/g0-notice.test.ts`, `tests/e2e/release-hardening.spec.ts`).
+  - [ ] Verifica manuale completa in Chrome stabile su Windows, macOS, Linux *(non eseguita dall'agente in questa sessione, R14: richiede esecuzione manuale multi-OS)*.
+  - [ ] Revisione avversariale di release con verdetto GO *(non eseguita dall'agente sviluppatore, R14 / `.claude/agents/adversarial-reviewer.md`)*.
+- **Test:** `pnpm sbom:check`, `extension/test/{bundle-guard,start-capture,player-monitor,capture-session,third-party}.test.ts`, `tests/unit/g0-notice.test.ts`, `tests/e2e/tab-capture.spec.ts` (`G0-TECH-03` su host HTTPS generico), `tests/e2e/release-hardening.spec.ts` (zero chiamate di rete esterne, zero PCM/`streamId`/metadati vietati in storage/IndexedDB/console, `axe-core` 0 violazioni serie/critiche incluse `permission.html` e cassetto dettaglio `collection.html`, integrità bundle senza `youtube`).

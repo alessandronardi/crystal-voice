@@ -17,6 +17,7 @@ interface ChromeMock {
   store: Map<string, unknown>;
   sent: unknown[];
   tabsSendMessage: Mock<(tabId: number, message: unknown) => Promise<unknown>>;
+  executeScript: Mock<(injection: { target: { tabId: number }; files?: string[] }) => Promise<{ result?: unknown }[]>>;
   createDocument: Mock<(options: chrome.offscreen.CreateParameters) => Promise<void>>;
   getMediaStreamId: Mock<(options: { targetTabId: number }) => Promise<string>>;
   sendMessage: Mock<(message: unknown) => Promise<unknown>>;
@@ -32,6 +33,7 @@ function installChrome(): ChromeMock {
     store: new Map(),
     sent: [],
     tabsSendMessage: vi.fn<(tabId: number, message: unknown) => Promise<unknown>>(),
+    executeScript: vi.fn<(injection: { target: { tabId: number }; files?: string[] }) => Promise<{ result?: unknown }[]>>(),
     createDocument: vi.fn<(options: chrome.offscreen.CreateParameters) => Promise<void>>(),
     getMediaStreamId: vi.fn<(options: { targetTabId: number }) => Promise<string>>(),
     sendMessage: vi.fn<(message: unknown) => Promise<unknown>>(),
@@ -64,6 +66,10 @@ function installChrome(): ChromeMock {
     mock.calls.push('tabs.sendMessage');
     return Promise.resolve(undefined);
   });
+  mock.executeScript.mockImplementation(() => {
+    mock.calls.push('scripting.executeScript');
+    return Promise.resolve([{ result: true }]);
+  });
   mock.getMediaStreamId.mockImplementation(() => {
     mock.calls.push('getMediaStreamId');
     return Promise.resolve('stream-id-secret');
@@ -90,6 +96,7 @@ function installChrome(): ChromeMock {
       },
     },
     tabCapture: { getMediaStreamId: mock.getMediaStreamId },
+    scripting: { executeScript: mock.executeScript },
     tabs: { sendMessage: mock.tabsSendMessage },
     storage: {
       session: {
@@ -142,23 +149,29 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('isYoutubeWatchUrl', () => {
-  it('accepts only https://www.youtube.com/watch with a video id', async () => {
-    const { isYoutubeWatchUrl } = await load();
-    expect(isYoutubeWatchUrl(WATCH)).toBe(true);
-    expect(isYoutubeWatchUrl('https://www.youtube.com/watch?v=abc&t=10')).toBe(true);
-    expect(isYoutubeWatchUrl('https://www.youtube.com/watch')).toBe(false);
-    expect(isYoutubeWatchUrl('https://www.youtube.com/watch?v=')).toBe(false);
-    expect(isYoutubeWatchUrl('http://www.youtube.com/watch?v=abc')).toBe(false);
-    expect(isYoutubeWatchUrl('https://m.youtube.com/watch?v=abc')).toBe(false);
-    expect(isYoutubeWatchUrl('https://www.youtube.com.evil.example/watch?v=abc')).toBe(false);
-    expect(isYoutubeWatchUrl('https://www.youtube.com/shorts/abc')).toBe(false);
-    expect(isYoutubeWatchUrl('not a url')).toBe(false);
-    expect(isYoutubeWatchUrl(undefined)).toBe(false);
+describe('isCapturableVideoUrl (ADR-0031)', () => {
+  it('accepts https: pages with a video path or ?v= id and rejects bare roots, /watch without v, /shorts, and non-https', async () => {
+    const { isCapturableVideoUrl, isYoutubeWatchUrl } = await load();
+    expect(isYoutubeWatchUrl).toBe(isCapturableVideoUrl);
+    expect(isCapturableVideoUrl(WATCH)).toBe(true);
+    expect(isCapturableVideoUrl('https://www.youtube.com/watch?v=abc&t=10')).toBe(true);
+    expect(isCapturableVideoUrl('https://m.youtube.com/watch?v=abc')).toBe(true);
+    expect(isCapturableVideoUrl('https://example.org/videos/lecture.html')).toBe(true);
+    expect(isCapturableVideoUrl('https://media.example.test/watch?v=42')).toBe(true);
+    expect(isCapturableVideoUrl('https://www.youtube.com/')).toBe(false);
+    expect(isCapturableVideoUrl('https://example.org/')).toBe(false);
+    expect(isCapturableVideoUrl('https://www.youtube.com/watch')).toBe(false);
+    expect(isCapturableVideoUrl('https://www.youtube.com/watch?v=')).toBe(false);
+    expect(isCapturableVideoUrl('http://www.youtube.com/watch?v=abc')).toBe(false);
+    expect(isCapturableVideoUrl('http://example.org/videos/lecture.html')).toBe(false);
+    expect(isCapturableVideoUrl('https://www.youtube.com/shorts/abc')).toBe(false);
+    expect(isCapturableVideoUrl('chrome://extensions')).toBe(false);
+    expect(isCapturableVideoUrl('not a url')).toBe(false);
+    expect(isCapturableVideoUrl(undefined)).toBe(false);
   });
 });
 
-describe('onActionClicked (ADR-0002, R6)', () => {
+describe('onActionClicked (ADR-0002, ADR-0031, R6)', () => {
   it('opens the side panel synchronously, before any other chrome call', async () => {
     const { onActionClicked } = await load();
     onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
@@ -175,20 +188,40 @@ describe('onActionClicked (ADR-0002, R6)', () => {
     expect(mock.calls).toEqual([]);
   });
 
-  it('creates the offscreen with USER_MEDIA and WORKERS only, then asks the stream id', async () => {
-    const { onActionClicked } = await load();
-    onActionClicked({ id: 7, url: WATCH } as chrome.tabs.Tab);
+  it('injects the monitor on-demand, creates the offscreen with USER_MEDIA and WORKERS only, then asks the stream id', async () => {
+    const { onActionClicked, VIDEO_CONTENT_SCRIPT } = await load();
+    onActionClicked({ id: 7, url: 'https://example.org/videos/lecture.html' } as chrome.tabs.Tab);
     await settle();
+    expect(mock.executeScript).toHaveBeenCalledWith({ target: { tabId: 7 }, files: [VIDEO_CONTENT_SCRIPT] });
     expect(mock.createDocument).toHaveBeenCalledTimes(1);
     const options = mock.createDocument.mock.calls[0]?.[0];
     expect(options?.reasons).toEqual(['USER_MEDIA', 'WORKERS']);
     expect(options?.url).toBe('offscreen.html');
-    // The stream id is asked only after the offscreen exists, then sent at once.
-    const order = mock.calls.filter((c) => c === 'createDocument' || c === 'getMediaStreamId' || c === 'sendMessage');
-    expect(order).toEqual(['createDocument', 'getMediaStreamId', 'sendMessage']);
+    // Inject first, then offscreen, then stream id, then start message.
+    const order = mock.calls.filter(
+      (c) => c === 'scripting.executeScript' || c === 'createDocument' || c === 'getMediaStreamId' || c === 'sendMessage',
+    );
+    expect(order).toEqual(['scripting.executeScript', 'createDocument', 'getMediaStreamId', 'sendMessage']);
     expect(mock.getMediaStreamId).toHaveBeenCalledWith({ targetTabId: 7 });
     expect(mock.sent).toHaveLength(1);
     expect(mock.sent[0]).toMatchObject({ v: 1, type: 'OFFSCREEN_START_TAB', streamId: 'stream-id-secret' });
+  });
+
+  it('records NOT_YOUTUBE_WATCH without creating the offscreen when executeScript finds no <video> or fails', async () => {
+    mock.executeScript.mockResolvedValueOnce([{ result: false }]);
+    const { onActionClicked } = await load();
+    onActionClicked({ id: 7, url: 'https://example.org/article.html' } as chrome.tabs.Tab);
+    await settle();
+    expect(mock.executeScript).toHaveBeenCalledTimes(1);
+    expect(mock.createDocument).not.toHaveBeenCalled();
+    expect(mock.getMediaStreamId).not.toHaveBeenCalled();
+    expect(lastStart()).toMatchObject({ failure: 'NOT_YOUTUBE_WATCH', tabId: 7 });
+
+    mock.executeScript.mockRejectedValueOnce(new Error('Cannot access contents of url'));
+    onActionClicked({ id: 8, url: 'https://example.org/protected.html' } as chrome.tabs.Tab);
+    await settle();
+    expect(mock.createDocument).not.toHaveBeenCalled();
+    expect(lastStart()).toMatchObject({ failure: 'NOT_YOUTUBE_WATCH', tabId: 8 });
   });
 
   it('never stores the stream id (R1)', async () => {

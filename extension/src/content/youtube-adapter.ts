@@ -1,9 +1,9 @@
-// Content script on https://www.youtube.com/* (SPEC §5, ADR-0021). Inert until
-// the service worker binds a session with SESSION_BIND. Then, while the page is
-// a /watch page, it sends the 1 Hz HEARTBEAT of ADR-0004 and reports seek and
-// source-change events. It reads only the standard <video> element, its
-// properties and events: no YouTube internals, no changes to the player
-// (AGENTS.md R4, R5).
+// On-demand page script injected via activeTab + scripting (SPEC §5, ADR-0031,
+// G0-TECH-03). Inert until the service worker binds a session with
+// SESSION_BIND. Then, while a standard HTML5 <video> is present on the page,
+// it sends the 1 Hz HEARTBEAT of ADR-0004 and reports seek and source-change
+// events. It reads only the standard <video> element, its properties and
+// events: no platform internals, no changes to the player (AGENTS.md R4, R5).
 import {
   isSessionBind,
   type CaptureMessage,
@@ -86,9 +86,15 @@ function report(b: Binding, kind: PlayerEventKind): void {
   void send(b, { v: 1, type: 'PLAYER_EVENT', sessionId: b.sessionId, seq: b.seq++, kind });
 }
 
+/** True when the active document contains at least one standard HTML5 <video> element. */
+export function hasVideo(): boolean {
+  return document.querySelector('video') !== null;
+}
+
 function beat(b: Binding): void {
   const video = currentVideo(b);
-  if (video !== null && location.pathname === '/watch') {
+  const id = video === null ? '' : videoIdOf(location.href).slice(0, 64);
+  if (video !== null && id !== '') {
     const kind = b.monitor.observe({
       currentTime: video.currentTime,
       currentSrc: video.currentSrc,
@@ -102,14 +108,14 @@ function beat(b: Binding): void {
       return;
     }
   }
-  // Off /watch the heartbeat still goes out once with the new URL, so the
-  // offscreen stops at once (NAVIGATED_AWAY) instead of waiting 3 s.
+  // When the video disappears or the page leaves the video URL, videoId is ''
+  // so the offscreen stops at once (NAVIGATED_AWAY) instead of waiting 3 s.
   const heartbeat: CaptureMessage = {
     v: 1,
     type: 'HEARTBEAT',
     sessionId: b.sessionId,
     seq: b.seq++,
-    videoId: videoIdOf(location.href).slice(0, 64),
+    videoId: id,
     url: location.href.slice(0, 2048),
     paused: video?.paused ?? true,
     playbackRate: video?.playbackRate ?? 1,
@@ -137,9 +143,35 @@ function bind(sessionId: SessionId): void {
   beat(b);
 }
 
-chrome.runtime.onMessage.addListener((message: unknown, sender) => {
-  // Only the service worker of this extension (no tab) may bind a session.
-  if (sender.id !== chrome.runtime.id || sender.tab !== undefined) return false;
-  if (isSessionBind(message)) bind(message.sessionId);
-  return false;
-});
+const adapterGlobal = globalThis as unknown as { __vcVideoAdapterInstalled?: boolean };
+if (!adapterGlobal.__vcVideoAdapterInstalled) {
+  adapterGlobal.__vcVideoAdapterInstalled = true;
+  window.addEventListener('pagehide', () => {
+    if (binding === null) return;
+    const b = binding;
+    unbind();
+    const leaving: CaptureMessage = {
+      v: 1,
+      type: 'HEARTBEAT',
+      sessionId: b.sessionId,
+      seq: b.seq++,
+      videoId: '',
+      url: location.href.slice(0, 2048),
+      paused: true,
+      playbackRate: 1,
+      muted: false,
+      volume: 1,
+    };
+    try {
+      void chrome.runtime.sendMessage(leaving).catch(() => undefined);
+    } catch {
+      // Context already torn down during navigation.
+    }
+  });
+  chrome.runtime.onMessage.addListener((message: unknown, sender) => {
+    // Only the service worker of this extension (no tab) may bind a session.
+    if (sender.id !== chrome.runtime.id || sender.tab !== undefined) return false;
+    if (isSessionBind(message)) bind(message.sessionId);
+    return false;
+  });
+}

@@ -130,9 +130,14 @@ describe('media events and URLs', () => {
     expect(kindOfMediaEvent('durationchange')).toBe('source-change');
   });
 
-  it('reads v from a watch URL', () => {
+  it('reads v from a /watch URL and pathname from generic https: video URLs', () => {
     expect(videoIdOf('https://www.youtube.com/watch?v=abc&t=3')).toBe('abc');
+    expect(videoIdOf('https://example.org/videos/lecture.html')).toBe('/videos/lecture.html');
+    expect(videoIdOf('https://example.org/watch?v=xyz')).toBe('xyz');
     expect(videoIdOf('https://www.youtube.com/')).toBe('');
+    expect(videoIdOf('https://www.youtube.com/watch')).toBe('');
+    expect(videoIdOf('https://www.youtube.com/shorts/abc')).toBe('');
+    expect(videoIdOf('http://example.org/videos/lecture.html')).toBe('');
     expect(videoIdOf('nonsense')).toBe('');
   });
 });

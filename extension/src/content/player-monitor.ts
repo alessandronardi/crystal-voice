@@ -61,7 +61,7 @@ export interface VideoCandidate {
 
 /**
  * The main player among the page's standard <video> elements (review M-5):
- * YouTube pages can hold more than one (hover previews, a kept-alive page,
+ * pages can hold more than one (hover previews, a kept-alive page,
  * the miniplayer). The largest rendered one wins (hidden ones have area 0);
  * on equal area a playing one. Not "playing first": a hover preview starting
  * while the user has paused the player must not read as a resume. Null when
@@ -81,10 +81,21 @@ export function pickMainVideo(candidates: readonly VideoCandidate[]): number | n
   return best;
 }
 
-/** `v` of a https://www.youtube.com/watch URL, or '' when absent. */
+/**
+ * Canonical video identifier of an https: page (ADR-0031, G0-TECH-03):
+ * `v` query parameter when present (e.g. /watch?v=abc), or the pathname for
+ * generic HTML5 video pages. Returns '' on bare roots ('/'), '/watch' without
+ * `v`, '/shorts/*' (out of scope, SPEC §2), or non-https URLs.
+ */
 export function videoIdOf(href: string): string {
   try {
-    return new URL(href).searchParams.get('v') ?? '';
+    const parsed = new URL(href);
+    if (parsed.protocol !== 'https:') return '';
+    if (parsed.pathname === '/shorts' || parsed.pathname.startsWith('/shorts/')) return '';
+    const v = parsed.searchParams.get('v');
+    if (v !== null && v !== '') return v;
+    if (parsed.pathname === '/' || parsed.pathname === '/watch') return '';
+    return parsed.pathname;
   } catch {
     return '';
   }

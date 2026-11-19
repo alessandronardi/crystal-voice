@@ -22,8 +22,14 @@ import {
 import { stopActiveSession } from './routing.ts';
 import { closeOffscreen, ensureOffscreen, hasOffscreen } from './offscreen.ts';
 
-/** Only https://www.youtube.com/watch with a `v` parameter (SPEC §5). */
-export function isYoutubeWatchUrl(url: string | undefined): boolean {
+export const VIDEO_CONTENT_SCRIPT = 'video-content.js';
+
+/**
+ * ADR-0031 (G0-TECH-03): an https: page whose URL can host an HTML5 video
+ * (not a bare root '/', not '/watch' without `v`, not '/shorts/*').
+ * Actual presence of a <video> element is verified on-demand via scripting.executeScript.
+ */
+export function isCapturableVideoUrl(url: string | undefined): boolean {
   if (url === undefined) return false;
   let parsed: URL;
   try {
@@ -31,13 +37,14 @@ export function isYoutubeWatchUrl(url: string | undefined): boolean {
   } catch {
     return false;
   }
-  return (
-    parsed.protocol === 'https:' &&
-    parsed.hostname === 'www.youtube.com' &&
-    parsed.pathname === '/watch' &&
-    (parsed.searchParams.get('v') ?? '') !== ''
-  );
+  if (parsed.protocol !== 'https:' || parsed.hostname === '') return false;
+  if (parsed.pathname === '/shorts' || parsed.pathname.startsWith('/shorts/')) return false;
+  const v = parsed.searchParams.get('v');
+  if (v !== null && v !== '') return true;
+  return parsed.pathname !== '/' && parsed.pathname !== '/watch';
 }
+
+export { isCapturableVideoUrl as isYoutubeWatchUrl };
 
 async function recordStart(start: LastStart): Promise<void> {
   await chrome.storage.session.set({ [LAST_START_KEY]: start });
@@ -65,7 +72,7 @@ export async function startTabCapture(tabId: number, url: string | undefined): P
   const start: LastStart & { source: 'tab' } = { sessionId: crypto.randomUUID(), tabId, source: 'tab', failure: null };
   const fail = (failure: CaptureErrorCode): Promise<void> => recordStart({ ...start, failure });
 
-  if (!isYoutubeWatchUrl(url)) {
+  if (!isCapturableVideoUrl(url)) {
     await fail('NOT_YOUTUBE_WATCH');
     return;
   }
@@ -182,7 +189,7 @@ async function runFileStart(start: LastStart & { source: 'file' }, fail: Fail): 
 }
 
 /** Records the start and creates the offscreen; false (outcome recorded) when the start cannot go on. */
-async function prepareOffscreen(start: LastStart, fail: Fail): Promise<boolean> {
+async function prepareOffscreen(start: LastStart, fail: Fail, precheck?: () => Promise<boolean>): Promise<boolean> {
   // Recorded before any await: a second click arriving meanwhile writes its
   // CAPTURE_BUSY after this, so the panel keeps showing it (review M-1).
   const recorded = recordStart(start);
@@ -193,6 +200,7 @@ async function prepareOffscreen(start: LastStart, fail: Fail): Promise<boolean> 
       await fail('CAPTURE_BUSY');
       return false;
     }
+    if (precheck !== undefined && !(await precheck())) return false;
     await ensureOffscreen();
     return true;
   } catch {
@@ -223,8 +231,25 @@ async function runMicStart(start: LastStart & { source: 'mic' }, fail: Fail): Pr
   await deliver({ sessionId: start.sessionId, source: 'mic' }, message, fail);
 }
 
+async function injectAndCheckVideo(tabId: number): Promise<boolean> {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      files: [VIDEO_CONTENT_SCRIPT],
+    });
+    return results[0]?.result === true;
+  } catch {
+    return false;
+  }
+}
+
 async function runTabStart(start: LastStart & { source: 'tab' }, fail: Fail): Promise<void> {
-  if (!(await prepareOffscreen(start, fail))) return;
+  const prepared = await prepareOffscreen(start, fail, async () => {
+    if (await injectAndCheckVideo(start.tabId)) return true;
+    await fail('NOT_YOUTUBE_WATCH');
+    return false;
+  });
+  if (!prepared) return;
 
   // Asked only after the offscreen exists, sent at once, exactly once, never stored.
   let streamId: string;
@@ -247,13 +272,12 @@ async function runTabStart(start: LastStart & { source: 'tab' }, fail: Fail): Pr
   const active: ActiveSession = { sessionId: start.sessionId, tabId: start.tabId, source: 'tab' };
   if (!(await deliver(active, message, fail))) return;
 
-  // Tell the tab's content script which session to keep alive (ADR-0004).
+  // Tell the injected video monitor script which session to keep alive (ADR-0004, ADR-0031).
   const bindMessage: SessionBind = { v: 1, type: 'SESSION_BIND', sessionId: start.sessionId };
   try {
     await chrome.tabs.sendMessage(start.tabId, bindMessage);
   } catch {
-    // No content script (page loaded before the extension, or not a YouTube
-    // page any more): without heartbeats the session must not run.
+    // Script disappeared mid-navigation: without heartbeats the session must not run.
     await stopActiveSession(start.sessionId, 'NAVIGATED_AWAY');
   }
 }

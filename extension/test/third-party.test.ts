@@ -1,11 +1,11 @@
-// I-13b, review L-6 of I-13a: the license texts in THIRD_PARTY/ are the ones
-// of the packages actually installed (three.js, Tailwind CSS), byte for byte,
-// so an update of a dependency cannot leave an old text in the bundle. The
-// OFL fonts are pinned by their committed bytes in the bundle guard (D-AQ).
+// I-13b, review L-6 of I-13a; I-16: the license texts, SBOM and NOTICES in
+// THIRD_PARTY/ match the packages actually installed and bundled, byte for byte.
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { FVAD_WASM_SHA256 } from '@voicecrystal/dsp-core';
+import { NOTICES_PATH, SBOM_PATH, buildReleaseAttribution } from '../../scripts/release/build-sbom.ts';
 
 const REPO = resolve(import.meta.dirname, '../..');
 
@@ -46,5 +46,41 @@ describe('THIRD_PARTY license texts match the installed packages (L-6)', () => {
       const family = f.startsWith('spectral') ? 'spectral' : 'ibm-plex-mono';
       expect(readFileSync(join(REPO, 'THIRD_PARTY', family, 'OFL.txt'), 'utf8')).toContain('SIL Open Font License, Version 1.1');
     }
+  });
+
+  it('THIRD_PARTY/SBOM.spdx.json and THIRD_PARTY/NOTICES.txt match the workspace and are wired into the bundle (I-16)', () => {
+    const generated = buildReleaseAttribution();
+    const committedSbom = readFileSync(SBOM_PATH, 'utf8').replace(/\r\n/g, '\n');
+    const committedNotices = readFileSync(NOTICES_PATH, 'utf8').replace(/\r\n/g, '\n');
+    expect(committedSbom).toBe(generated.sbomJson);
+    expect(committedNotices).toBe(generated.noticesText);
+
+    const sbom = JSON.parse(committedSbom) as {
+      spdxVersion: string;
+      dataLicense: string;
+      packages: { name: string; versionInfo: string; licenseConcluded: string; comment?: string }[];
+      files: { fileName: string; checksums: { algorithm: string; checksumValue: string }[] }[];
+    };
+    expect(sbom.spdxVersion).toBe('SPDX-2.3');
+    expect(sbom.dataLicense).toBe('CC0-1.0');
+
+    const rootPkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8')) as { devDependencies: Record<string, string> };
+    const extPkg = JSON.parse(readFileSync(join(REPO, 'extension/package.json'), 'utf8')) as { devDependencies: Record<string, string> };
+    const pkgNames = new Set(sbom.packages.map((p) => p.name));
+    for (const dep of [...Object.keys(rootPkg.devDependencies), ...Object.keys(extPkg.devDependencies)]) {
+      if (dep.startsWith('@voicecrystal/')) continue;
+      expect(pkgNames.has(dep), dep).toBe(true);
+    }
+    for (const rt of ['three', 'tailwindcss', 'libfvad', 'emscripten-runtime', 'musl', 'llvm-compiler-rt', 'dlmalloc', '@fontsource/spectral', '@fontsource/ibm-plex-mono']) {
+      expect(pkgNames.has(rt), rt).toBe(true);
+    }
+
+    const wasmFile = sbom.files.find((f) => f.fileName === 'dist/extension/fvad.wasm');
+    expect(wasmFile?.checksums[0]?.checksumValue).toBe(FVAD_WASM_SHA256);
+
+    const buildScript = readFileSync(join(REPO, 'extension/scripts/build.ts'), 'utf8');
+    const shellSource = readFileSync(join(REPO, 'extension/src/sidepanel/shell.ts'), 'utf8');
+    expect(buildScript).toContain('THIRD_PARTY/NOTICES.txt');
+    expect(shellSource).toContain('THIRD_PARTY/NOTICES.txt');
   });
 });

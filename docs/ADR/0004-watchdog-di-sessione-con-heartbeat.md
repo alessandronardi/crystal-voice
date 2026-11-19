@@ -35,7 +35,7 @@ Scenario S3 automatizzato o manuale: stop entro 3 s.
   - `tabs.onUpdated`, con un URL leggibile fuori da `/watch` o `status: 'loading'` senza URL;
   - `tabCapture.onStatusChanged`;
   - `MediaStreamTrack` `ended`, con un'attesa di 500 ms [H] del motivo dal service worker.
-- **Content script su tutto `www.youtube.com`:** ADR-0021.
+- **Iniezione on-demand con `activeTab` + `scripting` su qualsiasi `<video>` HTML5 (2026-11-17, I-16):** [ADR-0031](0031-iniezione-on-demand-con-activetab-e-scripting-su-video-html5.md) sostituisce `ADR-0021`; nessuno script statico nel manifest, iniezione al clic dell'utente e watchdog basato sulla permanenza sullo stesso `host` e sullo stesso `videoId` non vuoto.
 
 ## Riferimenti
 

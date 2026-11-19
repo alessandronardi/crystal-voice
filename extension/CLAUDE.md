@@ -6,8 +6,8 @@ Valgono `AGENTS.md` e `CLAUDE.md` della radice. Qui ci sono i vincoli specifici 
 
 | Contesto | Fa | Non fa mai |
 |---|---|---|
-| Service worker | `action.onClicked`, apertura pannello, creazione offscreen, `getMediaStreamId`, instradamento, `chrome.storage.session` | `AudioContext`, DSP, stato autorevole in variabili globali |
-| Content script | Legge `<video>` standard (`currentTime`, `paused`, `playbackRate`, `muted`, `volume`, eventi), `videoId` dall'URL, heartbeat 1 Hz | Classi DOM o variabili interne di YouTube, modifiche al player, analisi audio |
+| Service worker | `action.onClicked`, apertura pannello, iniezione on-demand (`activeTab` + `scripting`, ADR-0031), creazione offscreen, `getMediaStreamId`, instradamento, `chrome.storage.session` | `AudioContext`, DSP, stato autorevole in variabili globali |
+| Video monitor (iniettato on-demand) | Legge `<video>` standard (`currentTime`, `paused`, `playbackRate`, `muted`, `volume`, eventi), `videoId` dall'URL, heartbeat 1 Hz | Classi DOM o variabili interne della pagina ospite, modifiche al player, analisi audio |
 | Offscreen | `getUserMedia` (scheda o microfono), pass-through, AudioWorklet, DSP worker, watchdog, macchina di cattura autorevole | API `chrome.*` diverse da `chrome.runtime` (non disponibili) |
 | Side Panel | Home, ascolto, rivelazione, cartellino, decodifica file | Avviare `tabCapture`; ospitare la Collezione |
 | Collection page | Griglia, filtri, confronto | Catture |

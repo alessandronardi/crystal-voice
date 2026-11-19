@@ -24,7 +24,7 @@
 | Ambito | Fatto tecnico verificato nel codice | Riferimento |
 | :--- | :--- | :--- |
 | **Architettura di rete** | Assenza totale di server, account, telemetria o pagamenti. CSP bloccata con `connect-src 'self'`. | `extension/manifest.json`, `AGENTS.md` §4 |
-| **Permessi richiesti** | `tabCapture`, `offscreen`, `sidePanel`, `activeTab`, `storage`. | `extension/manifest.json`, `SPEC_v0.3.md` §5 |
+| **Permessi richiesti** | `tabCapture`, `offscreen`, `sidePanel`, `activeTab`, `scripting`, `storage`. | `extension/manifest.json`, `SPEC_v0.3.md` §5 |
 | **Sorgenti audio** | 1) Scheda attiva (attivata solo da gesto esplicito sull'icona); 2) Microfono utente; 3) File audio locale. | `SPEC_v0.3.md` §1–§3 |
 | **Trattamento dell'audio** | Copia solo in memoria RAM per la sessione (max 45 s di ascolto, max 120 s totali), poi scartata. Mai su disco, nei log o in rete. Passthrough invariato agli altoparlanti. | `ADR/0025`, `ADR/0026` |
 | **Output dell'analisi** | 6 numeri interi («seme» per altezza, intonazione, dinamica, ruvidità, brillantezza, ritmo) + indicatori di qualità. Processo matematicamente non invertibile. | `SPEC_v0.3.md` §1 |
@@ -99,7 +99,7 @@ Prima di qualsiasi distribuzione o invio al Chrome Web Store devono essere compl
 ### 4.2 Modifiche Tecniche e di Specifica (Esito A Ottimizzato)
 - [x] **G0-TECH-01 (Rimozione Metadati YouTube da Storage/Export)** — eseguita con ADR-0029 / I-14 (2026-11-14): `VaultSource` per `tab` salva esclusivamente `{ kind: 'tab' }` senza `videoId`, URL o titolo YouTube; indice `videoId` rimosso da IndexedDB; SPEC §§9, 12, 13 aggiornati (registrato dal progetto): Aggiornare `docs/SPEC_v0.3.md` (§12) e il codice affinché l'archivio locale (`storage`) e l'export JSON **non salvino mai `videoId`, URL o titolo del video YouTube**, conservando solo i 6 interi, la versione dell'algoritmo, la miniatura 3D generata e un'etichetta testuale opzionale inserita dall'utente.
 - [x] **G0-TECH-02 (Minimizzazione Export JSON)** — eseguita con ADR-0029 / I-14 (2026-11-14): l'export JSON omette di default `title`, `speakerLabel` e `tags`, offrendo opt-in esplicito con avviso `VC-20` sui dati personali di terzi (registrato dal progetto): Fare in modo che l'export JSON condivisibile dall'utente ometta di default l'etichetta testuale (o richieda un opt-in esplicito con avviso).
-- [ ] **G0-TECH-03 (Disaccoppiamento da `youtube.com` per CWS):** Rimuovere preferibilmente `"matches": ["https://www.youtube.com/*"]` dai `content_scripts` statici di `extension/manifest.json`, sostituendolo con l'iniezione on-demand tramite `activeTab` + `scripting` su qualsiasi elemento `<video>` HTML5 al clic dell'utente (e non menzionando il marchio YouTube nella scheda dello Store).
+- [x] **G0-TECH-03 (Disaccoppiamento da `youtube.com` per CWS)** — eseguita con ADR-0031 / I-16 (2026-11-17): rimosso `content_scripts` statico da `extension/manifest.json`, aggiunto permesso `scripting` con iniezione on-demand di `video-content.js` su qualsiasi elemento `<video>` HTML5 al clic dell'utente e rimossi i riferimenti a YouTube da codice, bundle e stringhe UI (registrato dal progetto): Rimuovere preferibilmente `"matches": ["https://www.youtube.com/*"]` dai `content_scripts` statici di `extension/manifest.json`, sostituendolo con l'iniezione on-demand tramite `activeTab` + `scripting` su qualsiasi elemento `<video>` HTML5 al clic dell'utente (e non menzionando il marchio YouTube nella scheda dello Store).
 
 ### 4.3 Documentazione, UI e Dataset
 - [x] **G0-DOC-01 (Disclaimer UI)** — eseguita con I-13a (PR crystal-voice#18, `739fb03`) e chiarita su salvataggio locale con ADR-0029 / I-14 (H-4): testo §5.1 verbatim nella Home, verificato da `tests/unit/g0-notice.test.ts`, e link ai file di `THIRD_PARTY/` (registrato dal progetto): Inserire nel Side Panel dell'estensione l'avviso sintetico sulla natura 100% locale, artistica e non biometrica dell'analisi (testo in §5.1) e il link ai file in `THIRD_PARTY/`.
@@ -209,4 +209,4 @@ Luogo e data: ____________________   Firma: ___________________________
 | **Distribuzione economica** | **100% Gratuita** (nessun pagamento, abbonamento o donazione in-app). |
 | **Licenza del codice scelta** | **MIT License** (file `LICENSE` nella radice del repository). |
 | **Visibilità del repository** | **Pubblica**, a condizione che i 67 artefatti CI siano stati rimossi (`G0-ACT-01`) e il file `LICENSE` sia presente (`G0-ACT-02`). |
-| **Stato Gate G0** | **SUPERATO CON PRESCRIZIONI** — Sblocco della distribuzione subordinato alla spunta di tutti gli item della Sezione 4. |
+| **Stato Gate G0** | **Prescrizioni risolte (10/10).** `G0-DOC-04` è non applicabile per ADR-0030. Resta il visto formale del product owner sul commit di release. |

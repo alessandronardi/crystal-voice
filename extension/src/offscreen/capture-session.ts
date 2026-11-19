@@ -125,18 +125,25 @@ export interface IgnoredCounts {
   lateProgress: number;
 }
 
-const YOUTUBE_HOST = 'www.youtube.com';
-
-function watchVideoId(url: string): string | null {
+function resolveVideoTarget(url: string, reportedVideoId: string): { host: string; videoId: string } | null {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
     return null;
   }
-  if (parsed.hostname !== YOUTUBE_HOST || parsed.pathname !== '/watch') return null;
+  if (parsed.protocol !== 'https:' || parsed.host === '') return null;
+  if (parsed.pathname === '/shorts' || parsed.pathname.startsWith('/shorts/')) return null;
   const v = parsed.searchParams.get('v');
-  return v === null || v === '' ? null : v;
+  const rawId =
+    v !== null && v !== ''
+      ? v
+      : parsed.pathname === '/' || parsed.pathname === '/watch'
+        ? ''
+        : parsed.pathname;
+  const derived = rawId.slice(0, 64);
+  if (derived === '' || reportedVideoId === '' || reportedVideoId !== derived) return null;
+  return { host: parsed.host, videoId: derived };
 }
 
 export class CaptureSession {
@@ -150,6 +157,7 @@ export class CaptureSession {
   private watchdog: unknown = null;
   private authorizing: unknown = null;
   private contentSeq = -1;
+  private host: string | null = null;
   private videoId: string | null = null;
   private finishing = false;
   private panelDeadline: unknown = null;
@@ -370,15 +378,16 @@ export class CaptureSession {
     // FINALIZING captures nothing (review C-1): no watchdog, and the content script may stop.
     if (this.machine.state === 'FINALIZING') return false;
     this.armWatchdog();
-    const videoId = watchVideoId(message.url);
-    if (videoId === null) {
+    const target = resolveVideoTarget(message.url, message.videoId);
+    if (target === null || (this.host !== null && target.host !== this.host)) {
       this.apply({ type: 'INTERRUPT', reason: 'NAVIGATED_AWAY' });
-    } else if (this.videoId !== null && videoId !== this.videoId) {
+    } else if (this.videoId !== null && target.videoId !== this.videoId) {
       this.apply({ type: 'INTERRUPT', reason: 'VIDEO_CHANGED' });
     } else if (message.playbackRate !== 1) {
       this.apply({ type: 'INTERRUPT', reason: 'PLAYBACK_RATE_CHANGED' });
     } else {
-      this.videoId ??= videoId;
+      this.host ??= target.host;
+      this.videoId ??= target.videoId;
       if (message.paused && this.machine.state !== 'PAUSED') this.apply({ type: 'PLAYER_PAUSED' });
       if (!message.paused && this.machine.state === 'PAUSED') this.apply({ type: 'PLAYER_RESUMED' });
     }

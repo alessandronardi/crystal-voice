@@ -3,6 +3,7 @@
 // other exits of SPEC §6.1. Synthetic pages only (see harness.ts).
 // Requires `pnpm build` first.
 import { expect, test, type Page } from '@playwright/test';
+import { isQualitySummary } from '@voicecrystal/contracts';
 import { ExtensionHarness, HOME_URL, OTHER_URL, vc, type Diag } from './harness.ts';
 
 const h = new ExtensionHarness();
@@ -210,11 +211,20 @@ test('listening to a pure tone ends in INSUFFICIENT_DATA, with the analysis that
   else expect(end.activeMs).toBeGreaterThanOrEqual(45_000);
   // A tone never passes a split-half evaluation (p6 is not measurable).
   expect(end.stability?.converged ?? false).toBe(false);
-  // The tab's DSP worker loaded libfvad (no failure) and found no voice: a tone has no syllables.
+  // The tab's DSP worker loaded libfvad (no failure) and rejected the pure tone:
+  // either p6_rhythm is unmeasurable (< 15 onsets) or stationary-pitch music
+  // detection veils all 4 music-exposed traits (confidence < 0.5, > MAX_VEILED_PARAMETERS).
   expect(end.analysis?.failure).toBeNull();
   expect(end.analysis?.extractorVersion).toBe('extractor-0');
   expect(end.analysis?.seed).toBeNull();
-  expect(end.analysis?.quality?.missingFeatureKeys).toContain('p6_rhythm');
+  const quality = end.analysis?.quality;
+  if (!isQualitySummary(quality)) throw new Error('expected QualitySummary in analysis.quality');
+  expect(quality.accepted).toBe(false);
+  const missingP6 = quality.missingFeatureKeys.includes('p6_rhythm');
+  const veiledByTone =
+    quality.warnings.includes('LOW_CONFIDENCE_PARAMETER') &&
+    quality.confidence.filter((c) => c < 0.5).length > 2;
+  expect(missingP6 || veiledByTone).toBe(true);
   // Review M-3: no block refused (a stable channel count), and as much audio as listened, within 1 s.
   expect(end.analysis?.quality?.droppedFrames).toBe(0);
   expect(Math.abs((end.analysis?.analysedMs ?? Number.NaN) - end.activeMs)).toBeLessThan(1_000);

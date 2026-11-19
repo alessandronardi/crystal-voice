@@ -416,9 +416,11 @@ Direzione concordata il 18 novembre 2026. Il cristallo occupa la vetrina, il tit
 
 **Terza consegna.** Dare la precedenza al cristallo appena generato, al nome dell’abito e a «Salva». File principali: `extension/src/sidepanel/shell.ts`, `legend.ts`, stili e stringhe UI. Riferimenti: SPEC §§10, 12–13, ADR-0013, ADR-0014, ADR-0028 e ADR-0029.
 
-- [ ] A 380 × 800 px con entrambi gli esemplari di riferimento, cristallo, abito e pulsante «Salva» sono interamente visibili senza scorrere. Il cartellino permette di inserire titolo e parlante facoltativi prima del salvataggio. Un salvataggio riuscito conferma il codice VC e consente di ritrovare il pezzo nella Collezione. Un errore di salvataggio viene mostrato accanto all’azione.
-- [ ] Cartellino completo e legenda si aprono da tastiera. Le sei righe mantengono unità, percentile, confidenza ed evidenziazione prevista da ADR-0028. Gli avvisi di qualità pertinenti sono riconoscibili dal risultato. Restano raggiungibili scarto, export SVG/PNG e preferenza di resa.
-- [ ] Verificare rivelazione con WebGL, fallback SVG e animazione ridotta. Riaprendo un esemplare storico si vedono titolo o codice e metadati corretti. Una seconda attivazione di «Salva» non crea duplicati.
+- **Schermate da fixture sintetiche.** Lettura del mattino a 380 × 800 px [prima](design/redesign-calcare/evidenze-i22/prima-lettura-380.png) e [dopo](design/redesign-calcare/evidenze-i22/dopo-lettura-380.png), e [dopo a 320 px](design/redesign-calcare/evidenze-i22/dopo-lettura-320.png). Due timbri a 380 × 800 px [prima](design/redesign-calcare/evidenze-i22/prima-due-timbri-380.png) e [dopo](design/redesign-calcare/evidenze-i22/dopo-due-timbri-380.png), e [dopo a 320 px](design/redesign-calcare/evidenze-i22/dopo-due-timbri-320.png).
+
+- [x] A 380 × 800 px con entrambi gli esemplari di riferimento, cristallo, abito e pulsante «Salva» sono interamente visibili senza scorrere. Il cartellino permette di inserire titolo e parlante facoltativi prima del salvataggio. Un salvataggio riuscito conferma il codice VC e consente di ritrovare il pezzo nella Collezione. Un errore di salvataggio viene mostrato accanto all’azione.
+- [x] Cartellino completo e legenda si aprono da tastiera. Le sei righe mantengono unità, percentile, confidenza ed evidenziazione prevista da ADR-0028. Gli avvisi di qualità pertinenti sono riconoscibili dal risultato. Restano raggiungibili scarto, export SVG/PNG e preferenza di resa.
+- [x] Verificare rivelazione con WebGL, fallback SVG e animazione ridotta. Riaprendo un esemplare storico si vedono titolo o codice e metadati corretti. Una seconda attivazione di «Salva» non crea duplicati.
 - **Verifiche previste.** E2E `vault.spec.ts`, `preview.spec.ts` e `release-hardening.spec.ts`, inclusi controllo del focus e axe sulle viste modificate. Chiudere il percorso con analisi di una fixture, salvataggio con titolo, apertura dalla Collezione e confronto con il secondo esemplare.
 
 ## Fase 5 — Distribuzione

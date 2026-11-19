@@ -45,6 +45,7 @@ test('preview of the I-13b screens', async () => {
   await tab.waitForTimeout(1_500);
   await shot('2-revealed');
   // Select the prism row: the trait lights up on the showcase.
+  await h.inSidePanel(`(() => { ${q('shell-legend-details-summary')}.click(); return true; })()`);
   await h.inSidePanel(`(() => { document.querySelector('[data-testid="legend-row"][data-key="p1_pitch"]').click(); return true; })()`);
   await tab.waitForTimeout(800);
   await shot('3-legend-prism');

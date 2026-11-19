@@ -371,6 +371,7 @@ test('I-13a screens: a tone ends in an outcome, a long voice file is revealed wi
   expect(await choose(join(FIXTURES, 'voice-a-long.wav'))).toBe('ready');
   expect(await analyze()).toBe('done');
   await expect.poll(screen).toBe('REVEALED');
+  expect(await h.inSidePanel(click('shell-label-details-summary'))).toBe(true);
   const label = String(await h.inSidePanel(`${q('shell-label')}?.textContent ?? ''`));
   expect(label).toContain('voice-a-long.wav');
   expect(label).toContain('extractor-0');
@@ -404,6 +405,7 @@ test('I-13b: legend, highlight, profile, simplified rendering, L-10 and axe on h
   expect(await choose(join(FIXTURES, 'voice-a-long.wav'))).toBe('ready');
   expect(await analyze()).toBe('done');
   await expect.poll(screen).toBe('REVEALED');
+  expect(await h.inSidePanel(click('shell-legend-details-summary'))).toBe(true);
   expect(await h.inSidePanel(`document.querySelectorAll('[data-testid="legend-row"]').length`)).toBe(6);
   expect(String(await h.inSidePanel(`${row('p6_rhythm')}.textContent`))).toMatch(/onset\/s · \d+° percentile/);
   expect(String(await h.inSidePanel(`${row('p1_pitch')}.textContent`))).toMatch(/\d+ Hz · \d+° percentile/);
@@ -423,6 +425,7 @@ test('I-13b: legend, highlight, profile, simplified rendering, L-10 and axe on h
   expect(await h.inSidePanel(`${row('p5_brightness')}.getAttribute('aria-pressed')`)).toBe('true');
   expect(await h.axeSidePanel()).toEqual([]);
   // «Resa semplificata»: economy at once, remembered in chrome.storage.local, and back.
+  expect(await h.inSidePanel(click('shell-reveal-tools-summary'))).toBe(true);
   expect(await h.inSidePanel(click('shell-simplified'))).toBe(true);
   await expect.poll(() => showcase('profileReason')).toBe('USER_SIMPLIFIED');
   expect(await showcase('profile')).toBe('economy');

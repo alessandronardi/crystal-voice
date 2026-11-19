@@ -196,9 +196,13 @@ export function mountShell(root: HTMLElement): void {
   let slow = false;
   /** The legend row selected for the shown result (ADR-0028). */
   let selected: { result: string; key: DescriptorKey } | null = null;
-  /** Draft label fields while viewing an unsaved crystal. */
-  let draftMeta = { resultKey: '', title: '', speakerLabel: '' };
-  let savePending = false;
+  let revealDraft: {
+    result: RevealedResult;
+    title: string;
+    speakerLabel: string;
+    pending: boolean;
+    error: ReturnType<typeof vaultErrorInfo> | null;
+  } | null = null;
 
   /** Home vault state (I-14): refreshed asynchronously without creating DB on read-only paths. */
   let recentItems: VaultListItem[] = [];
@@ -648,7 +652,20 @@ export function mountShell(root: HTMLElement): void {
     // chosen for the GPU changes the reason shown, not the profile.
     const key = `${resultKey}|${choice.profile}|${choice.reason}`;
     if (selected?.result !== resultKey) selected = null;
-    if (draftMeta.resultKey !== resultKey) draftMeta = { resultKey, title: '', speakerLabel: '' };
+    const previousDraft = revealDraft?.result === r ? revealDraft : null;
+    const draft = previousDraft ?? { result: r, title: '', speakerLabel: '', pending: false, error: null };
+    revealDraft = draft;
+    const disclosure = (title: string, testId: string): HTMLDetailsElement => {
+      const details = el('details', 'vc-details vc-result-details');
+      details.dataset['testid'] = testId;
+      details.open = previousDraft !== null && screen.querySelector<HTMLDetailsElement>(`[data-testid="${testId}"]`)?.open === true;
+      const summary = el('summary', '', title);
+      summary.dataset['testid'] = `${testId}-summary`;
+      details.append(summary);
+      return details;
+    };
+    const header = el('header', 'vc-collection-brand vc-result-header');
+    header.append(el('p', '', s.brand));
     if (showcase?.key !== key) {
       disposeShowcase();
       const stage = el('div', 'vc-stage vc-reveal');
@@ -669,6 +686,12 @@ export function mountShell(root: HTMLElement): void {
             profile: choice.profile,
             reducedMotion: reducedMotion(),
             sizePx: SHOWCASE_PX,
+            onFallback: (reason) => {
+              if (reason !== 'context-lost') return;
+              queueMicrotask(() => {
+                if (view.screen === 'REVEALED' && showcase?.stage === stage) render();
+              });
+            },
             // D-AN: the first frames of the vetrina decide, once, whether it stays.
             ...(choice.profile === 'vetrina'
               ? {
@@ -693,6 +716,8 @@ export function mountShell(root: HTMLElement): void {
     const mic = r.source === 'mic';
     const provenance = r.source === 'tab' ? s.revealed.provenanceTab : mic ? s.revealed.provenanceMic : s.revealed.provenanceFile(r.fileName ?? '');
     const dateRef = r.saved !== null ? new Date(r.saved.createdAt) : new Date();
+    const savedCode = r.saved === null ? null : formatSpecimenCode(r.saved.specimenNumber);
+    const habit = geometry?.habitName ?? s.revealed.caption;
     const rows: [string, string][] = [];
     if (r.saved !== null && r.saved.title !== '') rows.push([s.revealed.titleField, r.saved.title]);
     if (r.saved !== null && r.saved.speakerLabel !== null) rows.push([s.revealed.speakerField, r.saved.speakerLabel]);
@@ -702,20 +727,19 @@ export function mountShell(root: HTMLElement): void {
       [s.revealed.collected, dateRef.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })],
     );
     if (r.exitReason !== null) rows.push([s.revealed.ending, exitText(r.exitReason, mic)]);
-    // I-13b: quality warnings (review M-4 of I-13a) and veiled traits (ADR-0014) on the label.
+    // ADR-0014: report low-confidence traits on the label.
     const warnings = labelWarnings(r.quality.warnings);
-    if (warnings.length > 0) rows.push([s.revealed.warnings, warnings.join('; ')]);
     const veiled = geometry === null ? [] : veiledLines(geometry);
-    if (veiled.length > 0) rows.push([s.revealed.veiled, veiled.join('; ')]);
+    if (veiled.length > 0) {
+      rows.push([s.revealed.veiled, veiled.join('; ')]);
+      warnings.push(s.revealed.veiled);
+    }
     rows.push([s.revealed.extractor, r.extractorVersion ?? '—'], [s.revealed.seed, r.seed.join(' · ')]);
 
+    const labelDetails = disclosure(r.saved === null ? s.revealed.nameAndLabel : s.revealed.label, 'shell-label-details');
     const label = el('div', 'vc-label');
     label.dataset['testid'] = 'shell-label';
-    const specimenTitle = r.saved === null ? s.revealed.name : s.revealed.specimenName(formatSpecimenCode(r.saved.specimenNumber));
-    const heading = el('h2', 'vc-label-name', specimenTitle);
-    heading.dataset['testid'] = 'shell-specimen-name';
-    const note = el('p', 'vc-text vc-muted', r.saved === null ? s.revealed.nameNote : s.revealed.savedNote);
-    label.append(heading, note, dataList(rows).element);
+    labelDetails.append(label);
 
     if (r.saved === null) {
       const titleField = el('div', 'vc-field');
@@ -726,10 +750,10 @@ export function mountShell(root: HTMLElement): void {
       titleInput.id = 'vc-title-input';
       titleInput.maxLength = MAX_VAULT_TITLE_LENGTH;
       titleInput.placeholder = s.revealed.titlePlaceholder;
-      titleInput.value = draftMeta.title;
+      titleInput.value = draft.title;
       titleInput.dataset['testid'] = 'shell-title-input';
       titleInput.addEventListener('input', () => {
-        draftMeta.title = titleInput.value;
+        draft.title = titleInput.value;
       });
       titleField.append(titleLabel, titleInput);
 
@@ -741,36 +765,40 @@ export function mountShell(root: HTMLElement): void {
       speakerInput.id = 'vc-speaker-input';
       speakerInput.maxLength = MAX_SPEAKER_LABEL_LENGTH;
       speakerInput.placeholder = s.revealed.speakerPlaceholder;
-      speakerInput.value = draftMeta.speakerLabel;
+      speakerInput.value = draft.speakerLabel;
       speakerInput.dataset['testid'] = 'shell-speaker-input';
       speakerInput.addEventListener('input', () => {
-        draftMeta.speakerLabel = speakerInput.value;
+        draft.speakerLabel = speakerInput.value;
       });
       speakerField.append(speakerLabel, speakerInput);
       label.append(titleField, speakerField);
     }
+    label.append(dataList(rows).element);
 
-    const saveError = el('p', 'vc-alert');
+    const saveError = el('p', 'vc-alert', draft.error?.message);
+    saveError.id = 'vc-save-error';
     saveError.setAttribute('role', 'alert');
     saveError.dataset['testid'] = 'shell-save-error';
-    saveError.hidden = true;
+    if (draft.error !== null) saveError.dataset['code'] = draft.error.code;
+    saveError.hidden = draft.error === null;
 
     const actions = el('div', 'vc-btns');
+    const exportError = el('p', 'vc-alert', s.revealed.exportPngError);
+    exportError.setAttribute('role', 'alert');
+    exportError.hidden = true;
     const exportPngBtn = button(s.revealed.exportPng, 'vc-btn vc-btn-ghost', 'shell-export-png', () => {
       const activeHandle = shown.handle;
       if (activeHandle?.state !== 'webgl') return;
       exportPngBtn.disabled = true;
       exportPngBtn.textContent = s.revealed.exportingPng;
-      saveError.hidden = true;
+      exportError.hidden = true;
       void exportCrystalPng(activeHandle, VAULT_PNG_SIZE)
         .then((blob) => {
           exportPngBtn.dataset['lastPngSize'] = String(blob.size);
           downloadBlob(blob, `voicecrystal-${r.seed.join('-')}.png`);
         })
         .catch(() => {
-          saveError.textContent = s.revealed.exportPngError;
-          saveError.dataset['code'] = 'EXPORT_FAILED';
-          saveError.hidden = false;
+          exportError.hidden = false;
         })
         .finally(() => {
           exportPngBtn.disabled = shown.handle?.state !== 'webgl';
@@ -780,29 +808,30 @@ export function mountShell(root: HTMLElement): void {
     exportPngBtn.disabled = shown.handle?.state !== 'webgl';
 
     actions.append(
-      button(s.revealed.discard, 'vc-btn vc-btn-ghost', 'shell-discard', () => {
-        dispatch({ type: 'DISCARD' });
-      }),
       button(s.revealed.exportSvg, 'vc-btn vc-btn-ghost', 'shell-export-svg', () => {
         if (geometry !== null) downloadPlate(geometry, r.seed);
       }),
       exportPngBtn,
     );
 
-    const saveBtn = el('button', 'vc-btn', r.saved === null ? s.revealed.save : s.revealed.saved(formatSpecimenCode(r.saved.specimenNumber)));
+    const saveBtn = el('button', 'vc-btn', draft.pending ? s.revealed.saving : s.revealed.save);
     saveBtn.type = 'button';
     saveBtn.dataset['testid'] = 'shell-save';
-    saveBtn.disabled = r.saved !== null || geometry === null || savePending;
+    saveBtn.disabled = geometry === null;
+    if (draft.pending) saveBtn.setAttribute('aria-disabled', 'true');
+    if (draft.error !== null) saveBtn.setAttribute('aria-describedby', saveError.id);
     saveBtn.addEventListener('click', () => {
-      if (r.saved !== null || geometry === null || savePending) return;
-      savePending = true;
-      saveBtn.disabled = true;
+      if (view.screen !== 'REVEALED' || view.result !== r || r.saved !== null || geometry === null || draft.pending) return;
+      draft.pending = true;
+      draft.error = null;
+      saveBtn.setAttribute('aria-disabled', 'true');
+      saveBtn.removeAttribute('aria-describedby');
       saveBtn.textContent = s.revealed.saving;
       saveError.hidden = true;
       void saveCrystal(
         {
-          title: draftMeta.title,
-          speakerLabel: draftMeta.speakerLabel === '' ? null : draftMeta.speakerLabel,
+          title: draft.title,
+          speakerLabel: draft.speakerLabel === '' ? null : draft.speakerLabel,
           source: buildVaultSource(r),
           seed: r.seed,
           confidence: r.quality.confidence,
@@ -819,29 +848,60 @@ export function mountShell(root: HTMLElement): void {
         },
       )
         .then((saved) => {
-          savePending = false;
-          dispatch({ type: 'MARK_SAVED', record: saved.record });
+          draft.pending = false;
+          if (view.screen === 'REVEALED' && view.result === r) {
+            const focusWasInPanel = screen.contains(document.activeElement) || document.activeElement === document.body;
+            selected = null;
+            dispatch({ type: 'MARK_SAVED', record: saved.record });
+            announce.textContent = s.revealed.saved(formatSpecimenCode(saved.record.specimenNumber));
+            if (focusWasInPanel) screen.querySelector<HTMLElement>('[data-testid="shell-revealed-open-collection"]')?.focus();
+          }
           void refreshHomeVault();
         })
         .catch((error: unknown) => {
-          savePending = false;
-          saveBtn.disabled = false;
-          saveBtn.textContent = s.revealed.save;
-          const info = vaultErrorInfo(error);
-          saveError.textContent = info.message;
-          saveError.dataset['code'] = info.code;
-          saveError.hidden = false;
+          draft.pending = false;
+          draft.error = vaultErrorInfo(error);
+          if (view.screen === 'REVEALED' && view.result === r) render();
         });
     });
 
-    const openCollectionRevealedBtn = button(
-      s.revealed.openCollectionTab,
-      'vc-btn vc-btn-ghost vc-btn-sm',
+    const openCollectionBtn = button(
+      savedCode === null ? '' : s.revealed.collection,
+      savedCode === null ? 'vc-result-collection-icon' : 'vc-btn vc-btn-ghost',
       'shell-revealed-open-collection',
       openCollectionPage,
     );
-
-    return [el('p', 'vc-cap', s.revealed.caption), shown.stage, legendSection(r, resultKey, shown), label, actions, saveBtn, saveError, openCollectionRevealedBtn, profileSection(shown.choice, shown.handle?.state === 'webgl')];
+    openCollectionBtn.setAttribute('aria-label', s.revealed.openCollectionTab);
+    const title = el('h1', 'vc-result-name', r.saved?.title || (savedCode === null ? habit : s.revealed.specimenName(savedCode)));
+    if (savedCode === null) title.classList.add('vc-result-habit');
+    title.dataset['testid'] = 'shell-specimen-name';
+    title.tabIndex = -1;
+    const identity = el('div', 'vc-result-identity');
+    identity.append(title);
+    const primary = el('div', 'vc-result-primary');
+    primary.append(identity, savedCode === null ? saveBtn : openCollectionBtn);
+    if (savedCode === null) {
+      header.append(openCollectionBtn);
+    } else {
+      identity.append(el('p', 'vc-text vc-muted', habit));
+      const confirmation = el('p', 'vc-result-code', s.revealed.saved(savedCode));
+      confirmation.dataset['testid'] = 'shell-save-confirmation';
+      primary.append(confirmation);
+    }
+    const legend = disclosure(s.legend.disclosure, 'shell-legend-details');
+    legend.append(legendSection(r, resultKey, shown));
+    const tools = disclosure(s.revealed.tools, 'shell-reveal-tools');
+    tools.append(actions, exportError, profileSection(shown.choice, shown.handle?.state === 'webgl'));
+    const back = button(r.saved === null ? s.revealed.discard : s.revealed.back, 'vc-link vc-result-back', 'shell-discard', () => {
+      dispatch({ type: 'DISCARD' });
+    });
+    const nodes = [header, shown.stage, primary, saveError];
+    if (warnings.length > 0) {
+      const warning = el('p', 'vc-warn', s.revealed.qualityNotice(warnings.join(' · ')));
+      warning.dataset['testid'] = 'shell-reveal-warnings';
+      nodes.push(warning);
+    }
+    return [...nodes, labelDetails, legend, tools, back];
   };
 
   /** I-13b: the live legend (SPEC §13, ADR-0028): rows select a trait, the showcase lights it up. */
@@ -850,7 +910,6 @@ export function mountShell(root: HTMLElement): void {
     const section = el('section', 'vc-legend');
     section.dataset['testid'] = 'shell-legend';
     section.setAttribute('aria-label', l.title);
-    section.append(el('h3', 'vc-legend-title', l.title));
     if (shown.handle?.state === 'webgl') section.append(el('p', 'vc-text vc-muted', l.hint));
     const rows = shown.geometry === null ? [] : legendRows(r.seed, r.rawMeasures, shown.geometry);
     const list = el('ul');
@@ -946,9 +1005,14 @@ export function mountShell(root: HTMLElement): void {
   let lastScreen: ViewState['screen'] | null = null;
 
   function render(): void {
+    const active = document.activeElement;
+    const revealFocus = view.screen === 'REVEALED' && revealDraft?.result === view.result &&
+      active instanceof HTMLElement && screen.contains(active) ? active.dataset : null;
+    const enteredReveal = view.screen === 'REVEALED' && lastScreen !== 'REVEALED';
     if (view.screen !== 'REVEALED') {
       disposeShowcase();
-      savePending = false;
+      revealDraft = null;
+      selected = null;
     }
     if (view.screen !== 'LIVE') live = null;
     if (view.screen !== 'HOME') {
@@ -1002,6 +1066,15 @@ export function mountShell(root: HTMLElement): void {
     if (title !== announced) {
       announced = title;
       announce.textContent = title;
+    }
+    if (enteredReveal) {
+      failure.hidden = true;
+      window.scrollTo(0, 0);
+      screen.querySelector<HTMLElement>('[data-testid="shell-specimen-name"]')?.focus({ preventScroll: true });
+    } else if (revealFocus?.['testid'] !== undefined) {
+      const key = revealFocus['key'];
+      const trait = key === undefined ? '' : `[data-key="${CSS.escape(key)}"]`;
+      screen.querySelector<HTMLElement>(`[data-testid="${CSS.escape(revealFocus['testid'])}"]${trait}`)?.focus({ preventScroll: true });
     }
   }
 

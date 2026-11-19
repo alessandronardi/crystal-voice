@@ -63,7 +63,7 @@ Un gate è superato solo con un **verbale** in `docs/gates/<gate>-<AAAA-MM-GG>.m
 - [x] Esito scelto fra: (a) estensione con entrambe le sorgenti; (b) estensione con sola «La tua voce»; (c) web app con il solo nucleo: **(a) condizionato**, fallback (b) (valutazione §6, accettata dal product owner, D-AH).
 - [x] `docs/STATUS.md` aggiornato con l'esito (2026-11-13). **Distribuzione bloccata finché le prescrizioni non sono completate.**
 - [x] Tutte le prescrizioni tecniche e documentali risolte (10/10, inclusa la non applicabilità di `G0-DOC-04`). I-16 attua `G0-TECH-03` con ADR-0031.
-- [ ] Visto formale del product owner registrato nel verbale G0, richiesto per la distribuzione (ADR-0027).
+- [x] Visto formale di Alessandro Nardi registrato il 2026-11-19 sul commit `d43e7bd` (ADR-0027). [Verbale G0](gates/G0-2026-11-19.md)
 
 Decisione del product owner D-AH (2026-11-13): la valutazione G0 si fa con un agente IA dedicato alla revisione legale, accettata dal product owner, **senza il parere firmato di un avvocato**. Non è un parere legale professionale: la responsabilità della distribuzione resta del product owner. Gli agenti di sviluppo preparano materiali e domande; le conclusioni sono dell'agente di revisione legale e del product owner. **La distribuzione resta bloccata finché il visto di chiusura di tutte le prescrizioni non è registrato nel verbale finale.**
 

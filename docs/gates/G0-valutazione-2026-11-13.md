@@ -209,4 +209,4 @@ Luogo e data: ____________________   Firma: ___________________________
 | **Distribuzione economica** | **100% Gratuita** (nessun pagamento, abbonamento o donazione in-app). |
 | **Licenza del codice scelta** | **MIT License** (file `LICENSE` nella radice del repository). |
 | **Visibilità del repository** | **Pubblica**, a condizione che i 67 artefatti CI siano stati rimossi (`G0-ACT-01`) e il file `LICENSE` sia presente (`G0-ACT-02`). |
-| **Stato Gate G0** | **Prescrizioni risolte (10/10).** `G0-DOC-04` è non applicabile per ADR-0030. Resta il visto formale del product owner sul commit di release. |
+| **Stato Gate G0** | **GO.** Prescrizioni risolte (10/10), inclusa la non applicabilità di `G0-DOC-04` per ADR-0030. Visto formale del product owner registrato il 2026-11-19 sul commit `d43e7bd`. [Verbale G0](G0-2026-11-19.md) |

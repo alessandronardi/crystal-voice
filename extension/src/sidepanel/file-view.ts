@@ -1,5 +1,4 @@
-// Local-file source in the side panel (I-18, ADR-0022). Diagnostic view: the
-// real listening UI is I-13. Flow:
+// Local-file source in the side panel (I-18, ADR-0022). Flow:
 //   choose a file → probe (duration, WAV layout) → choose the start →
 //   «Analizza» → CAPTURE_START (source 'file') to the service worker, which
 //   applies «one session per profile» (SPEC §5) → decode the window →
@@ -209,7 +208,7 @@ export interface FileViewHandle {
 
 export function mountFileView(root: HTMLElement, hooks: FileViewHooks = {}): FileViewHandle {
   const section = document.createElement('section');
-  section.className = 'mt-6 space-y-3 border-t border-slate-200 pt-4';
+  section.className = 'vc-file-source space-y-3';
   const heading = document.createElement('h2');
   heading.className = 'text-sm font-semibold';
   heading.textContent = t.heading;
@@ -223,7 +222,7 @@ export function mountFileView(root: HTMLElement, hooks: FileViewHooks = {}): Fil
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'audio/*,.wav';
-  input.className = 'mt-1 block w-full text-sm';
+  input.className = 'mt-1 block w-full min-w-0 text-sm';
   input.dataset['testid'] = 'file-input';
   label.append(input);
 
@@ -261,6 +260,7 @@ export function mountFileView(root: HTMLElement, hooks: FileViewHooks = {}): Fil
     input.disabled = busy();
     startInput.disabled = busy() || state.probe === null;
     if (state.probe !== null) startInput.max = String(state.probe.durationSeconds);
+    startLabel.hidden = state.probe === null;
     const children: HTMLElement[] = [];
     const status = document.createElement('p');
     status.className = 'text-sm font-medium';

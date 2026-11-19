@@ -407,10 +407,13 @@ Direzione concordata il 18 novembre 2026. Il cristallo occupa la vetrina, il tit
 
 **Seconda consegna.** Una scelta immediata tra «Scheda», «Microfono» e «File», ciascuna con simbolo locale ed etichetta breve. File principali: `extension/src/sidepanel/shell.ts`, `capture-view.ts`, `file-view.ts`, stili e stringhe UI. Riferimenti: SPEC §§5, 12–13, ADR-0002, ADR-0029 e ADR-0031.
 
-- [ ] A 380 × 800 px le tre sorgenti e l’accesso alla Collezione sono visibili senza scorrere. «Scheda» spiega il gesto sull’icona di Chrome. Microfono e file mantengono il proprio avvio esplicito. I parametri del file, incluso il punto di partenza, compaiono nel relativo percorso.
-- [ ] Gli ultimi tre esemplari disponibili si riconoscono da miniatura e titolo o codice. Importazione, esportazione e licenze restano raggiungibili dalla Home. L’informativa locale G0-DOC-01 è reperibile con il testo approvato integrale. Gli avvisi applicabili su spazio e dati personali restano visibili al momento della decisione.
-- [ ] Il percorso di ascolto mantiene stato, voce utile, germe provvisorio, comando di arresto e domanda su più voci. Permesso negato, file rifiutato ed esiti insufficienti presentano causa e azione possibile in italiano.
+**Schermate della Home.** [Prima, 380 × 800 px](design/redesign-calcare/evidenze-i21/prima-home-380.png) · [Dopo, 380 × 800 px](design/redesign-calcare/evidenze-i21/dopo-home-380.png) · [Dopo, 320 × 800 px](design/redesign-calcare/evidenze-i21/dopo-home-320.png).
+
+- [x] A 380 × 800 px le tre sorgenti e l’accesso alla Collezione sono visibili senza scorrere. «Scheda» spiega il gesto sull’icona di Chrome. Microfono e file mantengono il proprio avvio esplicito. I parametri del file, incluso il punto di partenza, compaiono nel relativo percorso.
+- [x] Gli ultimi tre esemplari disponibili si riconoscono da miniatura e titolo o codice. Importazione, esportazione e licenze restano raggiungibili dalla Home. L’informativa locale G0-DOC-01 è reperibile con il testo approvato integrale. Gli avvisi applicabili su spazio e dati personali restano visibili al momento della decisione.
+- [x] Il percorso di ascolto mantiene stato, voce utile, germe provvisorio, comando di arresto e domanda su più voci. Permesso negato, file rifiutato ed esiti insufficienti presentano causa e azione possibile in italiano.
 - **Verifiche previste.** E2E `mic.spec.ts`, `permission-page.spec.ts`, `file.spec.ts`, `tab-capture.spec.ts`, `multi-speaker.spec.ts` e percorso Home di `vault.spec.ts`. Verificare informativa e licenze con `g0-notice.test.ts` e `release-hardening.spec.ts`. Provare i comandi nella cornice nativa del pannello in Chrome.
+- **Verifiche eseguite.** 38 scenari E2E passati in più esecuzioni Chromium headless sulla build locale combinata con I-16. Home verificata anche con finestra e tastiera. Informativa e licenze verificate nella stessa configurazione. Prova manuale in Chrome stabile da eseguire.
 
 ### I-22 · Rivelazione, cartellino e salvataggio
 

@@ -185,11 +185,9 @@ export const strings = {
     brand: 'VoiceCrystal',
     home: {
       title: 'Cristallizza una voce',
-      lead: 'Sei misure del parlato diventano un cristallo da collezione.',
+      sources: { tab: 'Scheda', mic: 'Microfono', file: 'File' },
       tabTitle: 'Da un video di YouTube',
       tabText: 'Apri un video e clicca l’icona di VoiceCrystal nella barra del browser.',
-      voiceTitle: 'La tua voce',
-      voiceText: 'Parla al microfono o scegli un file audio dal computer.',
       // G0-DOC-01: the approved text of docs/gates/G0-valutazione-2026-11-13.md §5.1,
       // verbatim (review H-4; tests/unit/g0-notice.test.ts pins it).
       noticeTitle: 'Elaborazione 100% Locale.',
@@ -199,10 +197,9 @@ export const strings = {
       recent: {
         title: 'Ultimi esemplari',
         empty: 'Nessun esemplare salvato in questo browser.',
-        untitled: 'Senza titolo',
-        open: 'Apri',
         deleteBtn: 'Elimina',
-        openCollectionTab: 'Apri la Collezione a tutta scheda',
+        openCollectionTab: 'Apri la Collezione',
+        deleteNamed: (title: string): string => `Elimina ${title}`,
         confirmDelete: (code: string): string => `Eliminare definitivamente l’esemplare ${code}?`,
         confirmYes: 'Sì, elimina',
         confirmNo: 'Annulla',

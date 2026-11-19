@@ -4,6 +4,7 @@ Formato [Keep a Changelog](https://keepachangelog.com/it/1.1.0/); versioni [SemV
 
 ## [Unreleased]
 
+- **I-21** ridisegna la Home calcare del pannello. «Scheda», «Microfono» e «File» hanno accessi dedicati. Gli ultimi tre esemplari mostrano anteprima e titolo o codice VC. Informativa locale, licenze e archivio si aprono dalla Home.
 ### Modificato
 - **I-22** (non distribuibile prima di G0, ADR-0027). La rivelazione mette in primo piano il cristallo, l’abito e «Salva». Il cartellino con le etichette facoltative, la legenda e gli strumenti si aprono su richiesta. Gli avvisi di qualità compaiono sul risultato. Il salvataggio mostra il codice VC e porta il focus all’accesso alla Collezione. In caso di errore, il pannello conserva la bozza per un nuovo tentativo.
 - **I-20** (non distribuibile prima di G0, ADR-0027): palette calcare condivisa e anteprime a tutta larghezza nella Collezione, con titoli manuali, codice VC in assenza del titolo e tavola SVG in assenza della miniatura. Filtri e selezione per il confronto si aprono su richiesta. Il dettaglio mostra vetrina e cartellino prima dei comandi di esportazione ed eliminazione e restituisce il focus alla scheda alla chiusura.

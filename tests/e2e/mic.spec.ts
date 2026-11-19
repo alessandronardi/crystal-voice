@@ -37,10 +37,11 @@ test.afterAll(async () => {
   await h.close();
 });
 
-const exists = (testId: string): string => `document.querySelector('[data-testid="${testId}"]') !== null`;
+const q = (testId: string): string => `document.querySelector('[data-testid="${testId}"]')`;
+const exists = (testId: string): string => `${q(testId)} !== null`;
 const click = (testId: string): string =>
-  `(() => { const el = document.querySelector('[data-testid="${testId}"]'); if (el === null) return false; el.click(); return true; })()`;
-const text = (testId: string): string => `document.querySelector('[data-testid="${testId}"]')?.textContent ?? ''`;
+  `(() => { const el = ${q(testId)}; if (el === null) return false; el.click(); return true; })()`;
+const text = (testId: string): string => `${q(testId)}?.textContent ?? ''`;
 const PANEL_MIC_STATE = `navigator.permissions.query({ name: 'microphone' }).then((s) => s.state)`;
 
 /**
@@ -114,7 +115,7 @@ test('with the grant the offscreen opens the microphone, counts samples and stop
   await h.grantMic();
   await expect.poll(() => h.inSidePanel(PANEL_MIC_STATE)).toBe('granted');
   // The grant clears the request in the open panel.
-  await expect.poll(() => h.inSidePanel(exists('capture-open-permission'))).toBe(false);
+  await expect.poll(() => h.inSidePanel(`${q('capture-open-permission')}?.hidden`)).toBe(true);
 
   const seen = await h.seenSessions();
   expect(await h.inSidePanel(click('capture-use-mic'))).toBe(true);
@@ -188,7 +189,7 @@ test('one capture across sources: a mic start during a tab capture gets CAPTURE_
   await h.clickAction(watch);
   const tab = await h.waitForSession('LISTENING', seen);
   // While a capture runs the panel offers no microphone button: start as the panel would.
-  expect(await h.inSidePanel(exists('capture-use-mic'))).toBe(false);
+  await expect.poll(() => h.inSidePanel(`${q('capture-use-mic')}?.disabled`)).toBe(true);
   const refused = await startMicFromProbe();
   await expect.poll(async () => (await h.storage('lastStart'))?.['failure']).toBe('CAPTURE_BUSY');
   expect(await h.storage('lastStart')).toMatchObject({ sessionId: refused, source: 'mic' });
@@ -261,7 +262,7 @@ test('an offscreen that disappears mid-session leaves a way out: «Usa il microf
   await worker.evaluate(() => chrome.offscreen.closeDocument());
   await expect.poll(() => h.offscreenCount()).toBe(0);
   expect(await h.storage('activeSession')).toMatchObject({ sessionId: gone, source: 'mic' });
-  await expect.poll(() => h.inSidePanel(exists('capture-use-mic')), { timeout: 10_000 }).toBe(true);
+  await expect.poll(() => h.inSidePanel(`${q('capture-use-mic')}?.disabled`), { timeout: 10_000 }).toBe(false);
   const next = await micListening();
   expect(next).not.toBe(gone);
   expect(await h.storage('activeSession')).toEqual({ sessionId: next, source: 'mic' });

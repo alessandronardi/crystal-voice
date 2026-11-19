@@ -242,7 +242,11 @@ test('I-20 Collection and Comparison from an empty archive through filtering, ke
   await expect(collectionPage.locator('canvas')).toHaveCount(0);
   await collectionPage.setViewportSize({ width: 320, height: 800 });
   await expect(cardB.getByRole('button', { name: longTitle })).toHaveText(longTitle);
-  expect(await collectionPage.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  const { scrollWidth, clientWidth } = await collectionPage.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(scrollWidth).toBe(clientWidth);
   await collectionPage.setViewportSize({ width: 1440, height: 900 });
   await expect(collectionPage.getByTestId('collection-filters')).toBeHidden();
   await expect(collectionPage.getByTestId('collection-compare-bar')).toHaveCount(0);

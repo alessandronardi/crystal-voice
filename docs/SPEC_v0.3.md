@@ -66,9 +66,11 @@ Gli identificativi `VC-xx` rimandano al registro dei rilievi della revisione avv
 
 ### In scope per l'MVP [F]
 
+> **Modificato da ADR-0031 (accettato il 2026-11-17, G0-TECH-03).** Nei §§1, 2, 5, 6, 9, 13 e 14, ADR-0031 prevale sulle vecchie limitazioni a YouTube e `/watch` e sul content script statico. La sorgente «Dalla scheda» inietta il monitor dell’elemento standard `<video>` HTML5 con `activeTab` e `scripting` al clic sull’icona. Il watchdog resta obbligatorio e segue le condizioni dell’ADR.
+
 - Chrome desktop con `minimum_chrome_version` impostata a `120` (requisito di prodotto conservativo; le API fondamentali sono disponibili già da Chrome 116).
 - Due sorgenti audio con lo stesso nucleo DSP/3D (D1):
-  - **«Dalla scheda»:** pagine `https://www.youtube.com/watch` con un video on-demand standard.
+  - **«Dalla scheda»:** schede `https:` idonee secondo ADR-0031, con un video HTML5 standard.
   - **«La tua voce»:** microfono (`getUserMedia` con consenso esplicito del browser) oppure file audio locale scelto dall'utente (WAV, FLAC, MP3, Ogg/Opus, M4A/AAC se decodificabili da `decodeAudioData`).
 - **Una sola cattura attiva per profilo**, qualunque sia la sorgente.
 - Avvio esplicito: azione dell'estensione nella toolbar (sorgente scheda) o pulsanti nel pannello (microfono, file). Pannello laterale per ascolto e rivelazione; pagina Collezione a tutta scheda per archivio e confronto.
@@ -174,6 +176,8 @@ voicecrystal/
 8. **IndexedDB:** storage nell'origine dell'estensione, mai nello storage della pagina YouTube.
 
 ### Permessi di partenza [F]
+
+> **Modificato da ADR-0031 (accettato il 2026-11-17, G0-TECH-03):** la chiave `content_scripts` è rimossa da `extension/manifest.json` e il permesso `"scripting"` è aggiunto a `permissions` per l'iniezione on-demand di `video-content.js` al clic dell'utente.
 
 ```json
 {

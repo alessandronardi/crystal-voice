@@ -24,7 +24,9 @@
     "catalog": "node scripts/golden/catalog.ts",
     "bench:robustness": "node scripts/golden/robustness.ts",
     "bench:plate-scale": "node scripts/golden/plate-scale.ts",
-    "bench:render": "node tests/benchmarks/render.ts"
+    "bench:render": "node tests/benchmarks/render.ts",
+    "sbom": "node scripts/release/build-sbom.ts",
+    "sbom:check": "node scripts/release/build-sbom.ts --check"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

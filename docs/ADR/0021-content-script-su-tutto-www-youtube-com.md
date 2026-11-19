@@ -1,6 +1,6 @@
 # ADR-0021: Content script su tutto `https://www.youtube.com/*`
 
-- **Stato:** Accettato
+- **Stato:** Sostituito da [ADR-0031](0031-iniezione-on-demand-con-activetab-e-scripting-su-video-html5.md) (2026-11-17, G0-TECH-03)
 - **Data:** 2026-11-11
 - **Decisori:** product owner (scelta in chat il 2026-11-11, pianificazione di I-03)
 

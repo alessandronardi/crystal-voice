@@ -127,9 +127,23 @@ export const GUARD_EXCEPTIONS: readonly GuardException[] = [
   {
     file: 'background.js',
     rule: 'no-remote-url',
-    snippet: 'protocol===`https:`',
+    snippet: 'protocol!==`https:`',
     reason:
-      'I-02: isYoutubeWatchUrl compares the clicked tab URL protocol with "https:" (SPEC §5, NOT_YOUTUBE_WATCH). A comparison, not a network endpoint.',
+      'I-02 / ADR-0031: isCapturableVideoUrl compares the clicked tab URL protocol with "https:" (SPEC §5, NOT_YOUTUBE_WATCH). A comparison, not a network endpoint.',
+  },
+  {
+    file: 'assets/offscreen.js',
+    rule: 'no-remote-url',
+    snippet: 'protocol!==`https:`',
+    reason:
+      'ADR-0031: resolveVideoTarget in CaptureSession compares the heartbeat URL protocol with "https:". A comparison, not a network endpoint.',
+  },
+  {
+    file: 'video-content.js',
+    rule: 'no-remote-url',
+    snippet: 'protocol!==`https:`',
+    reason:
+      'ADR-0031: videoIdOf in the on-demand page script compares location URL protocol with "https:". A comparison, not a network endpoint.',
   },
   // I-13a (D-AI): three@0.186.1 in its own chunk (extension/scripts/build.ts,
   // THREE_CHUNK). Each `.constructor(` below builds an object of a class it
@@ -185,17 +199,18 @@ export function applyExceptions(
 
 // --------------------------------------------------------------- manifest
 
-/** Manifest permissions accepted without an ADR (SPEC §5). Adding one requires an ADR (R9). */
+/** Manifest permissions accepted (SPEC §5, ADR-0031). Adding one requires an ADR (R9). */
 export const ALLOWED_PERMISSIONS: readonly string[] = [
   'tabCapture',
   'offscreen',
   'sidePanel',
   'activeTab',
+  'scripting',
   'storage',
 ];
 
-/** The only content-script match pattern approved: SPEC §5 as amended by ADR-0021. */
-export const ALLOWED_CONTENT_SCRIPT_MATCHES: readonly string[] = ['https://www.youtube.com/*'];
+/** ADR-0031 (G0-TECH-03): no static content-script match pattern is allowed. */
+export const ALLOWED_CONTENT_SCRIPT_MATCHES: readonly string[] = [];
 
 export const MINIMUM_CHROME_VERSION = 120;
 

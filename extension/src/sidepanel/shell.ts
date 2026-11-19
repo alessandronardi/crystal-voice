@@ -72,6 +72,7 @@ export const RENDER_SIMPLIFIED_KEY = 'renderSimplified';
 
 /** The licence texts copied into the package (extension/scripts/build.ts), G0-DOC-01. */
 const LICENSES: readonly { label: string; href: string }[] = [
+  { label: s.home.licenseNotices, href: 'THIRD_PARTY/NOTICES.txt' },
   { label: 'three.js (MIT)', href: 'THIRD_PARTY/three/LICENSE.txt' },
   { label: 'libfvad (BSD-3-Clause)', href: 'THIRD_PARTY/libfvad/LICENSE.txt' },
   { label: 'WebRTC PATENTS', href: 'THIRD_PARTY/libfvad/PATENTS.txt' },

@@ -2,7 +2,7 @@
 // bundle guard. Several Vite passes are needed because MV3 contexts disagree
 // on module formats:
 //   1. pages + service worker: ES modules, shared chunks allowed;
-//   2. content script: classic script (IIFE), content scripts are not modules;
+//   2. on-demand video monitor script: classic script (IIFE), injected via activeTab + scripting;
 //   3. AudioWorklet and DSP worker: single self-contained ES files.
 import { createHash } from 'node:crypto';
 import {
@@ -48,7 +48,7 @@ const PAGES: Readonly<Record<string, string>> = {
 };
 
 /** Files that must exist even though the manifest does not reference them. */
-const REQUIRED_OUTPUTS = [...Object.keys(PAGES), 'pcm-processor.js', 'dsp-worker.js'];
+const REQUIRED_OUTPUTS = [...Object.keys(PAGES), 'video-content.js', 'pcm-processor.js', 'dsp-worker.js'];
 
 const common: InlineConfig = {
   configFile: false,
@@ -100,7 +100,11 @@ async function buildPagesAndServiceWorker(): Promise<void> {
         input,
         output: {
           entryFileNames: (chunk) =>
-            chunk.name === 'background' ? 'background.js' : 'assets/[name]-[hash].js',
+            chunk.name === 'background'
+              ? 'background.js'
+              : chunk.name === 'offscreen'
+                ? 'assets/offscreen.js'
+                : 'assets/[name]-[hash].js',
           // I-13a: three.js in its own chunk with a stable name, so the
           // guard's reviewed exceptions can name that file and nothing else.
           chunkFileNames: (chunk) => (chunk.name === THREE_CHUNK ? `assets/${THREE_CHUNK}.js` : 'assets/[name]-[hash].js'),
@@ -124,6 +128,7 @@ async function buildStandalone(entry: string, fileName: string, format: 'es' | '
         name: 'voicecrystal',
         fileName: () => fileName,
       },
+      ...(format === 'iife' ? { rolldownOptions: { output: { footer: 'voicecrystal.hasVideo();' } } } : {}),
     },
   });
 }
@@ -170,6 +175,7 @@ const sha256Of = (bytes: Uint8Array): string => createHash('sha256').update(byte
  */
 const COPIED: readonly { from: string; to: string; reason: string }[] = [
   { from: join(REPO, 'packages/dsp-core/wasm/fvad.wasm'), to: 'fvad.wasm', reason: 'libfvad (ADR-0023), loaded by the dsp-worker' },
+  { from: join(REPO, 'THIRD_PARTY/NOTICES.txt'), to: 'THIRD_PARTY/NOTICES.txt', reason: 'Consolidated third-party notices and SBOM summary (I-16)' },
   { from: join(REPO, 'THIRD_PARTY/libfvad/LICENSE'), to: 'THIRD_PARTY/libfvad/LICENSE.txt', reason: 'libfvad BSD-3-Clause' },
   { from: join(REPO, 'THIRD_PARTY/libfvad/PATENTS'), to: 'THIRD_PARTY/libfvad/PATENTS.txt', reason: 'WebRTC patent grant (D-S)' },
   { from: join(REPO, 'THIRD_PARTY/three/LICENSE'), to: 'THIRD_PARTY/three/LICENSE.txt', reason: 'three.js MIT, bundled in the side panel since I-13a (D-AI)' },
@@ -203,7 +209,7 @@ function copyPinned(): void {
 
 await buildPagesAndServiceWorker();
 flattenHtml();
-await buildStandalone('content/youtube-adapter.ts', 'youtube-content.js', 'iife');
+await buildStandalone('content/youtube-adapter.ts', 'video-content.js', 'iife');
 await buildStandalone('offscreen/pcm-processor.ts', 'pcm-processor.js', 'es');
 await buildStandalone('offscreen/dsp-worker.ts', 'dsp-worker.js', 'es');
 copyPinned();

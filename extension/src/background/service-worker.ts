@@ -13,7 +13,7 @@ import {
 } from '@voicecrystal/contracts';
 import { isOwnExtensionContext } from '../shared/sender.ts';
 import { onCaptureStatus, onDiag, onFileSessionEnd, onTabRemoved, onTabUpdated, stopActiveSession } from './routing.ts';
-import { isYoutubeWatchUrl, onActionClicked, onCaptureStartRequest } from './start-capture.ts';
+import { isCapturableVideoUrl, onActionClicked, onCaptureStartRequest } from './start-capture.ts';
 
 chrome.action.onClicked.addListener(onActionClicked);
 
@@ -22,7 +22,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  onTabUpdated(tabId, changeInfo, isYoutubeWatchUrl);
+  onTabUpdated(tabId, changeInfo, isCapturableVideoUrl);
 });
 
 chrome.tabCapture.onStatusChanged.addListener((info) => {

@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { extname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   applyExceptions,
@@ -8,6 +8,7 @@ import {
   referencedFiles,
   scanSource,
 } from '../scripts/bundle-guard.ts';
+import { strings } from '../src/ui/strings.it.ts';
 
 const manifest = JSON.parse(
   readFileSync(join(import.meta.dirname, '../manifest.json'), 'utf8'),
@@ -218,7 +219,6 @@ describe('checkManifest', () => {
     expect(referencedFiles(manifest).sort()).toEqual([
       'background.js',
       'sidepanel.html',
-      'youtube-content.js',
     ]);
   });
 
@@ -228,13 +228,19 @@ describe('checkManifest', () => {
     ]);
   });
 
-  it.each(['tabs', 'scripting', 'desktopCapture', '<all_urls>'])(
+  it.each(['tabs', 'desktopCapture', '<all_urls>'])(
     'rejects the permission %s without an ADR (R9)',
     (permission) => {
       const widened = withChanges({ permissions: ['storage', permission] });
       expect(rules(checkManifest(widened, allExist))).toEqual(['permission-without-adr']);
     },
   );
+
+  it('includes scripting without static content_scripts (ADR-0031, G0-TECH-03)', () => {
+    expect(manifest['content_scripts']).toBeUndefined();
+    expect(manifest['permissions']).toContain('scripting');
+    expect(manifest['permissions']).toContain('activeTab');
+  });
 
   it('rejects permissions that are not a string array', () => {
     expect(rules(checkManifest(withChanges({ permissions: 'tabs' }), allExist))).toEqual([
@@ -266,23 +272,46 @@ describe('checkManifest', () => {
   });
 
   it.each([
-    [{ matches: ['<all_urls>'], js: ['youtube-content.js'] }, 'match-without-adr'],
-    [{ matches: ['https://*/*'], js: ['youtube-content.js'] }, 'match-without-adr'],
-    // SPEC §5's original pattern is superseded by ADR-0021.
-    [{ matches: ['https://www.youtube.com/watch*'], js: ['youtube-content.js'] }, 'match-without-adr'],
-    [{ matches: ['https://*.youtube.com/*'], js: ['youtube-content.js'] }, 'match-without-adr'],
+    [{ matches: ['<all_urls>'], js: ['video-content.js'] }, 'match-without-adr'],
+    [{ matches: ['https://*/*'], js: ['video-content.js'] }, 'match-without-adr'],
+    // Static youtube.com matches are forbidden by ADR-0031 (G0-TECH-03).
+    [{ matches: ['https://www.youtube.com/*'], js: ['video-content.js'] }, 'match-without-adr'],
+    [{ matches: ['https://www.youtube.com/watch*'], js: ['video-content.js'] }, 'match-without-adr'],
+    [{ matches: ['https://*.youtube.com/*'], js: ['video-content.js'] }, 'match-without-adr'],
     [
-      { matches: ['https://www.youtube.com/*'], js: ['youtube-content.js'], world: 'MAIN' },
+      { matches: ['https://www.youtube.com/*'], js: ['video-content.js'], world: 'MAIN' },
       'manifest-key-without-adr',
     ],
     [
-      { matches: ['https://www.youtube.com/*'], js: ['youtube-content.js'], all_frames: true },
+      { matches: ['https://www.youtube.com/*'], js: ['video-content.js'], all_frames: true },
       'manifest-key-without-adr',
     ],
-  ])('rejects the content script %j (R4, R9)', (entry, rule) => {
-    expect(rules(checkManifest(withChanges({ content_scripts: [entry] }), allExist))).toEqual([
+  ])('rejects any static content script %j (R4, R9, ADR-0031)', (entry, rule) => {
+    expect(rules(checkManifest(withChanges({ content_scripts: [entry] }), allExist))).toContain(
       rule,
-    ]);
+    );
+  });
+
+  it('decouples manifest, UI strings, and built bundle from the YouTube brand (G0-TECH-03)', () => {
+    expect(JSON.stringify(manifest).toLowerCase()).not.toContain('youtube');
+    const uiStrings = JSON.stringify(strings).replaceAll('NOT_YOUTUBE_WATCH', '');
+    expect(uiStrings.toLowerCase()).not.toContain('youtube');
+
+    const dist = resolve(import.meta.dirname, '../../dist/extension');
+    if (!existsSync(dist)) return;
+    const files: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) walk(path);
+        else if (['.js', '.html', '.css', '.json', '.txt'].includes(extname(entry.name))) files.push(path);
+      }
+    };
+    walk(dist);
+    for (const file of files) {
+      const content = readFileSync(file, 'utf8').replaceAll('NOT_YOUTUBE_WATCH', '');
+      expect(content.toLowerCase(), file).not.toContain('youtube');
+    }
   });
 
   it.each(['90', '119', 'abc', '120abc', 120])('rejects minimum_chrome_version %j', (version) => {

@@ -382,6 +382,36 @@ describe('heartbeat watchdog (ADR-0004)', () => {
     await flush();
     expect(h.session.state).toBe('LISTENING');
   });
+
+  it('tracks generic https: HTML5 video pages, stops on videoId disappearance, host change, or pathname change (ADR-0031)', async () => {
+    const h = new Harness();
+    h.start();
+    expect(h.heartbeat({ url: 'https://example.org/videos/lecture-1.html', videoId: '/videos/lecture-1.html' })).toBe(true);
+    await h.advance(1_000);
+    expect(h.heartbeat({ url: 'https://example.org/videos/lecture-1.html', videoId: '/videos/lecture-1.html' })).toBe(true);
+    expect(h.session.state).toBe('LISTENING');
+
+    // Same host, different video pathname -> VIDEO_CHANGED
+    expect(h.heartbeat({ url: 'https://example.org/videos/lecture-2.html', videoId: '/videos/lecture-2.html' })).toBe(false);
+    await flush();
+    expect(h.last?.exitReason).toBe('VIDEO_CHANGED');
+
+    // Empty videoId (e.g. <video> removed or pagehide) -> NAVIGATED_AWAY
+    const h2 = new Harness();
+    h2.start();
+    expect(h2.heartbeat({ url: 'https://example.org/videos/lecture-1.html', videoId: '/videos/lecture-1.html' })).toBe(true);
+    expect(h2.heartbeat({ url: 'https://example.org/videos/lecture-1.html', videoId: '' })).toBe(false);
+    await flush();
+    expect(h2.last?.exitReason).toBe('NAVIGATED_AWAY');
+
+    // Different host -> NAVIGATED_AWAY
+    const h3 = new Harness();
+    h3.start();
+    expect(h3.heartbeat({ url: 'https://example.org/videos/lecture-1.html', videoId: '/videos/lecture-1.html' })).toBe(true);
+    expect(h3.heartbeat({ url: 'https://other.org/videos/lecture-1.html', videoId: '/videos/lecture-1.html' })).toBe(false);
+    await flush();
+    expect(h3.last?.exitReason).toBe('NAVIGATED_AWAY');
+  });
 });
 
 describe('microphone sessions (I-17)', () => {

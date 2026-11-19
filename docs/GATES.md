@@ -62,18 +62,20 @@ Un gate è superato solo con un **verbale** in `docs/gates/<gate>-<AAAA-MM-GG>.m
 - [x] Valutazione privacy (dati di terzi, etichette dei parlanti, export): §3.2 e §3.6 della valutazione IA (D-AH), con prescrizioni G0-TECH-01/02 e G0-DOC-04.
 - [x] Esito scelto fra: (a) estensione con entrambe le sorgenti; (b) estensione con sola «La tua voce»; (c) web app con il solo nucleo: **(a) condizionato**, fallback (b) (valutazione §6, accettata dal product owner, D-AH).
 - [x] `docs/STATUS.md` aggiornato con l'esito (2026-11-13). **Distribuzione bloccata finché le prescrizioni non sono completate.**
+- [x] Tutte le prescrizioni tecniche e documentali risolte (10/10, inclusa la non applicabilità di `G0-DOC-04`). I-16 attua `G0-TECH-03` con ADR-0031.
+- [ ] Visto formale del product owner registrato nel verbale G0, richiesto per la distribuzione (ADR-0027).
 
-Decisione del product owner D-AH (2026-11-13): la valutazione G0 si fa con un agente IA dedicato alla revisione legale, accettata dal product owner, **senza il parere firmato di un avvocato**. Non è un parere legale professionale: la responsabilità della distribuzione resta del product owner. Gli agenti di sviluppo preparano materiali e domande; le conclusioni sono dell'agente di revisione legale e del product owner. **La distribuzione resta bloccata finché tutte le prescrizioni della valutazione (G0-ACT, G0-TECH, G0-DOC) non sono completate.**
+Decisione del product owner D-AH (2026-11-13): la valutazione G0 si fa con un agente IA dedicato alla revisione legale, accettata dal product owner, **senza il parere firmato di un avvocato**. Non è un parere legale professionale: la responsabilità della distribuzione resta del product owner. Gli agenti di sviluppo preparano materiali e domande; le conclusioni sono dell'agente di revisione legale e del product owner. **La distribuzione resta bloccata finché il visto di chiusura di tutte le prescrizioni non è registrato nel verbale finale.**
 
 ## Release — fine fase 5
 
-- [ ] I-13…I-16 chiuse.
-- [ ] Revisione avversariale di release con verdetto GO.
-- [ ] Verifica manuale su tre sistemi operativi.
-- [ ] Nessuna chiamata di rete in runtime (verifica con il pannello Network e con un test automatico che intercetta le richieste).
-- [ ] Nessun PCM in storage o log (ispezione di IndexedDB, `chrome.storage`, console).
-- [ ] Accessibilità: axe-core senza violazioni serie; prova da tastiera e con screen reader.
-- [ ] Informativa privacy e scheda dello store coerenti con il comportamento.
+- [ ] I-13…I-16 chiuse *(I-16 completata tecnicamente lato codice/SBOM/E2E; in attesa di verifica manuale su 3 OS e revisione avversariale per chiusura definitiva)*.
+- [ ] Revisione avversariale di release con verdetto GO *(non eseguita in questa sessione: richiede revisore indipendente, R14)*.
+- [ ] Verifica manuale su tre sistemi operativi *(non eseguita in questa sessione su Windows, macOS e Linux in Chrome stabile, R14)*.
+- [ ] Nessuna chiamata di rete in runtime. I test Playwright intercettano le richieste durante il percorso completo della build. Resta la verifica manuale nel pannello Network di Chrome stabile.
+- [x] Nessun PCM in storage o log (ispezione di IndexedDB, `chrome.storage`, console) *(verificato automaticamente in `tests/e2e/release-hardening.spec.ts`, `tests/e2e/vault.spec.ts` e `tests/e2e/file.spec.ts`: `chrome.storage.session`, `chrome.storage.local`, IndexedDB `voicecrystal` e log console privi di PCM, `streamId` e metadati URL/YouTube)*.
+- [ ] Accessibilità: axe-core senza violazioni serie; prova da tastiera e con screen reader *(axe-core 0 violazioni serie/critiche verificato in E2E su Home con licenze espanse, ascolto, dialogo più voci, rivelazione, esito, `collection.html` + dettaglio + confronto e `permission.html`; prova manuale da tastiera e screen reader non eseguita, R14)*.
+- [ ] Informativa privacy e scheda dello store coerenti con il comportamento. I test verificano l’informativa e l’avviso Home. Resta il controllo della scheda finale dello store.
 
 ## Modello di verbale
 

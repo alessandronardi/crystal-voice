@@ -2,7 +2,17 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento · 2026-11-19.** Fase 4, [I-22](BACKLOG.md#i-22--rivelazione-cartellino-e-salvataggio) implementata e verificata sul branch `issue/I-22-calcare-reveal`, da I-20. Non distribuibile prima di G0 (ADR-0027).
+**Ultimo aggiornamento · 2026-11-19.** Fase 4, [I-21](BACKLOG.md#i-21--home-del-pannello-e-scelta-della-sorgente) integrata nel branch `issue/I-21-calcare-home`, allineato a `main` (`3c2d0c8`) dopo I-22. Non distribuibile prima di G0 (ADR-0027).
+
+- La Home calcare presenta «Scheda», «Microfono» e «File» con icone locali e un accesso alla Collezione nell’intestazione. «Scheda» apre le istruzioni per l’icona di Chrome. «Microfono» avvia la richiesta esplicita e offre il recupero del permesso. «File» apre la selezione e mostra il punto di partenza dopo il riconoscimento dell’audio.
+- La Home mostra miniature WebP o tavole SVG per gli ultimi tre esemplari, con titolo o codice VC e ripristino del focus dopo la riapertura. Informativa locale, licenze e comandi di archivio sono raggiungibili tramite sezioni espandibili.
+- [Confronto prima/dopo a 380 px e schermata a 320 px](BACKLOG.md#i-21--home-del-pannello-e-scelta-della-sorgente) con «Lettura del mattino» e «Due timbri» ottenuti dalle fixture del backlog.
+- `pnpm typecheck`, `pnpm lint` e build locale superati. `pnpm test` ha passato 671 test in 53 file, con 5 fallimenti attesi già noti. Verificati con Chromium con finestra l’apertura del pannello, il percorso da tastiera, l’accesso all’informativa e il selettore di importazione.
+- Dopo l’allineamento a I-22 sono passati build e guardia del bundle, oltre a 6 test in Chromium con finestra su Windows. Coprono Home, rivelazione con e senza WebGL, salvataggio, Collezione, confronto e anteprima.
+- Nella copia integrata con I-16 sono passati i 7 test unitari su informativa G0-DOC-01 e licenze. La build e la guardia del bundle sono verdi. Verificati 38 scenari E2E su Chromium headless in più esecuzioni, con 19/19 nel flusso File. L’E2E di hardening è passato dopo aver adeguato, nella copia temporanea, i passaggi per tornare alla Home ed espandere informativa, file e archivio.
+- In I-16 va adeguato il test di hardening alle sezioni espandibili della Home. La prova manuale in Chrome stabile resta da eseguire.
+
+**Prima · 2026-11-19.** Fase 4, [I-22](BACKLOG.md#i-22--rivelazione-cartellino-e-salvataggio) integrata in `main` con [PR #25](https://github.com/alessandronardi/crystal-voice/pull/25). Non distribuibile prima di G0 (ADR-0027).
 
 - La rivelazione mostra vetrina, abito e «Salva» prima del cartellino, della legenda e degli strumenti. I campi facoltativi rimangono compilati se il salvataggio fallisce. Il successo mostra il codice VC e sposta il focus sulla Collezione. All’apertura di un esemplare d’archivio si vedono titolo o codice e i metadati nel cartellino.
 - Le [schermate prima/dopo](BACKLOG.md#i-22--rivelazione-cartellino-e-salvataggio) usano le fixture sintetiche `voice-a-long.wav` e `a-then-b.wav`. Il test `reveal.spec.ts` controlla il primo schermo a 380 × 800 e 320 × 800 px, la tastiera, WebGL, il ripiego SVG, la dissolvenza con animazioni ridotte, il recupero da quota esaurita e il percorso fino al confronto in Collezione.
@@ -727,6 +737,7 @@ Tutte di sviluppo: nessuna entra nel bundle, salvo il CSS generato da Tailwind. 
 
 | Data | Agente | Issue | Esito | Note |
 |---|---|---|---|---|
+| 2026-11-18 | Codex | I-21 | Implementata e verificata in locale | Branch `issue/I-21-calcare-home` da I-20. Build, typecheck, lint, 671 unitari e 38 E2E integrati passati. Prova manuale in Chrome stabile aperta. |
 | 2026-11-09 | Claude | — | Documentazione di progetto | Spec v0.3, ADR 0001–0014, backlog, gate |
 | 2026-11-09 | Claude | I-01 | Implementata, non chiusa | Test locali verdi; due revisioni avversariali (NO-GO → CONDITIONAL GO, rilievi residui corretti); M0, CI e D-A…D-D aperti; nessun commit |
 | 2026-11-09 | Claude | I-01 | Decisioni applicate | D-A…D-D applicate (ADR-0015, AGENTS §8, Node 26); M0 registrato su dichiarazione del product owner; remote `origin` e push; CI verde (run 42707392231) |

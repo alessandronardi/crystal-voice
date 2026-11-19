@@ -41,11 +41,18 @@ const text = (testId: string): string => `${q(testId)}?.textContent ?? ''`;
 const phase = (): Promise<unknown> => h.inSidePanel(`${q('file-status')}?.dataset.phase ?? ''`);
 
 async function openPanel(): Promise<void> {
+  await panelTab.bringToFront();
   await h.clickAction(panelTab);
-  await expect.poll(() => h.inSidePanel(exists('file-input'))).toBe(true);
+  await expect.poll(async () => (await h.sidePanels()).length, { timeout: 15_000 }).toBeGreaterThan(0);
+  await expect.poll(() => h.inSidePanel(exists('file-input')), { timeout: 15_000 }).toBe(true);
 }
 
 async function choose(path: string): Promise<string> {
+  await h.inSidePanel(`(() => {
+    const source = ${q('shell-source-file')};
+    if (source?.getAttribute('aria-expanded') === 'false') source.click();
+    return true;
+  })()`);
   await h.setPanelFile('file-input', path);
   await expect.poll(phase, { timeout: 15_000 }).toMatch(/^(ready|failed)$/);
   return String(await phase());

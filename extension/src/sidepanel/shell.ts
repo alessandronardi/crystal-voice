@@ -1,10 +1,7 @@
 // The side panel screens of I-13a (SPEC §13, view machine of §6.2):
 // home, listening as nucleation, revelation with the label, outcome. Style
-// «Gabinetto di mineralogia» (D-AJ). The I-02…I-07 views (capture-view,
-// file-view) keep their controls and technical rows: on the home screen they
-// are the «La tua voce» card, on the other screens they move into «Dettagli
-// tecnici». Text goes through textContent only (R17); the plate SVG is our
-// own, parsed by renderer-three's fallback, never innerHTML.
+// Text goes through textContent only (R17); the plate SVG is our own, parsed
+// by renderer-three's fallback, never innerHTML.
 import {
   DEFAULT_PLATE_VIEW,
   formatSpecimenCode,
@@ -52,6 +49,7 @@ import { CAPTURE_LIMITS } from '../offscreen/capture-machine.ts';
 import { strings } from '../ui/strings.it.ts';
 import { errorText, exitText, mountCaptureView } from './capture-view.ts';
 import { mountFileView } from './file-view.ts';
+import { homeIcon } from './home-icons.ts';
 import { labelWarnings, legendRows, veiledLines } from './legend.ts';
 import { INITIAL_VIEW, viewTransition, type RevealedResult, type ViewEvent, type ViewOutcome, type ViewState } from './view-machine.ts';
 
@@ -152,12 +150,6 @@ function buildVaultSource(r: RevealedResult): VaultSource {
   };
 }
 
-function formatSourceSummary(source: VaultSource): string {
-  if (source.kind === 'tab') return s.revealed.provenanceTab;
-  if (source.kind === 'mic') return s.revealed.provenanceMic;
-  return s.revealed.provenanceFile(source.fileName);
-}
-
 /** The listening screen, built once per session and updated in place (review H-2: focus and clicks survive the ticks). */
 interface LiveView {
   key: string;
@@ -172,14 +164,18 @@ export function mountShell(root: HTMLElement): void {
   // Screen changes are announced once (SPEC §13 accessibility), not every progress tick.
   const announce = el('p', 'sr-only');
   announce.setAttribute('aria-live', 'polite');
-  // Review M-3: a refused or failed start (not a YouTube video, busy, permission) on whatever screen is shown.
+  // A refused or failed start is visible on whichever screen is shown.
   const failure = el('div', 'vc-card');
   failure.dataset['testid'] = 'shell-start-failure';
   failure.setAttribute('role', 'alert');
   failure.hidden = true;
   const failureText = el('p', 'vc-text');
-  failure.append(failureText);
-  const tools = el('div', 'vc-tools');
+  const permissionBtn = el('button', 'vc-btn vc-btn-ghost', strings.capture.openPermission);
+  permissionBtn.type = 'button';
+  permissionBtn.dataset['testid'] = 'capture-open-permission';
+  failure.append(failureText, permissionBtn);
+  const captureTools = el('div', 'vc-tools');
+  const fileTools = el('div', 'vc-tools');
   const tech = el('details', 'vc-details');
   tech.append(el('summary', '', s.details));
   shell.append(failure, screen, announce);
@@ -214,6 +210,8 @@ export function mountShell(root: HTMLElement): void {
   let archiveStatus: string | null = null;
   let homeRefreshGen = 0;
   let thumbUrls: string[] = [];
+  let openedRecentId: string | null = null;
+  let returnSource: keyof typeof s.home.sources | null = null;
 
   const revokeThumbUrls = (): void => {
     for (const url of thumbUrls) URL.revokeObjectURL(url);
@@ -232,14 +230,17 @@ export function mountShell(root: HTMLElement): void {
     window.open(url, '_blank', 'noopener');
   };
 
-  const recentCard = el('div', 'vc-card');
+  const recentCard = el('section', 'vc-home-section');
   recentCard.dataset['testid'] = 'shell-recent';
   const recentHost = el('div');
-  const openCollectionHomeBtn = button(s.home.recent.openCollectionTab, 'vc-btn vc-btn-ghost vc-btn-sm', 'shell-open-collection', openCollectionPage);
-  recentCard.append(el('p', 'vc-card-title', s.home.recent.title), recentHost, openCollectionHomeBtn);
+  recentCard.append(el('h2', 'vc-cap', s.home.recent.title), recentHost);
 
+  const archive = el('details', 'vc-details vc-home-disclosure');
+  const archiveSummary = el('summary', '', s.home.archive.title);
+  archiveSummary.dataset['testid'] = 'shell-archive-toggle';
   const archiveCard = el('div', 'vc-card');
   archiveCard.dataset['testid'] = 'shell-archive';
+  archive.append(archiveSummary, archiveCard);
   const storageWarningEl = el('p', 'vc-warn', s.home.archive.storageWarning);
   storageWarningEl.dataset['testid'] = 'shell-storage-warning';
   storageWarningEl.hidden = true;
@@ -264,12 +265,11 @@ export function mountShell(root: HTMLElement): void {
   vaultErrorEl.dataset['testid'] = 'shell-vault-error';
   vaultErrorEl.hidden = true;
 
-  const importInput = el('input', 'sr-only');
+  const importInput = el('input');
   importInput.type = 'file';
+  importInput.hidden = true;
   importInput.accept = '.json,application/json';
-  importInput.id = 'vc-import-file';
   importInput.dataset['testid'] = 'shell-import-input';
-  importInput.setAttribute('aria-label', s.home.archive.importBtn);
 
   const exportJsonBtn = button(s.home.archive.exportBtn, 'vc-btn vc-btn-ghost vc-btn-sm', 'shell-export-json', () => {
     vaultError = null;
@@ -300,15 +300,12 @@ export function mountShell(root: HTMLElement): void {
   archiveBtns.append(exportJsonBtn, importJsonBtn);
 
   archiveCard.append(
-    el('p', 'vc-card-title', s.home.archive.title),
     el('p', 'vc-text vc-muted', s.home.archive.description),
-    storageWarningEl,
     exportLabelsRow,
     vc20WarningEl,
     archiveBtns,
     importInput,
     archiveStatusEl,
-    vaultErrorEl,
   );
 
   function syncArchiveControls(): void {
@@ -322,51 +319,87 @@ export function mountShell(root: HTMLElement): void {
     vaultErrorEl.hidden = vaultError === null;
   }
 
+  function focusRecent(id: string, action = 'shell-recent-open'): boolean {
+    const item = recentHost.querySelector(`[data-specimen-id="${CSS.escape(id)}"]`);
+    const target = item?.querySelector<HTMLElement>(`[data-testid="${action}"]`);
+    target?.focus();
+    return target !== null && target !== undefined;
+  }
+
   function syncRecentList(): void {
+    const active = document.activeElement?.closest<HTMLElement>('.vc-recent-item');
+    const focusedId = active?.dataset['specimenId'];
+    const focusedAction = document.activeElement?.getAttribute('data-testid') ?? undefined;
     revokeThumbUrls();
     if (recentItems.length === 0) {
       recentHost.replaceChildren(el('p', 'vc-text vc-muted', s.home.recent.empty));
       return;
     }
     const ul = el('ul', 'vc-recent-list');
+    ul.setAttribute('role', 'list');
     for (const item of recentItems) {
       const { record, thumbnail } = item;
       const code = formatSpecimenCode(record.specimenNumber);
+      const title = record.title.trim() || code;
       const li = el('li', 'vc-recent-item');
       li.dataset['testid'] = 'shell-recent-item';
       li.dataset['specimenId'] = record.id;
 
-      const head = el('div', 'vc-recent-head');
+      const preview = el('span', 'vc-specimen-preview');
+      preview.setAttribute('aria-hidden', 'true');
       if (thumbnail !== null) {
-        const img = el('img', 'vc-thumb');
+        const img = el('img');
         const url = URL.createObjectURL(thumbnail);
         thumbUrls.push(url);
         img.src = url;
         img.alt = '';
-        head.append(img);
+        preview.append(img);
+      } else {
+        try {
+          const geometry = generateCrystalGeometry(record.seed, record.confidence, record.geometryVersion);
+          showPlateFallback(preview, geometry, VAULT_THUMBNAIL_SIZE);
+        } catch {
+          // Opening the record reports vault errors with the usual validation.
+        }
       }
-      const meta = el('div', 'vc-recent-meta');
-      meta.append(el('strong', '', s.revealed.specimenName(code)));
-      const subParts: string[] = [];
-      if (record.title !== '') subParts.push(record.title);
-      if (record.speakerLabel !== null) subParts.push(record.speakerLabel);
-      subParts.push(formatSourceSummary(record.source));
-      meta.append(el('span', 'vc-text vc-muted', subParts.join(' · ')));
-      head.append(meta);
-      li.append(head);
+      const openBtn = button('', 'vc-specimen-button vc-recent-preview', 'shell-recent-open', () => {
+        vaultError = null;
+        syncArchiveControls();
+        void openCrystal(record.id)
+          .then((opened) => {
+            if (view.screen !== 'HOME') return;
+            if (opened === null) throw new VaultError('CORRUPT_RECORD', 'Missing crystal record');
+            openedRecentId = record.id;
+            dispatch({ type: 'OPEN_SAVED', record: opened.record });
+          })
+          .catch((error: unknown) => {
+            vaultError = vaultErrorInfo(error);
+            syncArchiveControls();
+          });
+      });
+      openBtn.append(preview, el('span', 'vc-recent-title', title));
+      li.append(openBtn);
 
       if (confirmingDeleteId === record.id) {
         const dialog = el('div', 'vc-dialog');
         dialog.dataset['testid'] = 'shell-delete-confirm';
-        dialog.setAttribute('role', 'alertdialog');
-        dialog.append(el('p', 'vc-text', s.home.recent.confirmDelete(code)));
+        dialog.setAttribute('role', 'group');
+        const prompt = el('p', 'vc-text', s.home.recent.confirmDelete(code));
+        prompt.id = 'vc-recent-delete-prompt';
+        dialog.setAttribute('aria-labelledby', prompt.id);
+        dialog.append(prompt);
         const cBtns = el('div', 'vc-btns');
         const yesBtn = button(s.home.recent.confirmYes, 'vc-btn vc-danger-solid vc-btn-sm', 'shell-delete-yes', () => {
           confirmingDeleteId = null;
           vaultError = null;
           archiveStatus = null;
           void deleteCrystal(record.id)
-            .then(() => refreshHomeVault())
+            .then(async () => {
+              await refreshHomeVault();
+              if (view.screen === 'HOME' && document.activeElement === document.body) {
+                (recentHost.querySelector<HTMLElement>('[data-testid="shell-recent-open"]') ?? openCollectionHomeBtn).focus();
+              }
+            })
             .catch((error: unknown) => {
               vaultError = vaultErrorInfo(error);
               syncArchiveControls();
@@ -376,41 +409,24 @@ export function mountShell(root: HTMLElement): void {
         const noBtn = button(s.home.recent.confirmNo, 'vc-btn vc-btn-ghost vc-btn-sm', 'shell-delete-no', () => {
           confirmingDeleteId = null;
           syncRecentList();
+          focusRecent(record.id, 'shell-recent-delete');
         });
         cBtns.append(yesBtn, noBtn);
         dialog.append(cBtns);
         li.append(dialog);
       } else {
-        const rowBtns = el('div', 'vc-btns');
-        const openBtn = button(s.home.recent.open, 'vc-btn vc-btn-sm', 'shell-recent-open', () => {
-          vaultError = null;
-          syncArchiveControls();
-          void openCrystal(record.id)
-            .then((opened) => {
-              if (opened === null) {
-                vaultError = vaultErrorInfo(new VaultError('CORRUPT_RECORD', 'Missing crystal record'));
-                syncArchiveControls();
-                return;
-              }
-              dispatch({ type: 'OPEN_SAVED', record: opened.record });
-            })
-            .catch((error: unknown) => {
-              vaultError = vaultErrorInfo(error);
-              syncArchiveControls();
-            });
-        });
-        openBtn.setAttribute('aria-label', `${s.home.recent.open} ${code}`);
-        const delBtn = button(s.home.recent.deleteBtn, 'vc-btn vc-btn-ghost vc-danger vc-btn-sm', 'shell-recent-delete', () => {
+        const delBtn = button(s.home.recent.deleteBtn, 'vc-link vc-recent-delete', 'shell-recent-delete', () => {
           confirmingDeleteId = record.id;
           syncRecentList();
+          focusRecent(record.id, 'shell-delete-no');
         });
-        delBtn.setAttribute('aria-label', `${s.home.recent.deleteBtn} ${code}`);
-        rowBtns.append(openBtn, delBtn);
-        li.append(rowBtns);
+        delBtn.setAttribute('aria-label', s.home.recent.deleteNamed(title));
+        li.append(delBtn);
       }
       ul.append(li);
     }
     recentHost.replaceChildren(ul);
+    if (focusedId !== undefined) focusRecent(focusedId, focusedAction);
   }
 
   async function refreshHomeVault(): Promise<void> {
@@ -467,7 +483,7 @@ export function mountShell(root: HTMLElement): void {
     if (next === view) return;
     const leaving = view.screen === 'REVEALED' || view.screen === 'OUTCOME';
     view = next;
-    // Review L-10 of I-13a: back home, the «La tua voce» card no longer shows the closed session's rows.
+    // I-13a review L-10: clear the closed session's technical rows on return.
     if (leaving && next.screen === 'HOME') {
       capture.clearResult();
       file.clearResult();
@@ -475,7 +491,17 @@ export function mountShell(root: HTMLElement): void {
     render();
   };
 
-  const capture = mountCaptureView(tools, {
+  const sourceButton = (source: keyof typeof s.home.sources, id: string, activate: () => void): HTMLButtonElement => {
+    const control = button(s.home.sources[source], 'vc-source-button', id, activate);
+    control.prepend(homeIcon(source));
+    return control;
+  };
+  const micBtn = el('button', 'vc-source-button', s.home.sources.mic);
+  micBtn.type = 'button';
+  micBtn.dataset['testid'] = 'capture-use-mic';
+  micBtn.prepend(homeIcon('mic'));
+
+  const capture = mountCaptureView(captureTools, { mic: micBtn, permission: permissionBtn }, {
     onDiag: (diag, source) => {
       dispatch({ type: 'CAPTURE_DIAG', diag, source });
     },
@@ -484,14 +510,15 @@ export function mountShell(root: HTMLElement): void {
     },
     onStartFailure: (message, busy) => {
       failureText.textContent = message ?? '';
-      failure.querySelector('button')?.remove();
+      failureText.hidden = message === null;
+      failure.querySelector('[data-testid="shell-stop-active"]')?.remove();
       if (busy) failure.append(button(strings.capture.stopActive, 'vc-btn vc-btn-ghost', 'shell-stop-active', () => {
         capture.stopActive();
       }));
-      failure.hidden = message === null;
+      failure.hidden = message === null && permissionBtn.hidden;
     },
   });
-  const file = mountFileView(tools, { onEvent: dispatch });
+  const file = mountFileView(fileTools, { onEvent: dispatch });
 
   void (async () => {
     try {
@@ -510,35 +537,66 @@ export function mountShell(root: HTMLElement): void {
     showcase = null;
   };
 
-  const homeScreen = (): HTMLElement[] => {
-    const tab = el('div', 'vc-card');
-    tab.append(el('p', 'vc-card-title', s.home.tabTitle), el('p', 'vc-text vc-muted', s.home.tabText));
-    const voice = el('div', 'vc-card');
-    voice.dataset['testid'] = 'shell-voice';
-    voice.append(el('p', 'vc-card-title', s.home.voiceTitle), el('p', 'vc-text vc-muted', s.home.voiceText), tools);
-    const notice = el('p', 'vc-note');
-    notice.dataset['testid'] = 'shell-notice';
-    const list = el('ul', 'vc-licenses');
-    list.hidden = true;
-    for (const l of LICENSES) {
-      const a = el('a', 'vc-link', l.label);
-      a.href = l.href;
-      a.target = '_blank';
-      a.rel = 'noopener';
-      const li = el('li');
-      li.append(a);
-      list.append(li);
-    }
-    const toggle = button(s.home.licenses, 'vc-link', 'shell-licenses', () => {
-      list.hidden = !list.hidden;
-      toggle.setAttribute('aria-expanded', String(!list.hidden));
-    });
-    toggle.setAttribute('aria-expanded', 'false');
-    notice.append(el('strong', '', s.home.noticeTitle), document.createTextNode(` ${s.home.noticeText} `), toggle, list);
-    syncRecentList();
-    syncArchiveControls();
-    return [el('p', 'vc-cap', s.brand), el('h1', 'vc-title', s.home.title), el('p', 'vc-text vc-muted', s.home.lead), tab, voice, recentCard, archiveCard, notice];
-  };
+  const homeHeader = el('header', 'vc-home-header');
+  const openCollectionHomeBtn = button('', 'vc-home-icon', 'shell-open-collection', openCollectionPage);
+  openCollectionHomeBtn.setAttribute('aria-label', s.home.recent.openCollectionTab);
+  openCollectionHomeBtn.title = s.home.recent.openCollectionTab;
+  openCollectionHomeBtn.append(homeIcon('collection'));
+  homeHeader.append(el('p', 'vc-home-brand', s.brand), openCollectionHomeBtn);
+  const homeHeading = el('h1', 'vc-title vc-home-title', s.home.title);
+  homeHeading.tabIndex = -1;
+  const sources = el('div', 'vc-source-list');
+  const tabPanel = el('div', 'vc-card');
+  tabPanel.id = 'vc-tab-source';
+  tabPanel.append(el('h2', 'vc-card-title', s.home.tabTitle), el('p', 'vc-text', s.home.tabText));
+  const filePanel = el('div', 'vc-card');
+  filePanel.id = 'vc-file-source';
+  let expandedSource: 'tab' | 'file' | null = null;
+  const tabBtn = sourceButton('tab', 'shell-source-tab', () => {
+    setSource(expandedSource === 'tab' ? null : 'tab');
+  });
+  const fileBtn = sourceButton('file', 'shell-source-file', () => {
+    setSource(expandedSource === 'file' ? null : 'file');
+  });
+  tabBtn.setAttribute('aria-controls', tabPanel.id);
+  fileBtn.setAttribute('aria-controls', filePanel.id);
+  sources.append(tabBtn, micBtn, fileBtn);
+  const sourceButtons = { tab: tabBtn, mic: micBtn, file: fileBtn };
+
+  function setSource(source: typeof expandedSource): void {
+    expandedSource = source;
+    tabPanel.hidden = source !== 'tab';
+    filePanel.hidden = source !== 'file';
+    tabBtn.setAttribute('aria-expanded', String(!tabPanel.hidden));
+    fileBtn.setAttribute('aria-expanded', String(!filePanel.hidden));
+  }
+  setSource(null);
+
+  const notice = el('details', 'vc-details vc-home-disclosure');
+  notice.dataset['testid'] = 'shell-notice';
+  const noticeSummary = el('summary', '', s.home.noticeTitle);
+  noticeSummary.dataset['testid'] = 'shell-notice-toggle';
+  const noticeBody = el('div', 'vc-home-notice');
+  const list = el('ul', 'vc-licenses');
+  list.id = 'vc-home-licenses';
+  list.hidden = true;
+  for (const l of LICENSES) {
+    const link = el('a', 'vc-link', l.label);
+    link.href = l.href;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    const li = el('li');
+    li.append(link);
+    list.append(li);
+  }
+  const toggle = button(s.home.licenses, 'vc-link', 'shell-licenses', () => {
+    list.hidden = !list.hidden;
+    toggle.setAttribute('aria-expanded', String(!list.hidden));
+  });
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-controls', list.id);
+  noticeBody.append(el('p', 'vc-text', s.home.noticeText), toggle, list);
+  notice.append(noticeSummary, noticeBody);
 
   const buildLive = (v: Extract<ViewState, { screen: 'LIVE' }>): LiveView => {
     const caption = v.source === 'file' ? `${s.sources.file} «${v.fileName ?? ''}»` : s.sources[v.source];
@@ -1019,7 +1077,8 @@ export function mountShell(root: HTMLElement): void {
       revokeThumbUrls();
       confirmingDeleteId = null;
     }
-    const enteredHome = view.screen === 'HOME' && lastScreen !== 'HOME';
+    const previousScreen = lastScreen;
+    const enteredHome = view.screen === 'HOME' && previousScreen !== 'HOME';
     if (enteredHome) {
       vaultError = null;
       archiveStatus = null;
@@ -1029,10 +1088,16 @@ export function mountShell(root: HTMLElement): void {
     let children: HTMLElement[];
     switch (view.screen) {
       case 'HOME':
-        children = homeScreen();
+        sources.insertBefore(micBtn, fileBtn);
+        filePanel.append(fileTools);
+        tech.append(captureTools);
+        syncRecentList();
+        syncArchiveControls();
+        children = [homeHeader, homeHeading, sources, tabPanel, filePanel, failure, recentCard, vaultErrorEl, notice, storageWarningEl, archive, tech];
         title = s.home.title;
         break;
       case 'LIVE': {
+        returnSource = view.source;
         const key = `${view.source}|${view.sessionId ?? view.fileName ?? ''}`;
         if (live?.key === key) {
           // Same session: update in place, nothing is rebuilt (review H-2).
@@ -1046,23 +1111,44 @@ export function mountShell(root: HTMLElement): void {
         break;
       }
       case 'REVEALED':
+        returnSource = view.result.source;
         children = revealedScreen(view.result);
         title = s.revealed.caption;
         break;
       case 'OUTCOME':
+        returnSource = view.outcome.source;
         children = outcomeScreen(view.outcome);
         title = s.outcome.caption;
         break;
     }
     if (view.screen !== 'HOME') {
+      if (failure.parentElement !== shell) shell.prepend(failure);
       // Controls and technical rows of the running views, folded away; the
       // same <details> element, so its open state is kept.
-      tech.append(tools);
+      tech.append(captureTools, micBtn, fileTools);
       children.push(tech);
     }
     screen.dataset['screen'] = view.screen;
     screen.replaceChildren(...children);
-    if (enteredHome) void refreshHomeVault();
+    if (enteredHome) {
+      if (previousScreen !== null) {
+        if (openedRecentId !== null) {
+          if (!focusRecent(openedRecentId)) homeHeading.focus();
+          openedRecentId = null;
+        } else {
+          if (returnSource === 'file') setSource('file');
+          const target = returnSource === null ? homeHeading : sourceButtons[returnSource];
+          (target instanceof HTMLButtonElement && target.disabled ? homeHeading : target).focus();
+        }
+      }
+      void refreshHomeVault();
+    } else if (!enteredReveal && view.screen !== 'HOME' && previousScreen !== view.screen) {
+      const heading = screen.querySelector('h1, h2');
+      if (heading instanceof HTMLElement) {
+        heading.tabIndex = -1;
+        heading.focus();
+      }
+    }
     if (title !== announced) {
       announced = title;
       announce.textContent = title;

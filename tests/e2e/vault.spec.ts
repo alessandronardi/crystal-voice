@@ -52,6 +52,7 @@ test('I-14 full vault flow: save, IndexedDB schema, PNG export, reopen, tamper r
   expect(await h.axeSidePanel()).toEqual([]);
 
   // 2. Analyze voice-a-long.wav -> REVEALED -> axe check -> save with title + speakerLabel.
+  expect(await h.inSidePanel(click('shell-source-file'))).toBe(true);
   await h.setPanelFile('file-input', join(FIXTURES, 'voice-a-long.wav'));
   await expect.poll(phase, { timeout: 15_000 }).toBe('ready');
   expect(await h.inSidePanel(click('file-analyze'))).toBe(true);
@@ -120,12 +121,12 @@ test('I-14 full vault flow: save, IndexedDB schema, PNG export, reopen, tamper r
   }
   expect(await h.axeSidePanel()).toEqual([]);
 
-  // 4. Return Home: recent list shows VC-0001, VC-20 warning visible, axe clean, reopen restores REVEALED.
+  // 4. Return Home: recent list shows the chosen title and preview, and opens the saved specimen.
   expect(await h.inSidePanel(click('shell-discard'))).toBe(true);
   await expect.poll(screen).toBe('HOME');
   await expect.poll(() => h.inSidePanel(`document.querySelectorAll('[data-testid="shell-recent-item"]').length`)).toBe(1);
-  expect(String(await h.inSidePanel(`${q('shell-recent')}?.textContent ?? ''`))).toContain('Esemplare VC-0001');
-  expect(await h.inSidePanel(`${q('shell-vc20-warning')}?.hidden`)).toBe(false);
+  expect(await h.inSidePanel(`${q('shell-recent-open')}?.textContent`)).toBe('Voce di archivio');
+  expect(await h.inSidePanel(`${q('shell-recent-open')}?.querySelector('img,svg') !== null`)).toBe(true);
   expect(await h.axeSidePanel()).toEqual([]);
 
   expect(await h.inSidePanel(click('shell-recent-open'))).toBe(true);
@@ -171,6 +172,7 @@ test('I-14 full vault flow: save, IndexedDB schema, PNG export, reopen, tamper r
   expect(await h.inSidePanel(click('shell-discard'))).toBe(true);
   await expect.poll(screen).toBe('HOME');
   await expect.poll(() => h.inSidePanel(`document.querySelectorAll('[data-testid="shell-recent-item"]').length`)).toBe(1);
+  await expect.poll(() => h.inSidePanel(`document.activeElement?.dataset.testid ?? ''`)).toBe('shell-recent-open');
   expect(await h.inSidePanel(click('shell-recent-open'))).toBe(true);
   await expect.poll(() => h.inSidePanel(`${q('shell-vault-error')}?.hidden`)).toBe(false);
   expect(await h.inSidePanel(`${q('shell-vault-error')}?.dataset.code ?? ''`)).toBe('GEOMETRY_HASH_MISMATCH');
@@ -180,6 +182,8 @@ test('I-14 full vault flow: save, IndexedDB schema, PNG export, reopen, tamper r
   await setGeometryHash(recordId, originalHash);
 
   // 6. Export JSON: default omits title/speakerLabel/tags; opt-in includes them.
+  expect(await h.inSidePanel(click('shell-archive-toggle'))).toBe(true);
+  expect(await h.inSidePanel(`${q('shell-vc20-warning')}?.getClientRects().length > 0`)).toBe(true);
   expect(await h.inSidePanel(`${q('shell-export-labels')}?.checked`)).toBe(false);
   expect(await h.inSidePanel(click('shell-export-json'))).toBe(true);
   await expect.poll(() => h.inSidePanel(`${q('shell-export-json')}?.dataset.lastExportJson ?? ''`)).not.toBe('');

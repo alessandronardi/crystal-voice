@@ -147,7 +147,7 @@ test('I-20 Collection and Comparison from an empty archive through filtering, ke
   expect(await axeSeriousViolations(emptyPage)).toEqual([]);
   expect(emptyPageErrors).toEqual([]);
 
-  // 2. Import 3 distinct specimens through the Side Panel, then click "Apri la Collezione a tutta scheda".
+  // 2. Import 3 distinct specimens through the Side Panel, then open Collection.
   const idA = '11111111-1111-4111-8111-111111111111';
   const idB = '22222222-2222-4222-8222-222222222222';
   const idC = '33333333-3333-4333-8333-333333333333';
@@ -183,6 +183,10 @@ test('I-20 Collection and Comparison from an empty archive through filtering, ke
 
   const backupPath = join(tmp, 'collection-seed.json');
   writeFileSync(backupPath, JSON.stringify(exportPayload));
+  expect(await h.inSidePanel(`(() => {
+    ${q('shell-archive-toggle')}.click();
+    return ${q('shell-archive-toggle')}.parentElement.open;
+  })()`)).toBe(true);
   await h.setPanelFile('shell-import-input', backupPath);
   await expect
     .poll(
@@ -219,6 +223,17 @@ test('I-20 Collection and Comparison from an empty archive through filtering, ke
       };
     };
   }), idC);
+
+  const home = await h.context.newPage();
+  await home.setViewportSize({ width: 320, height: 800 });
+  await home.goto(`chrome-extension://${h.extensionId}/sidepanel.html`);
+  const recent = home.getByTestId('shell-recent-open');
+  await expect(recent.locator('.vc-recent-title')).toHaveText(['VC-0003', longTitle, 'Esemplare Rubino']);
+  await expect(home.getByRole('button', { name: 'VC-0003' }).locator('svg')).toBeVisible();
+  await expect(home.locator('canvas')).toHaveCount(0);
+  expect(await home.evaluate(() => document.documentElement.scrollWidth === document.documentElement.clientWidth)).toBe(true);
+  await home.close();
+  await panelTab.bringToFront();
 
   const [collectionPage] = await Promise.all([
     h.context.waitForEvent('page'),

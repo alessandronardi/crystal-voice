@@ -38,6 +38,7 @@ test('preview of the I-13b screens', async () => {
   await h.clickAction(tab);
   await expect.poll(() => h.inSidePanel(`${q('file-input')} !== null`)).toBe(true);
   await shot('1-home');
+  await h.inSidePanel(`(() => { ${q('shell-source-file')}.click(); return true; })()`);
   await h.setPanelFile('file-input', join(FIXTURES, 'voice-a-long.wav'));
   await expect.poll(phase, { timeout: 15_000 }).toBe('ready');
   await h.inSidePanel(`(() => { ${q('file-analyze')}.click(); return true; })()`);

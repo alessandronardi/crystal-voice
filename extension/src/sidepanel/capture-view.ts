@@ -178,7 +178,11 @@ export interface CaptureViewHandle {
   clearResult(): void;
 }
 
-export function mountCaptureView(root: HTMLElement, hooks: CaptureViewHooks = {}): CaptureViewHandle {
+export function mountCaptureView(
+  root: HTMLElement,
+  controls: { mic: HTMLButtonElement; permission: HTMLButtonElement },
+  hooks: CaptureViewHooks = {},
+): CaptureViewHandle {
   const section = document.createElement('section');
   section.className = 'mt-4 space-y-3';
   root.append(section);
@@ -233,7 +237,8 @@ export function mountCaptureView(root: HTMLElement, hooks: CaptureViewHooks = {}
   };
 
   const startMic = async (): Promise<void> => {
-    if (state.micStarting !== null) return;
+    if (!canStartMic()) return;
+    const restoreFocus = document.activeElement === controls.mic;
     // Pending from the click on, before any await (review M-1).
     const sessionId = crypto.randomUUID();
     state.micStarting = sessionId;
@@ -246,6 +251,7 @@ export function mountCaptureView(root: HTMLElement, hooks: CaptureViewHooks = {}
       state.micStarting = null;
       state.startFailure = 'MIC_PERMISSION_REQUIRED';
       render();
+      if (restoreFocus && document.activeElement === document.body) controls.permission.focus();
       return;
     }
     state.ownMic = sessionId;
@@ -272,6 +278,8 @@ export function mountCaptureView(root: HTMLElement, hooks: CaptureViewHooks = {}
   const openPermissionPage = (): void => {
     void chrome.tabs.create({ url: chrome.runtime.getURL('permission.html') }).catch(() => undefined);
   };
+  controls.mic.addEventListener('click', () => { void startMic(); });
+  controls.permission.addEventListener('click', openPermissionPage);
 
   const render = (): void => {
     const children: HTMLElement[] = [];
@@ -291,6 +299,7 @@ export function mountCaptureView(root: HTMLElement, hooks: CaptureViewHooks = {}
     if (failure !== null) {
       children.push(paragraph(errorText(failure, micFailure), 'capture-error', 'text-sm text-red-700', 'alert'));
     }
+    controls.permission.hidden = failure !== 'MIC_PERMISSION_REQUIRED' || state.micPermission === 'granted';
     hooks.onStartFailure?.(state.startFailure === null ? null : errorText(state.startFailure, micFailure), state.startFailure === 'CAPTURE_BUSY');
     if (mic && isRunning(live)) children.push(paragraph(t.micNote, 'capture-mic-note', 'text-sm text-slate-600'));
 
@@ -350,16 +359,7 @@ export function mountCaptureView(root: HTMLElement, hooks: CaptureViewHooks = {}
     }
     // Only while the grant is still missing: an old session's code must not
     // keep sending the user to a page they no longer need.
-    if (failure === 'MIC_PERMISSION_REQUIRED' && state.micPermission !== 'granted') {
-      children.push(stopButton(t.openPermission, 'capture-open-permission', openPermissionPage));
-    }
-    if (canStartMic()) {
-      children.push(
-        stopButton(t.useMic, 'capture-use-mic', () => {
-          void startMic();
-        }),
-      );
-    }
+    controls.mic.disabled = !canStartMic();
     section.replaceChildren(...children);
   };
 

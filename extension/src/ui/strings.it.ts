@@ -402,9 +402,7 @@ export const strings = {
     to: '–',
   },
   collection: {
-    caption: 'Gabinetto di mineralogia · Archivio locale',
     title: 'Collezione',
-    lead: 'Tutti gli esemplari salvati nel database locale di questo browser. Selezionane due per confrontarne la forma e i sei descrittori acustici.',
     countSummary: (shown: number, total: number): string =>
       shown === total
         ? `${String(total)} ${total === 1 ? 'esemplare' : 'esemplari'} in collezione`
@@ -412,7 +410,7 @@ export const strings = {
     emptyVault: 'Nessun esemplare salvato in questo browser. Analizza una voce dal pannello laterale oppure importa un archivio JSON.',
     emptyFiltered: 'Nessun esemplare corrisponde ai filtri selezionati.',
     refreshBtn: 'Aggiorna elenco',
-    filtersTitle: 'Filtra esemplari',
+    filtersTitle: 'Filtri',
     habitLabel: 'Abito cristallino',
     habits: {
       all: 'Tutti gli abiti',
@@ -441,17 +439,11 @@ export const strings = {
     dateToLabel: 'Al',
     resetFilters: 'Azzera filtri',
     compareBarTitle: 'Selezione per il confronto',
-    slotAEmpty: 'Esemplare A: non selezionato',
-    slotBEmpty: 'Esemplare B: non selezionato',
-    slotValue: (slot: 'A' | 'B', code: string, label: string): string =>
-      label === '' ? `Esemplare ${slot}: ${code}` : `Esemplare ${slot}: ${code} · ${label}`,
-    compareBtn: 'Confronta A e B',
-    clearSelectionBtn: 'Svuota selezione',
-    openSpecimen: 'Apri',
-    selectAsA: 'Scegli come A',
-    selectAsB: 'Scegli come B',
-    selectedAsA: 'Scelto come A',
-    selectedAsB: 'Scelto come B',
+    chooseComparison: 'Confronta',
+    cancelSelection: 'Annulla selezione',
+    selectionCount: (selected: number): string => `${String(selected)} di 2 esemplari selezionati`,
+    selectedSlot: (slot: 'A' | 'B'): string => `Selezionato come ${slot}`,
+    compareBtn: 'Confronta i due esemplari',
     deleteBtn: 'Elimina',
     confirmDelete: (code: string): string => `Eliminare definitivamente l’esemplare ${code}?`,
     confirmYes: 'Sì, elimina',
@@ -459,7 +451,6 @@ export const strings = {
     detailCaption: 'Scheda dell’esemplare',
     closeDetail: 'Chiudi scheda',
     reopenNotice: 'Questo cristallo viene rigenerato deterministicamente dal seme e verificato tramite geometryHash locale.',
-    untrustedTextLabel: 'Titolo / annotazioni manuali',
   },
   comparison: {
     backToCollection: 'Torna alla Collezione',

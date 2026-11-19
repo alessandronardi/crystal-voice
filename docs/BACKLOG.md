@@ -30,6 +30,9 @@
 | I-19 | 3 | Taratura estetica della vetrina (resa 1A, D-AV) | I-11 | S | G2 |
 | I-14 | 4 | Vault, miniature, export/import | I-10 (G0 solo per la release) | M | Release |
 | I-15 | 4 | Comparator a percentile, Collezione, Confronto | I-09, I-14 (G0 solo per la release) | M | Release |
+| I-20 | 4 | Redesign calcare e Collezione visiva | I-14, I-15 | M | Release |
+| I-21 | 4 | Home del pannello e scelta della sorgente | I-13, I-14, I-20 | M | Release |
+| I-22 | 4 | Rivelazione, cartellino e salvataggio | I-13, I-14, I-20 | M | Release |
 | I-16 | 5 | Hardening, accessibilità, SBOM, pacchetto | tutte | M | Release |
 
 ---
@@ -377,6 +380,46 @@ Divisa il 2026-11-12 su decisione del product owner (D-R), come I-05: **I-06a** 
   - [x] Nessun testo che suggerisca identità o «stessa persona» (`G0-DOC-02` attuato: dicitura esclusiva «Affinità acustica / geometrica», verificata in `extension/test/collection-filters.test.ts` e `tests/e2e/collection.spec.ts`).
   - [x] `M44` e prove manuali precedenti dichiarate positive dal product owner il 2026-11-15 (`tests/e2e/MANUAL_CHECKLIST.md`, trascritto senza osservazione).
 - **Test:** `packages/comparator/test/comparator.test.ts` (`12/12`), `extension/test/collection-filters.test.ts` (`6/6`), E2E completo `tests/e2e/collection.spec.ts` (headless `6,6s` e con finestra `9,3s`, axe 0 violazioni serie/critiche, 0 errori console, 0 creazione IndexedDB su vault vuoto). Prove manuali M0–M44 dichiarate positive dal product owner il 2026-11-15 (`tests/e2e/MANUAL_CHECKLIST.md`).
+
+### Redesign del pannello e della Collezione
+
+**Riferimento visivo.** Le tre immagini ritraggono il prototipo essenziale con la palette calcare. Fissano la gerarchia delle viste iniziali. I criteri qui sotto descrivono anche le interazioni e gli stati che emergono durante l’uso. [Collezione](design/redesign-calcare/collezione.png) · [Home](design/redesign-calcare/home.png) · [Rivelazione](design/redesign-calcare/rivelazione.png).
+
+Direzione concordata il 18 novembre 2026. Il cristallo occupa la vetrina, il titolo identifica il pezzo e i dettagli si aprono quando servono. Superfici calcare `#EFF1ED`, fondo della vetrina inchiostro `#2B2620`, verde profondo `#27564C` per l’azione primaria. Spectral per i nomi e IBM Plex Mono per i dati. Il perimetro è la presentazione delle pagine dell’estensione. Colore, geometria, illuminazione e scala dei cristalli continuano a derivare dai renderer esistenti.
+
+**Sequenza proposta.** Partire da I-20, che introduce i colori condivisi e consegna la prima schermata completa. Seguire con I-21 e I-22 per verificare il percorso sorgente → cristallo → salvataggio → Collezione sulla stessa build. I-21 e I-22 condividono file del pannello, quindi conviene integrarle in quest’ordine anche se I-22 dipende tecnicamente solo dalla base e dagli stili di I-20. Una PR per issue, con la dicitura «non distribuibile prima di G0».
+
+**Come confrontare le build.** Usare un profilo temporaneo e gli stessi due esemplari sintetici ottenuti da `voice-a-long.wav` e `a-then-b.wav`, con titoli «Lettura del mattino» e «Due timbri». Allegare alla PR le schermate prima/dopo allo stesso zoom e alle stesse dimensioni: Collezione a 1440 × 900 px, pannello a 380 × 800 px. Controllare anche il pannello a 320 px di larghezza, il percorso da tastiera, i nomi accessibili delle icone e il focus al ritorno da un dettaglio. Le stringhe italiane, incluse le etichette accessibili, appartengono a `extension/src/ui/strings.it.ts`. Per ogni issue valgono i controlli globali, la build locale e gli E2E pertinenti indicati sotto.
+
+### I-20 · Redesign calcare e Collezione visiva
+
+**Prima consegna.** Applicare la palette a partire dalla Collezione e far apparire gli esemplari subito sotto l’intestazione. File principali: `extension/src/ui/styles.css`, `extension/src/collection/app.ts` e stringhe UI. Riferimenti: SPEC §§11–13, ADR-0007, ADR-0013, ADR-0029.
+
+**Schermate della build locale.** Collezione a 1440 × 900 px ([prima](design/redesign-calcare/evidenze-i20/prima-collezione-1440.png), [dopo](design/redesign-calcare/evidenze-i20/dopo-collezione-1440.png)) e pannello a 380 × 800 px ([prima](design/redesign-calcare/evidenze-i20/prima-pannello-380.png), [dopo](design/redesign-calcare/evidenze-i20/dopo-pannello-380.png)). In entrambe le build i due esemplari sono stati analizzati e salvati dalle fixture indicate sopra.
+
+- [x] Nello stato iniziale popolato ogni scheda si apre per intero, anche da tastiera. Mostra un’anteprima a tutta larghezza con sagoma intera e il titolo manuale, oppure il codice VC se il titolo manca. Verificati anche un titolo di 197 caratteri e un record importato privo di miniatura, che usa la tavola SVG.
+- [x] Con due esemplari a 1440 × 900 px entrambe le miniature e i rispettivi titoli sono interamente visibili al primo schermo. Aprendo una scheda, vetrina e cartellino precedono gli strumenti di archivio. L’eliminazione è disponibile nel dettaglio e richiede conferma.
+- [x] I filtri per abito, colore, sorgente e intervallo di date si aprono su richiesta. Con zero esemplari compare un invito al primo salvataggio o all’importazione. Una ricerca senza risultati offre il ripristino dei filtri.
+- [x] «Confronta» attiva la scelta di due esemplari distinti quando l’archivio ne contiene almeno due. La selezione è riconoscibile anche senza colore e si può annullare. Il confronto conserva scala e rotazione comuni, percentile, sei contributi, dicitura approvata e messaggio per versioni incompatibili.
+- **Verifiche.** `collection.spec.ts` copre archivio con zero, uno e più record, apertura del dettaglio da tastiera, filtri, confronto ed eliminazione. `release-hardening.spec.ts` è stato adeguato nel checkout di I-16 e verificato con la build integrata. Evidenze e limiti in [STATUS](STATUS.md).
+
+### I-21 · Home del pannello e scelta della sorgente
+
+**Seconda consegna.** Una scelta immediata tra «Scheda», «Microfono» e «File», ciascuna con simbolo locale ed etichetta breve. File principali: `extension/src/sidepanel/shell.ts`, `capture-view.ts`, `file-view.ts`, stili e stringhe UI. Riferimenti: SPEC §§5, 12–13, ADR-0002, ADR-0029 e ADR-0031.
+
+- [ ] A 380 × 800 px le tre sorgenti e l’accesso alla Collezione sono visibili senza scorrere. «Scheda» spiega il gesto sull’icona di Chrome. Microfono e file mantengono il proprio avvio esplicito. I parametri del file, incluso il punto di partenza, compaiono nel relativo percorso.
+- [ ] Gli ultimi tre esemplari disponibili si riconoscono da miniatura e titolo o codice. Importazione, esportazione e licenze restano raggiungibili dalla Home. L’informativa locale G0-DOC-01 è reperibile con il testo approvato integrale. Gli avvisi applicabili su spazio e dati personali restano visibili al momento della decisione.
+- [ ] Il percorso di ascolto mantiene stato, voce utile, germe provvisorio, comando di arresto e domanda su più voci. Permesso negato, file rifiutato ed esiti insufficienti presentano causa e azione possibile in italiano.
+- **Verifiche previste.** E2E `mic.spec.ts`, `permission-page.spec.ts`, `file.spec.ts`, `tab-capture.spec.ts`, `multi-speaker.spec.ts` e percorso Home di `vault.spec.ts`. Verificare informativa e licenze con `g0-notice.test.ts` e `release-hardening.spec.ts`. Provare i comandi nella cornice nativa del pannello in Chrome.
+
+### I-22 · Rivelazione, cartellino e salvataggio
+
+**Terza consegna.** Dare la precedenza al cristallo appena generato, al nome dell’abito e a «Salva». File principali: `extension/src/sidepanel/shell.ts`, `legend.ts`, stili e stringhe UI. Riferimenti: SPEC §§10, 12–13, ADR-0013, ADR-0014, ADR-0028 e ADR-0029.
+
+- [ ] A 380 × 800 px con entrambi gli esemplari di riferimento, cristallo, abito e pulsante «Salva» sono interamente visibili senza scorrere. Il cartellino permette di inserire titolo e parlante facoltativi prima del salvataggio. Un salvataggio riuscito conferma il codice VC e consente di ritrovare il pezzo nella Collezione. Un errore di salvataggio viene mostrato accanto all’azione.
+- [ ] Cartellino completo e legenda si aprono da tastiera. Le sei righe mantengono unità, percentile, confidenza ed evidenziazione prevista da ADR-0028. Gli avvisi di qualità pertinenti sono riconoscibili dal risultato. Restano raggiungibili scarto, export SVG/PNG e preferenza di resa.
+- [ ] Verificare rivelazione con WebGL, fallback SVG e animazione ridotta. Riaprendo un esemplare storico si vedono titolo o codice e metadati corretti. Una seconda attivazione di «Salva» non crea duplicati.
+- **Verifiche previste.** E2E `vault.spec.ts`, `preview.spec.ts` e `release-hardening.spec.ts`, inclusi controllo del focus e axe sulle viste modificate. Chiudere il percorso con analisi di una fixture, salvataggio con titolo, apertura dalla Collezione e confronto con il secondo esemplare.
 
 ## Fase 5 — Distribuzione
 

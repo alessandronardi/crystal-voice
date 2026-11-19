@@ -2,13 +2,14 @@
 
 > Aggiornato da ogni agente a fine sessione. In cima: le cose che il prossimo lettore deve sapere subito.
 
-**Ultimo aggiornamento · 2026-11-18.** Fase 4, [I-22](BACKLOG.md#i-22--rivelazione-cartellino-e-salvataggio) implementata e verificata sul branch `issue/I-22-calcare-reveal`, da I-20 (`179bd0b`). Non distribuibile prima di G0 (ADR-0027).
+**Ultimo aggiornamento · 2026-11-19.** Fase 4, [I-22](BACKLOG.md#i-22--rivelazione-cartellino-e-salvataggio) implementata e verificata sul branch `issue/I-22-calcare-reveal`, da I-20. Non distribuibile prima di G0 (ADR-0027).
 
 - La rivelazione mostra vetrina, abito e «Salva» prima del cartellino, della legenda e degli strumenti. I campi facoltativi rimangono compilati se il salvataggio fallisce. Il successo mostra il codice VC e sposta il focus sulla Collezione. All’apertura di un esemplare d’archivio si vedono titolo o codice e i metadati nel cartellino.
 - Le [schermate prima/dopo](BACKLOG.md#i-22--rivelazione-cartellino-e-salvataggio) usano le fixture sintetiche `voice-a-long.wav` e `a-then-b.wav`. Il test `reveal.spec.ts` controlla il primo schermo a 380 × 800 e 320 × 800 px, la tastiera, WebGL, il ripiego SVG, la dissolvenza con animazioni ridotte, il recupero da quota esaurita e il percorso fino al confronto in Collezione.
 - `pnpm typecheck`, `pnpm lint`, `pnpm test` e `pnpm build` superati. La suite Node ha passato 671 test in 53 file, con 5 fallimenti attesi già noti. La guardia ha verificato i 37 file del bundle locale.
 - Chromium con finestra su Windows. Passati `file.spec.ts` (19/19), `multi-speaker.spec.ts` (2/2), `preview.spec.ts` (1/1) e, nel rilancio mirato, `reveal.spec.ts` e `vault.spec.ts` (3/3). Axe ha riportato zero violazioni serie o critiche nelle viste verificate, incluse legenda e cartellino aperti. Il rilancio ha verificato anche la tolleranza subpixel sull’aspetto del canvas e l’attesa più lunga per l’apertura del pannello nativo.
 - La copia di verifica con I-21 e I-16 ha superato la build locale con guardia del bundle e i quattro E2E `home.spec.ts`, `reveal.spec.ts` (due casi) e `release-hardening.spec.ts` in Chromium headless su Windows. Il branch I-22 conserva la propria base su I-20.
+- Entrambe le corse Linux iniziali della [PR #25](https://github.com/alessandronardi/crystal-voice/pull/25) hanno passato 53 E2E. L’unico fallimento era nel test condiviso della Collezione. Il branch integra la correzione di I-20, verificata in Chromium con finestra su Windows.
 - Prova manuale del Gate Release in Chrome stabile con screen reader non eseguita in questa sessione.
 
 **2026-11-18.** Fase 4, [I-20](BACKLOG.md#i-20--redesign-calcare-e-collezione-visiva) implementata sul branch `issue/I-20-calcare-collection`. Non distribuibile prima di G0 (ADR-0027).
@@ -16,6 +17,7 @@
 - La Collezione mostra subito miniature a tutta larghezza, titoli manuali o codici VC. Le schede senza miniatura usano la tavola SVG. Filtri e scelta dei due esemplari si attivano su richiesta. Il dettaglio apre vetrina e cartellino, raccoglie i comandi di esportazione ed eliminazione e ripristina il focus alla chiusura.
 - `pnpm typecheck`, `pnpm lint` e `pnpm test` superati. Suite Node con 53 file verdi, 671 test passati e 5 fallimenti attesi già noti.
 - Chromium headless su Windows. E2E di Collezione e vault 2/2. E2E di hardening 1/1 sulla copia temporanea con le modifiche locali di I-16. L’adattamento di `release-hardening.spec.ts` è nel checkout locale di I-16, dove il file è stato introdotto. Build locale e guardia del bundle superate in entrambe le configurazioni.
+- **2026-11-19.** Aggiornato il test dopo che la CI Linux della [PR #24](https://github.com/alessandronardi/crystal-voice/pull/24) ha misurato 305 px di larghezza utile a 320 px con la barra di scorrimento verticale. Il test ora confronta la larghezza scorrevole con l’area visibile del documento. La prova mirata è passata in Chromium con finestra su Windows.
 - Acquisite le [schermate prima/dopo](BACKLOG.md#i-20--redesign-calcare-e-collezione-visiva) con «Lettura del mattino» e «Due timbri» analizzati e salvati dalle fixture sintetiche. Verificati la Collezione a 1440 × 900 px e il pannello a 380 × 800 px, oltre all’assenza di scorrimento orizzontale del pannello a 320 px tramite viewport di Playwright.
 - Prova manuale nella cornice nativa di Chrome stabile non eseguita in questa sessione. Il redesign prosegue con I-21 dopo l’integrazione di I-20.
 
